@@ -11,7 +11,8 @@
 
 //Pick more statuses later...
 //Status should include error states and also normal program states
-#define APP_STATUS_OK		0
+#define APP_STATUS_INIT		0
+#define APP_STATUS_OK		1
 
 
 

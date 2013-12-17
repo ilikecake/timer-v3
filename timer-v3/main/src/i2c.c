@@ -74,7 +74,7 @@
 ////	"\t6: Write/Read slave data\r\n";
 ////#endif
 //
-//static int mode_poll;	/* Poll/Interrupt mode flag */
+static int mode_poll;	/* Poll/Interrupt mode flag */
 //static I2C_ID_T i2cDev = DEFAULT_I2C;	/* Currently active I2C device */
 
 /* EEPROM SLAVE data */

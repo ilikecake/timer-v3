@@ -83,7 +83,7 @@ void ReinvokeISP(void)
 void WDTInit( void )
 {
 	uint32_t i;
-	uint32_t wdtFreq;
+	//uint32_t wdtFreq;
 
 	/* Initialize WWDT (also enables WWDT clock) */
 	Chip_WWDT_Init(LPC_WWDT);
@@ -95,7 +95,7 @@ void WDTInit( void )
 	Chip_Clock_SetWDTOSC(WDTLFO_OSC_1_05, 20);
 
 	/* The WDT divides the input frequency into it by 4 */
-	wdtFreq = Chip_Clock_GetWDTOSCRate() / 4;
+	//wdtFreq = Chip_Clock_GetWDTOSCRate() / 4;
 
 	/* LPC1102/4, LPC11XXLV, and LPC11CXX devices select the watchdog
 	   clock source from the SYSCLK block, while LPC11AXX, LPC11EXX, and

@@ -20,7 +20,7 @@
 
 //Global variables
 //static char InitString[] = "OLED Initialized";
-static uint8_t MF_WA_Order[] = { 18, 2, 22, 6, 26, 10, 30, 14 };
+//static uint8_t MF_WA_Order[] = { 18, 2, 22, 6, 26, 10, 30, 14 };
 
 uint8_t OLED_StatusReg;
 
@@ -748,6 +748,10 @@ void MF_GetAsciiChar(uint8_t CharSize, char CharToGet, uint8_t *CharArray)
 			Address = ((uint32_t)(CharToGet)-0x20)*34 + 3072;
 			LengthToReceive = 34;
 		}
+		else
+		{
+			return;
+		}
 
 		DataToSend[0] = 0x0B;
 		DataToSend[1] = (uint8_t)((Address >> 16) & 0xFF);
@@ -787,6 +791,10 @@ void MF_GetAsciiChar_4B(uint8_t CharSize, char CharToGet, uint8_t CharStartByte,
 		else if(CharSize == MF_ASCII_SIZE_WA)
 		{
 			Address = ((uint32_t)(CharToGet)-0x20)*34 + 3072;
+		}
+		else
+		{
+			return;
 		}
 
 		//TODO: Add check to make sure the charstartbyte is not too big?
@@ -934,4 +942,15 @@ void OLED_DisplayRotation(uint8_t Rotation)
 
 	return;
 }
+
+
+void OLED_DisplayContrast(uint8_t Contrast)
+{
+	uint8_t DataToSend;
+	DataToSend = Contrast;
+	OLED_SendCommand(OLED_SET_CONTRAST_CURRENT, &DataToSend, 1);
+
+	return;
+}
+
 

@@ -128,6 +128,13 @@ static void vConsoleTask(void *pvParameters)
 static void vOLEDTask(void *pvParameters)
 {
 	OLED_Command CommandToExecute;
+	//TimeAndDate CurrentTime;
+
+	char TimeString[9];
+
+	uint8_t TimeColumn = 0;
+	uint8_t TimeRow = 0;
+	//uint8_t CharWidth;
 
 	static char InitString[] = "OLED Initialized";
 	static char InvalidString[] = "Invalid Command";
@@ -139,11 +146,13 @@ static void vOLEDTask(void *pvParameters)
 		OLED_ClearDisplay();
 	}
 
+	DS3232M_GetTimeString(TimeString, 0);
+	OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, TimeString, TimeColumn, TimeRow);
+	//OLED_WriteMFString(MF_ASCII_SIZE_8X16, TimeString, TimeColumn, TimeRow);
+
 	while (1)
 	{
 		xQueueReceive(xOLEDCommands, &CommandToExecute, portMAX_DELAY);
-		//OLED_WriteMFString(MF_ASCII_SIZE_7X8, InvalidString, 16, 28);
-
 
 		switch(CommandToExecute.CommandName)
 		{
@@ -199,7 +208,15 @@ static void vOLEDTask(void *pvParameters)
 				}
 				vTaskDelay(2000);
 				OLED_ClearDisplay();
+				break;
 
+			case OLED_CMD_TIME_IN:
+				//TimeColumn = 0;
+				//TimeRow = 0;
+
+				DS3232M_GetTimeString(TimeString, 0);
+				OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, TimeString, TimeColumn, TimeRow);
+				//OLED_WriteMFString(MF_ASCII_SIZE_8X16, TimeString, TimeColumn, TimeRow);
 				break;
 
 
@@ -234,32 +251,30 @@ static void vOLEDTask(void *pvParameters)
  */
 int main(void)
 {
+	App_SetStatus(APP_STATUS_INIT);
+
 	prvSetupHardware();
 
-	Board_LED_Set(2, 0);
+	Board_LED_Set(2, 1);
 	Board_LED_Set(1, 0);
 	Board_LED_Set(3, 0);
 
-
-
-
 	i2c_app_init(I2C0, I2C_DEFAULT_SPEED);
-	DS3232M_Init();
 	App_SSP_Init();
 	App_Buzzer_Init();
 	OLED_Init();
 	vcom_init();
-
 	App_Button_Init();
-
+	DS3232M_Init();
 
 	App_SetStatus(APP_STATUS_OK);
+
 
 	/* LED1 toggle thread */
 	xTaskCreate(vLEDTask1, (signed char *) "vTaskLed1", configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 2UL), (xTaskHandle *) NULL);
 
 	/* LED2 toggle thread */
-	xTaskCreate(vConsoleTask, (signed char *) "vConsole", ( unsigned short )300, NULL, (tskIDLE_PRIORITY + 1UL), (xTaskHandle *) NULL);
+	xTaskCreate(vConsoleTask, (signed char *) "vConsole", ( unsigned short )400, NULL, (tskIDLE_PRIORITY + 1UL), (xTaskHandle *) NULL);
 
 	/* OLED Display Task */
 	xTaskCreate(vOLEDTask, (signed char *) "vOLEDTask", ( unsigned short )300, NULL, (tskIDLE_PRIORITY + 2UL), (xTaskHandle *) NULL);

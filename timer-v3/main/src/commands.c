@@ -199,7 +199,7 @@ static int _F4_Handler (void)
 	TimeAndDate CurrentTime;
 	uint8_t temp;
 	uint8_t temp2;
-
+	char TimeString[9];
 
 	switch(NumberOfArguments())
 	{
@@ -301,6 +301,14 @@ static int _F4_Handler (void)
 					DS3232M_GetTemp(&temp, &temp2);
 					printf("Temp: %u.%uC\r\n", temp, temp2);
 					break;
+
+				case 14:
+					DS3232M_GetTimeString(TimeString, 0);
+					printf("out\r\n");
+					printf(TimeString);
+					printf("\r\n");
+					break;
+
 			}
 			break;
 
@@ -348,10 +356,10 @@ static int _F5_Handler (void)
 {
 	uint32_t val;
 	uint8_t val2;
-	uint8_t temp;
+	//uint8_t temp;
 	uint8_t DataToSend[34];
-	uint8_t FontData[8];
-	uint8_t NewFontData[4];
+	//uint8_t FontData[8];
+	//uint8_t NewFontData[4];
 	int8_t i;
 
 	char InitString[] = "Initialized";
@@ -362,14 +370,12 @@ static int _F5_Handler (void)
 
 	switch(argAsInt(1))
 	{
-		case 1:
-			printf("reset(%u)\r\n", val);
-			OLED_Reset(val);
-			break;
+		case 0:
+				OLED_ClearDisplay();
+				break;
 
-		case 2:
-			printf("OLED CS(%u)\r\n", val);
-			OLED_Select(val);
+		case 1:
+			OLED_DisplayContrast(val);
 			break;
 
 		case 3:
@@ -461,7 +467,7 @@ static int _F5_Handler (void)
 
 		case 6:
 			printf("Fill Display with 0x%02X\r\n", val);
-			OLED_FillDisplay(&val, 1);
+			OLED_FillDisplay((uint8_t *)&val, 1);
 
 			//OLED_ClearDisplay();
 			/*DataToSend[0] =	0xF0;

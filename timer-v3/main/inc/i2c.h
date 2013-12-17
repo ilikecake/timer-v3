@@ -34,7 +34,7 @@
 #define I2C_FASTPLUS_BIT IOCON_FASTI2C_EN
 #endif
 
-static int mode_poll;	/* Poll/Interrupt mode flag */ //TODO: What is this used for?
+//static int mode_poll;	/* Poll/Interrupt mode flag */ //TODO: What is this used for?
 //static I2C_ID_T i2cDev = DEFAULT_I2C;	/* Currently active I2C device */
 
 void i2c_app_init(I2C_ID_T id, int speed);

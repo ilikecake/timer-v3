@@ -3,12 +3,12 @@
  * (C) Code Red Technologies Ltd, 2008-2013
  * Generated linker script file for LPC11U37/401
  * Created from generic_c.ld (vLPCXpresso v5.2 (6 [Build 2137] [2013-07-08] ))
- * By LPCXpresso v5.2.6 [Build 2137] [2013-07-08]  on Sun Dec 15 21:18:47 CST 2013
+ * By LPCXpresso v5.2.6 [Build 2137] [2013-07-08]  on Mon Dec 16 22:05:38 CST 2013
  */
 
 
-INCLUDE "timer-v3_Debug_lib.ld"
-INCLUDE "timer-v3_Debug_mem.ld"
+INCLUDE "timer-v3_Release_lib.ld"
+INCLUDE "timer-v3_Release_mem.ld"
 
 ENTRY(ResetISR)
 

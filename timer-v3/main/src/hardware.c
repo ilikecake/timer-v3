@@ -113,26 +113,31 @@ void App_Button_Init(void)
 	Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_4_PININT_INDEX));
 	Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_5_PININT_INDEX));
 
+	NVIC_ClearPendingIRQ(BUTTON_1_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_2_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_3_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_4_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_5_NVIC_NAME);
+
 	NVIC_EnableIRQ(BUTTON_1_NVIC_NAME);
 	NVIC_EnableIRQ(BUTTON_2_NVIC_NAME);
 	NVIC_EnableIRQ(BUTTON_3_NVIC_NAME);
 	NVIC_EnableIRQ(BUTTON_4_NVIC_NAME);
 	NVIC_EnableIRQ(BUTTON_5_NVIC_NAME);
 
-
-
-
 	return;
 }
 
 void App_HandleButtonPress(uint8_t ButtonNumber)
 {
-	OLED_Command CommandToSend;
+	if(App_GetStatus() != APP_STATUS_INIT)
+	{
+		OLED_Command CommandToSend;
 
-	CommandToSend.CommandName = OLED_CMD_BUTTON_IN;
-	CommandToSend.CommandData[0] = ButtonNumber;
-	xQueueSendFromISR(xOLEDCommands, (void *)&CommandToSend, NULL);
-
+		CommandToSend.CommandName = OLED_CMD_BUTTON_IN;
+		CommandToSend.CommandData[0] = ButtonNumber;
+		xQueueSendFromISR(xOLEDCommands, (void *)&CommandToSend, NULL);
+	}
 	return;
 }
 

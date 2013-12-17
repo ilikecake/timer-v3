@@ -32,8 +32,6 @@
 
 I2C_XFER_T DS3232M_I2C;
 
-
-
 #define GPIO_PININT					28 						/* GPIO pin number mapped to PININT */
 #define GPIO_PININT_PORT			1						/* GPIO port number mapped to PININT */
 #define GPIO_PININT_INDEX			0						/* PININT index used for GPIO mapping */
@@ -42,8 +40,18 @@ I2C_XFER_T DS3232M_I2C;
 
 void PININT_IRQ_HANDLER(void)
 {
-	Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(GPIO_PININT_INDEX));
-	Board_LED_Set(3, 1);
+
+	if(App_GetStatus() != APP_STATUS_INIT)
+	{
+		OLED_Command CommandToSend;
+		Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(GPIO_PININT_INDEX));
+		DS3232M_ClearAlarmFlag(2);
+		CommandToSend.CommandName = OLED_CMD_TIME_IN;
+		xQueueSendFromISR(xOLEDCommands, (void *)&CommandToSend, NULL);
+
+		//Board_LED_Set(3, 1);
+	}
+	return;
 }
 
 
@@ -55,6 +63,7 @@ void PININT_IRQ_HANDLER(void)
 uint8_t DS3232M_Init( void )
 {
 	uint8_t SendData[2];
+	TimeAndDate AlarmTime;
 
 	//Set up pins for 32kHz, int, and reset
 	// - RTC-INT:	P1.28	(Should be pulled up, a low on this pin indicates an interrupt)
@@ -79,6 +88,7 @@ uint8_t DS3232M_Init( void )
 	Chip_PININT_SetPinModeEdge(LPC_PININT, PININTCH(GPIO_PININT_INDEX));
 	Chip_PININT_EnableIntLow(LPC_PININT, PININTCH(GPIO_PININT_INDEX));
 
+	NVIC_ClearPendingIRQ(PININT_NVIC_NAME);
 	NVIC_EnableIRQ(PININT_NVIC_NAME);
 
 
@@ -98,7 +108,18 @@ uint8_t DS3232M_Init( void )
 	DS3232M_32KhzStop();
 
 	DS3232M_DisableAlarm(1);
-	DS3232M_DisableAlarm(2);
+
+	AlarmTime.day = 0;
+	AlarmTime.dow = 0;
+	AlarmTime.hour = 0;
+	AlarmTime.min = 0;
+	AlarmTime.month = 0;
+	AlarmTime.sec = 0;
+	AlarmTime.year = 0;
+	DS3232M_SetAlarm(2, 0x0E, &AlarmTime);
+	DS3232M_EnableAlarm(2);
+
+	//DS3232M_DisableAlarm(2);
 	return 0x00;
 }
 
@@ -569,5 +590,46 @@ uint8_t DS3232M_GetTemp(int8_t *TempLHS, uint8_t *TempRHS)
 	//	return ret;
 	//}
 }
+
+//Time string should be 8 characters plus the terminating character
+void DS3232M_GetTimeString(char *TimeString, uint8_t StringOptions)
+{
+	TimeAndDate CurrentTime;
+
+	DS3232M_GetTime(&CurrentTime);
+
+	TimeString[5] = ' ';
+	TimeString[8] = '\0';
+
+	if(CurrentTime.hour > 12)
+	{
+		CurrentTime.hour -= 12;
+		TimeString[6] = 'P';
+		TimeString[7] = 'M';
+	}
+	else
+	{
+		TimeString[6] = 'A';
+		TimeString[7] = 'M';
+	}
+
+	if(CurrentTime.hour > 9)
+	{
+		TimeString[0] = '1';
+		CurrentTime.hour -= 10;
+	}
+	else
+	{
+		TimeString[0] = ' ';
+	}
+	TimeString[1] = (char)(CurrentTime.hour+48);
+	TimeString[2] = ':';
+	TimeString[3] = (char)((CurrentTime.min/10)+48);
+	TimeString[4] = (char)((CurrentTime.min%10)+48);
+
+	return;
+}
+
+
 
 /** @} */

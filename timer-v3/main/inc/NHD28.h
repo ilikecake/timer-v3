@@ -74,12 +74,13 @@
 #define OLED_CMD_FILL_DISPLAY			0x03
 #define OLED_CMD_WRITE_STRING			0x04		//TODO: make more commands for different fonts, etc...
 #define OLED_CMD_BUTTON_IN				0x05
+#define OLED_CMD_TIME_IN				0x06
 
 //A struct to pass messages to the OLED task
 typedef struct
 {
 	uint8_t CommandName;
-	uint8_t CommandData[4];
+	uint8_t CommandData[5];
 	char CommandCharData[16];
 } OLED_Command;
 
@@ -110,7 +111,7 @@ void OLED_SetWindow(uint8_t StartColumn, uint8_t EndColumn, uint8_t StartRow, ui
 void OLED_WriteMFChar(uint8_t CharSize, char CharToWrite, uint8_t ColumnToStart, uint8_t RowToStart);
 void OLED_WriteMFString(uint8_t CharSize, char *StringToWrite, uint8_t ColumnToStart, uint8_t RowToStart);
 
-void OLED_WriteMF_UInt(uint8_t CharSize, uint32_t NumberToWrite, uint8_t ColumnToStart, uint8_t RowToStart);
+void OLED_WriteMF_UInt(uint8_t CharSize, uint32_t NumberToWrite, uint8_t ColumnToStart, uint8_t RowToStart);		//TODO: check if this breaks for 0
 void OLED_WriteMF_Int(uint8_t CharSize, int32_t NumberToWrite, uint8_t ColumnToStart, uint8_t RowToStart);
 
 void OLED_WriteMFString_WA(uint8_t CharSize, char *StringToWrite, uint8_t ColumnToStart, uint8_t RowToStart);
@@ -122,6 +123,7 @@ void MF_GetAsciiChar_4B(uint8_t CharSize, char CharToGet, uint8_t CharStartByte,
 void OLED_WriteMFString_Q(uint8_t CharSize, char *StringToWrite, uint8_t ColumnToStart, uint8_t RowToStart);
 
 void OLED_DisplayRotation(uint8_t Rotation);
+void OLED_DisplayContrast(uint8_t Contrast);
 
 
 #endif /* NHD28_H_ */

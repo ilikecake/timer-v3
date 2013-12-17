@@ -298,7 +298,7 @@ static int _F4_Handler (void)
 					break;
 
 				case 13:
-					DS3232M_GetTemp(&temp, &temp2);
+					DS3232M_GetTemp((int8_t *)&temp, &temp2);
 					printf("Temp: %u.%uC\r\n", temp, temp2);
 					break;
 
@@ -356,14 +356,8 @@ static int _F5_Handler (void)
 {
 	uint32_t val;
 	uint8_t val2;
-	//uint8_t temp;
-	uint8_t DataToSend[34];
-	//uint8_t FontData[8];
-	//uint8_t NewFontData[4];
-	int8_t i;
 
 	char InitString[] = "Initialized";
-	char BlargString[] = "Blarg";
 
 	val = argAsInt(2);
 	val2 = argAsInt(3);
@@ -371,155 +365,19 @@ static int _F5_Handler (void)
 	switch(argAsInt(1))
 	{
 		case 0:
-				OLED_ClearDisplay();
-				break;
+			OLED_ClearDisplay();
+			break;
 
 		case 1:
 			OLED_DisplayContrast(val);
 			break;
 
-		case 3:
-			printf("MF CS(%u)\r\n", val);
-			OLED_MF_Select(val);
-			break;
-
-		case 4:
-			printf("OLED DC(%u)\r\n", val);
-			OLED_DC(val);
-			break;
-
-		case 5:
-			printf("Sending OLED init sequence...");
-			DataToSend[0] = 0x12;
-			OLED_SendCommand(OLED_COMMAND_LOCK, DataToSend, 1);
-
-			//OLED_SendCommand(OLED_SET_DISPLAY_MODE_OFF, NULL, 0);
-
-			OLED_SendCommand(OLED_SLEEP_MODE_ON, NULL, 0);
-
-			DataToSend[0] = 0x1C;
-			DataToSend[1] = 0x5B;
-			OLED_SendCommand(OLED_SET_COLUMN_ADDRESS, DataToSend, 2);
-
-			DataToSend[0] = 0x00;
-			DataToSend[1] = 0x3F;
-			OLED_SendCommand(OLED_SET_ROW_ADDRESS, DataToSend, 2);
-
-			DataToSend[0] = 0x91;
-			OLED_SendCommand(OLED_SET_CLK_DIVIDER, DataToSend, 1);
-
-			DataToSend[0] = 0x3F;
-			OLED_SendCommand(OLED_SET_MUX_RATIO, DataToSend, 1);
-
-			DataToSend[0] = 0x00;
-			OLED_SendCommand(OLED_SET_DISPLAY_OFFSET, DataToSend, 1);
-
-			DataToSend[0] = 0x00;
-			OLED_SendCommand(OLED_SET_DISPLAY_START_LINE, DataToSend, 1);
-
-			DataToSend[0] = 0x16;
-			DataToSend[1] = 0x11;
-			OLED_SendCommand(OLED_SET_REMAP, DataToSend, 2);
-
-			DataToSend[0] = 0x00;
-			OLED_SendCommand(OLED_SET_GPIO, DataToSend, 1);
-
-			DataToSend[0] = 0x01;
-			OLED_SendCommand(OLED_FUNCTION_SELECTION, DataToSend, 1);
-
-			DataToSend[0] = 0xA0;
-			DataToSend[0] = 0xFD;
-			OLED_SendCommand(OLED_DISPLAY_ENHANCE_A, DataToSend, 2);
-
-			DataToSend[0] = 0x9F;
-			OLED_SendCommand(OLED_SET_CONTRAST_CURRENT, DataToSend, 1);
-
-			DataToSend[0] = 0x0F;
-			OLED_SendCommand(OLED_MASTER_CONTRAST_CONTROL, DataToSend, 1);
-
-			OLED_SendCommand(OLED_SELECT_DEFAULT_TABLE, NULL, 0);
-
-			DataToSend[0] = 0xE2;
-			OLED_SendCommand(OLED_SET_PHASE_LENGTH, DataToSend, 1);
-
-			DataToSend[0] = 0xA2;
-			DataToSend[1] = 0x20;
-			OLED_SendCommand(OLED_DISPLAY_ENHANCE_B, DataToSend, 1);
-
-			DataToSend[0] = 0x1F;
-			OLED_SendCommand(OLED_SET_PRECHARGE_VOLTAGE, DataToSend, 1);
-
-			DataToSend[0] = 0x08;
-			OLED_SendCommand(OLED_SET_SECOND_PRECHARGE, DataToSend, 1);
-
-			DataToSend[0] = 0x07;
-			OLED_SendCommand(OLED_SET_VCOMH, DataToSend, 1);
-
-			OLED_SendCommand(OLED_SET_DISPLAY_MODE_NORMAL, NULL, 0);
-
-			OLED_SendCommand(OLED_EXIT_PARTIAL_DISPLAY, NULL, 0);
-
-			OLED_SendCommand(OLED_SLEEP_MODE_OFF, NULL, 0);
-
-
-			printf("Done!\r\n");
-			break;
-
-		case 6:
+		case 2:
 			printf("Fill Display with 0x%02X\r\n", val);
 			OLED_FillDisplay((uint8_t *)&val, 1);
-
-			//OLED_ClearDisplay();
-			/*DataToSend[0] =	0xF0;
-			DataToSend[1] =	0xF0;
-			DataToSend[2] =	0xF0;
-			DataToSend[3] =	0xF0;
-			DataToSend[4] =	0xF0;
-			OLED_SendCommand(OLED_WRITE_RAM, DataToSend, 5);*/
 			break;
 
-		case 7:
-			DataToSend[0] = 0x1C;
-			DataToSend[1] = 0x1D;
-			OLED_SendCommand(OLED_SET_COLUMN_ADDRESS, DataToSend, 2);
-
-			DataToSend[0] = 0x00;
-			DataToSend[1] = 0x07;
-			OLED_SendCommand(OLED_SET_ROW_ADDRESS, DataToSend, 2);
-
-			DataToSend[0] =	0xFF;
-			DataToSend[1] =	0xFF;
-			DataToSend[2] =	0xFF;
-			DataToSend[3] =	0xFF;
-			DataToSend[4] =	0xFF;
-
-			//OLED_SendCommand(OLED_WRITE_RAM, DataToSend, 2);
-
-			DataToSend[0] =	0x00;
-			OLED_SendCommand(OLED_WRITE_RAM, DataToSend, 4);
-			//vTaskDelay(configTICK_RATE_HZ/2);
-
-			DataToSend[0] =	0x0F;
-			OLED_SendCommand(OLED_WRITE_RAM, DataToSend, 4);
-			//vTaskDelay(configTICK_RATE_HZ/2);
-
-			DataToSend[0] =	0xF0;
-			OLED_SendCommand(OLED_WRITE_RAM, DataToSend, 4);
-			//vTaskDelay(configTICK_RATE_HZ/2);
-
-			DataToSend[0] =	0xFF;
-			OLED_SendCommand(OLED_WRITE_RAM, DataToSend, 4);
-			//vTaskDelay(configTICK_RATE_HZ/2);
-
-			//for(temp=0;temp<20;temp++)
-			//{
-			//	OLED_SendCommand(OLED_WRITE_RAM, DataToSend, 2);
-			//	vTaskDelay(configTICK_RATE_HZ/2);
-			//}
-			break;
-
-
-		case 8:
+		case 3:
 			OLED_ClearDisplay();
 			OLED_WriteMFString(MF_ASCII_SIZE_5X7, InitString, val, val2);
 			OLED_WriteMFString(MF_ASCII_SIZE_7X8, InitString, val, val2+8);
@@ -527,109 +385,19 @@ static int _F5_Handler (void)
 			OLED_WriteMFString(MF_ASCII_SIZE_WA, InitString, val, val2+32);
 			break;
 
-		case 9:
-			OLED_ClearDisplay();
-			break;
-
-		case 10:
+		case 4:
 			OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, InitString, val, val2);
-			//OLED_ClearDisplay();
-			//OLED_WriteMFChar(MF_ASCII_SIZE_8X16, 'G', val, val2);
-//			MF_GetAsciiChar(MF_ASCII_SIZE_WA, 'G', DataToSend);
-//
-//			printf("whole: ");
-//			for(i=0;i<34;i++)
-//			{
-//				printf("0x%02X ", DataToSend[i]);
-//			}
-//			printf("\r\n");
-//
-//			i=18;
-//			MF_GetAsciiChar_4B(MF_ASCII_SIZE_WA, 'G', i, DataToSend);
-//			printf("part[%u]: ",i);
-//			for(i=0;i<4;i++)
-//			{
-//				printf("0x%02X ", DataToSend[i]);
-//			}
-//			printf("\r\n");
-//
-//			i=6;
-//			MF_GetAsciiChar_4B(MF_ASCII_SIZE_WA, 'G', i, DataToSend);
-//			printf("part[%u]: ",i);
-//			for(i=0;i<4;i++)
-//			{
-//				printf("0x%02X ", DataToSend[i]);
-//			}
-//			printf("\r\n");
-//
-//			i=12;
-//			MF_GetAsciiChar_4B(MF_ASCII_SIZE_WA, 'G', i, DataToSend);
-//			printf("part[%u]: ",i);
-//			for(i=0;i<4;i++)
-//			{
-//				printf("0x%02X ", DataToSend[i]);
-//			}
-//			printf("\r\n");
-//
-//			i=22;
-//			MF_GetAsciiChar_4B(MF_ASCII_SIZE_WA, 'G', i, DataToSend);
-//			printf("part[%u]: ",i);
-//			for(i=0;i<4;i++)
-//			{
-//				printf("0x%02X ", DataToSend[i]);
-//			}
-//			printf("\r\n");
-
-
-
 			break;
 
-		case 11:
-
-			MF_GetAsciiChar(MF_ASCII_SIZE_WA, 'I', DataToSend);
-			printf("I: ");
-			for(i=0;i<34;i++)
-			{
-				printf("0x%02X ", DataToSend[i]);
-			}
-			printf("\r\n");
-
-			MF_GetAsciiChar(MF_ASCII_SIZE_WA, 'n', DataToSend);
-			printf("n: ");
-			for(i=0;i<34;i++)
-			{
-				printf("0x%02X ", DataToSend[i]);
-			}
-			printf("\r\n");
-
-			MF_GetAsciiChar(MF_ASCII_SIZE_WA, 'i', DataToSend);
-			printf("i: ");
-			for(i=0;i<34;i++)
-			{
-				printf("0x%02X ", DataToSend[i]);
-			}
-			printf("\r\n");
-
-			MF_GetAsciiChar(MF_ASCII_SIZE_WA, 't', DataToSend);
-			printf("t: ");
-			for(i=0;i<34;i++)
-			{
-				printf("0x%02X ", DataToSend[i]);
-			}
-			printf("\r\n");
-
+		case 5:
+			OLED_WriteMFString_Q(MF_ASCII_SIZE_WA, InitString, 5, 10);
 			break;
 
-		case 12:
-			OLED_WriteMFString_Q(MF_ASCII_SIZE_WA, BlargString, 5, 10);
-			//ReinvokeISP();
-			break;
-
-		case 13:
+		case 6:
 			OLED_WriteMF_UInt(MF_ASCII_SIZE_7X8, val, 5, 10);
 			break;
 
-		case 14:
+		case 7:
 			 OLED_DisplayRotation(val);
 
 	}

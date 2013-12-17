@@ -18,6 +18,11 @@
 *.out
 *.app
 
+# Binary files
+*.axf
+*.map
+*.bin
+
 #Eclipse files
 /.metadata
 

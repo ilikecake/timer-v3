@@ -386,7 +386,7 @@ static int _F5_Handler (void)
 			break;
 
 		case 4:
-			OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, InitString, val, val2);
+			OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, InitString, val, val2, OLED_FONT_NORMAL);
 			break;
 
 		case 5:

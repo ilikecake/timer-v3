@@ -19,10 +19,16 @@
 *.app
 
 # Binary files
+Debug/
+Release/
 *.axf
 *.map
 *.bin
 
 #Eclipse files
 /.metadata
+
+#Documentation
+*.html
+
 

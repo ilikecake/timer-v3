@@ -89,7 +89,9 @@ void DS3232M_ClearOSCFlag(void);															//Done
 void DS3232M_SetTime(TimeAndDate *TheTime);													//Done
 void DS3232M_GetTime(TimeAndDate *TheTime);													//Done
 
+//TODO: Combine the time and date string functions
 void DS3232M_GetTimeString(char *TimeString, uint8_t StringOptions);
+void DS3232M_GetDateString(char *TimeString, uint8_t StringOptions);
 
 void DS3232M_SetAlarm(uint8_t AlarmNumber, uint8_t AlarmMasks, TimeAndDate *AlarmTime);		//Done
 void DS3232M_EnableAlarm(uint8_t AlarmNumber);												//Done

@@ -630,6 +630,38 @@ void DS3232M_GetTimeString(char *TimeString, uint8_t StringOptions)
 	return;
 }
 
+//Date string should be 10 characters plus the terminating character
+void DS3232M_GetDateString(char *DateString, uint8_t StringOptions)
+{
+	TimeAndDate CurrentTime;
 
+	DS3232M_GetTime(&CurrentTime);
+
+	DateString[2] = '/';
+	DateString[5] = '/';
+
+	DateString[6] = '2';
+	DateString[7] = '0';
+
+	DateString[10] = '\0';
+
+	if(CurrentTime.month >= 10)
+	{
+		DateString[0] = '1';
+	}
+	else
+	{
+		DateString[0] = ' ';
+	}
+	DateString[1] = (char)((CurrentTime.month%10)+48);
+
+	DateString[3] = (char)((CurrentTime.day/10)+48);
+	DateString[4] = (char)((CurrentTime.day%10)+48);
+
+	DateString[8] = (char)((CurrentTime.year/10)+48);
+	DateString[9] = (char)((CurrentTime.year%10)+48);
+
+	return;
+}
 
 /** @} */

@@ -63,7 +63,9 @@
 #define OLED_STATUS_ORENTATION_UP		0x00
 #define OLED_STATUS_ORENTATION_DOWN		0x01
 
-
+//Font options
+#define OLED_FONT_NORMAL				0x00
+#define OLED_FONT_INVERSE				0x01
 
 
 
@@ -114,7 +116,7 @@ void OLED_WriteMFString(uint8_t CharSize, char *StringToWrite, uint8_t ColumnToS
 void OLED_WriteMF_UInt(uint8_t CharSize, uint32_t NumberToWrite, uint8_t ColumnToStart, uint8_t RowToStart);		//TODO: check if this breaks for 0
 void OLED_WriteMF_Int(uint8_t CharSize, int32_t NumberToWrite, uint8_t ColumnToStart, uint8_t RowToStart);
 
-void OLED_WriteMFString_WA(uint8_t CharSize, char *StringToWrite, uint8_t ColumnToStart, uint8_t RowToStart);
+void OLED_WriteMFString_WA(uint8_t CharSize, char *StringToWrite, uint8_t ColumnToStart, uint8_t RowToStart, uint8_t FontOptions);
 
 void MF_GetAsciiChar(uint8_t CharSize, char CharToGet, uint8_t *CharArray);
 
@@ -124,6 +126,8 @@ void OLED_WriteMFString_Q(uint8_t CharSize, char *StringToWrite, uint8_t ColumnT
 
 void OLED_DisplayRotation(uint8_t Rotation);
 void OLED_DisplayContrast(uint8_t Contrast);
+
+void OLED_WriteLine(uint8_t X_start, uint8_t Y_start, uint8_t X_end, uint8_t Y_end, uint8_t weight, uint8_t prop);
 
 
 #endif /* NHD28_H_ */

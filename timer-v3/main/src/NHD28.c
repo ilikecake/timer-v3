@@ -569,19 +569,13 @@ void OLED_WriteMFString(uint8_t CharSize, char *StringToWrite, uint8_t ColumnToS
 	return;
 }
 
-void OLED_WriteMFString_WA(uint8_t CharSize, char *StringToWrite, uint8_t ColumnToStart, uint8_t RowToStart)
+void OLED_WriteMFString_WA(uint8_t CharSize, char *StringToWrite, uint8_t ColumnToStart, uint8_t RowToStart, uint8_t FontOptions)
 {
 	uint8_t StringSize;
 	int8_t i;
-	//uint8_t j;
 	uint8_t FontString1[8];
-	//uint8_t FontString2[4];
 	int8_t CurrentCharLength;
-
 	uint8_t CurrentColumn;
-
-	//uint32_t Timeout; 		//TODO: take this out later
-
 	uint8_t CurrentCharNumber;
 	uint8_t CurrentCharOffset;
 
@@ -589,14 +583,13 @@ void OLED_WriteMFString_WA(uint8_t CharSize, char *StringToWrite, uint8_t Column
 
 	//NOTE: this only works for MF_ASCII_SIZE_WA for now...
 
-	StringSize = strlen(StringToWrite);
+	if(CharSize != MF_ASCII_SIZE_WA) return;
 
-	//for(i=0;i<StringSize;i++)
-	//{
+
+	StringSize = strlen(StringToWrite);
 
 	CurrentCharNumber = 0;
 	CurrentCharOffset = 0;
-	//Timeout = 0;
 	CurrentColumn = ColumnToStart;
 
 	MF_GetAsciiChar_4B(CharSize, StringToWrite[CurrentCharNumber], 0, FontString1);
@@ -622,6 +615,11 @@ void OLED_WriteMFString_WA(uint8_t CharSize, char *StringToWrite, uint8_t Column
 			{
 				OLED_FontBuffer[0] = ((FontString1[0]>>i)&0x01)*0xF0 + ((FontString1[1]>>i)&0x01)*0x0F;
 				OLED_FontBuffer[1] = ((FontString1[2]>>i)&0x01)*0xF0 + ((FontString1[3]>>i)&0x01)*0x0F;
+				if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
+				{
+					OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
+					OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
+				}
 				OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
 			}
 
@@ -631,6 +629,11 @@ void OLED_WriteMFString_WA(uint8_t CharSize, char *StringToWrite, uint8_t Column
 			{
 				OLED_FontBuffer[0] = ((FontString1[0]>>i)&0x01)*0xF0 + ((FontString1[1]>>i)&0x01)*0x0F;
 				OLED_FontBuffer[1] = ((FontString1[2]>>i)&0x01)*0xF0 + ((FontString1[3]>>i)&0x01)*0x0F;
+				if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
+				{
+					OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
+					OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
+				}
 				OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
 			}
 
@@ -665,6 +668,11 @@ void OLED_WriteMFString_WA(uint8_t CharSize, char *StringToWrite, uint8_t Column
 			{
 				OLED_FontBuffer[0] = ((FontString1[0]>>i)&0x01)*0xF0 + ((FontString1[1]>>i)&0x01)*0x0F;
 				OLED_FontBuffer[1] = ((FontString1[2]>>i)&0x01)*0xF0 + ((FontString1[3]>>i)&0x01)*0x0F;
+				if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
+				{
+					OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
+					OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
+				}
 				OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
 			}
 
@@ -676,6 +684,11 @@ void OLED_WriteMFString_WA(uint8_t CharSize, char *StringToWrite, uint8_t Column
 			{
 				OLED_FontBuffer[0] = ((FontString1[0]>>i)&0x01)*0xF0 + ((FontString1[1]>>i)&0x01)*0x0F;
 				OLED_FontBuffer[1] = ((FontString1[2]>>i)&0x01)*0xF0 + ((FontString1[3]>>i)&0x01)*0x0F;
+				if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
+				{
+					OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
+					OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
+				}
 				OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
 			}
 
@@ -949,6 +962,188 @@ void OLED_DisplayContrast(uint8_t Contrast)
 	uint8_t DataToSend;
 	DataToSend = Contrast;
 	OLED_SendCommand(OLED_SET_CONTRAST_CURRENT, &DataToSend, 1);
+
+	return;
+}
+
+void OLED_WriteLine(uint8_t X_start, uint8_t Y_start, uint8_t X_end, uint8_t Y_end, uint8_t weight, uint8_t prop)
+{
+	uint8_t i;
+	uint8_t j;
+	int16_t tempval;		//TODO: combine this with j?
+	uint8_t OLED_PixelBuffer[4];
+
+	j = 0;
+
+	if(X_start == X_end)
+	{
+		//Vertical line
+		OLED_SetWindow(X_start/4, X_end/4, Y_start, Y_end);
+
+		switch(X_start & 0x03)
+		{
+			case 0:
+				OLED_PixelBuffer[0] = 0xF0;
+				OLED_PixelBuffer[1] = 0x00;
+				break;
+
+			case 1:
+				OLED_PixelBuffer[0] = 0x0F;
+				OLED_PixelBuffer[1] = 0x00;
+				break;
+
+			case 2:
+				OLED_PixelBuffer[0] = 0x00;
+				OLED_PixelBuffer[1] = 0xF0;
+				break;
+
+			case 3:
+				OLED_PixelBuffer[0] = 0x00;
+				OLED_PixelBuffer[1] = 0x0F;
+				break;
+		}
+
+		for(i=0;i<(Y_end-Y_start);i++)
+		{
+			OLED_SendCommand(OLED_WRITE_RAM, OLED_PixelBuffer, 2);
+		}
+	}
+	else if(Y_start == Y_end)
+	{
+		//Horizontal line
+		OLED_SetWindow(X_start/4, X_end/4, Y_start, Y_start);
+
+		switch(X_start & 0x03)
+		{
+			case 0:
+				OLED_PixelBuffer[0] = 0xFF;
+				OLED_PixelBuffer[1] = 0xFF;
+				break;
+
+			case 1:
+				OLED_PixelBuffer[0] = 0x0F;
+				OLED_PixelBuffer[1] = 0xFF;
+				break;
+
+			case 2:
+				OLED_PixelBuffer[0] = 0x00;
+				OLED_PixelBuffer[1] = 0xFF;
+				break;
+
+			case 3:
+				OLED_PixelBuffer[0] = 0x00;
+				OLED_PixelBuffer[1] = 0x0F;
+				break;
+		}
+		OLED_SendCommand(OLED_WRITE_RAM, OLED_PixelBuffer, 2);
+
+		j = ((X_end-X_start+1)-(4-(X_start & 0x03)));	//This is the number of pixels to write after the first set of four is written
+
+		for(i=1; i<=j/4; i++)
+		{
+			OLED_PixelBuffer[0] = 0xFF;
+			OLED_PixelBuffer[1] = 0xFF;
+			OLED_SendCommand(OLED_WRITE_RAM, OLED_PixelBuffer, 2);
+		}
+
+		switch( j & 0x03 )
+		{
+			case 0:
+				break;
+
+			case 1:
+				OLED_PixelBuffer[0] = 0xF0;
+				OLED_PixelBuffer[1] = 0x00;
+				OLED_SendCommand(OLED_WRITE_RAM, OLED_PixelBuffer, 2);
+				break;
+
+			case 2:
+				OLED_PixelBuffer[0] = 0xFF;
+				OLED_PixelBuffer[1] = 0x00;
+				OLED_SendCommand(OLED_WRITE_RAM, OLED_PixelBuffer, 2);
+				break;
+
+			case 3:
+				OLED_PixelBuffer[0] = 0xFF;
+				OLED_PixelBuffer[1] = 0xF0;
+				OLED_SendCommand(OLED_WRITE_RAM, OLED_PixelBuffer, 2);
+				break;
+		}
+	}
+	else
+	{
+
+		/*
+		j = Y_start;
+
+
+		for(i=0; i<((((X_end/4)-(X_start/4))+1)*4); i++)
+		{
+			if( i < (X_start & 0x03))
+			{
+				//do nothing
+			}
+			else
+			{
+				tempval = (((int16_t)Y_end-(int16_t)Y_start)*i);
+				tempval = tempval/(X_end-X_start);
+				if(tempval == j)
+				{
+					switch( i & 0x03 )
+					{
+						case 0:
+							OLED_PixelBuffer[0] |= 0xF0;
+							break;
+
+						case 1:
+							OLED_PixelBuffer[0] |= 0x0F;
+							break;
+
+						case 2:
+							OLED_PixelBuffer[1] |= 0xF0;
+							break;
+
+						case 3:
+							OLED_PixelBuffer[1] |= 0x0F;
+							break;
+					}
+				}
+				else
+				{
+
+
+				}
+
+
+			}
+
+
+
+
+
+		}
+
+		//OLED_SetWindow(X_start/4, X_end/4, Y_start, Y_end);
+
+		tempval = ((int16_t)Y_end-(int16_t)Y_start);
+		*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		//Uh-oh
+	}
 
 	return;
 }

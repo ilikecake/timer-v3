@@ -107,16 +107,17 @@ void OLED_ClearDisplay(void);
 void OLED_FillDisplay(uint8_t *FillPattern, uint8_t FillPaternLength);
 
 void OLED_SetWindow(uint8_t StartColumn, uint8_t EndColumn, uint8_t StartRow, uint8_t EndRow);
+void OLED_ClearWindow(uint8_t StartColumn, uint8_t EndColumn, uint8_t StartRow, uint8_t EndRow);
 
 //void OLED_FillDisplay(void);
 //void OLED_CheckerboardDisplay(void);
-void OLED_WriteMFChar(uint8_t CharSize, char CharToWrite, uint8_t ColumnToStart, uint8_t RowToStart);
-void OLED_WriteMFString(uint8_t CharSize, char *StringToWrite, uint8_t ColumnToStart, uint8_t RowToStart);
+void OLED_WriteMFChar(uint8_t CharSize, const char CharToWrite, uint8_t ColumnToStart, uint8_t RowToStart, uint8_t FontOptions);
+void OLED_WriteMFString(uint8_t CharSize, const char *StringToWrite, uint8_t ColumnToStart, uint8_t RowToStart, uint8_t FontOptions);
 
 void OLED_WriteMF_UInt(uint8_t CharSize, uint32_t NumberToWrite, uint8_t ColumnToStart, uint8_t RowToStart);		//TODO: check if this breaks for 0
 void OLED_WriteMF_Int(uint8_t CharSize, int32_t NumberToWrite, uint8_t ColumnToStart, uint8_t RowToStart);
 
-void OLED_WriteMFString_WA(uint8_t CharSize, char *StringToWrite, uint8_t ColumnToStart, uint8_t RowToStart, uint8_t FontOptions);
+void OLED_WriteMFString_WA(uint8_t CharSize, const char *StringToWrite, uint8_t ColumnToStart, uint8_t RowToStart, uint8_t FontOptions);
 
 void MF_GetAsciiChar(uint8_t CharSize, char CharToGet, uint8_t *CharArray);
 

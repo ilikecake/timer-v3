@@ -271,6 +271,33 @@ void OLED_SetWindow(uint8_t StartColumn, uint8_t EndColumn, uint8_t StartRow, ui
 	return;
 }
 
+void OLED_ClearWindow(uint8_t StartColumn, uint8_t EndColumn, uint8_t StartRow, uint8_t EndRow)
+{
+	uint8_t OLED_SendBuffer[2];
+	uint16_t i;
+	uint16_t SizeToFill;
+	//uint8_t j;
+	//TODO: Add check for max column and row
+
+	OLED_SendBuffer[0] = 0x1C+StartColumn;
+	OLED_SendBuffer[1] = 0x1C+EndColumn;
+	OLED_SendCommand(OLED_SET_COLUMN_ADDRESS, OLED_SendBuffer, 2);
+
+	OLED_SendBuffer[0] = 0x00+StartRow;
+	OLED_SendBuffer[1] = 0x00+EndRow;
+	OLED_SendCommand(OLED_SET_ROW_ADDRESS, OLED_SendBuffer, 2);
+
+	SizeToFill = (EndRow-StartRow+1)*(EndColumn-StartColumn+1);
+
+	for(i=0;i<SizeToFill;i++)
+	{
+		OLED_SendBuffer[0] = 0x00;
+		OLED_SendBuffer[1] = 0x00;
+		OLED_SendCommand(OLED_WRITE_RAM, OLED_SendBuffer, 2);
+	}
+
+	return;
+}
 
 
 
@@ -374,7 +401,7 @@ void OLED_WriteMFChar(uint8_t CharSize, char CharToWrite, uint8_t ColumnToStart,
 	return;
 }
 #else
-void OLED_WriteMFChar(uint8_t CharSize, char CharToWrite, uint8_t ColumnToStart, uint8_t RowToStart)
+void OLED_WriteMFChar(uint8_t CharSize, const char CharToWrite, uint8_t ColumnToStart, uint8_t RowToStart, uint8_t FontOptions)
 {
 	uint8_t MF_FontBuffer[34];		//TODO: this needs to be bigger later...
 	uint8_t OLED_FontBuffer[8];
@@ -414,6 +441,11 @@ void OLED_WriteMFChar(uint8_t CharSize, char CharToWrite, uint8_t ColumnToStart,
 		{
 			OLED_FontBuffer[0] = ((MF_FontBuffer[18]>>i)&0x01)*0xF0 + ((MF_FontBuffer[19]>>i)&0x01)*0x0F;
 			OLED_FontBuffer[1] = ((MF_FontBuffer[20]>>i)&0x01)*0xF0 + ((MF_FontBuffer[21]>>i)&0x01)*0x0F;
+			if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
+							{
+								OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
+								OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
+							}
 			OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
 		}
 
@@ -421,6 +453,11 @@ void OLED_WriteMFChar(uint8_t CharSize, char CharToWrite, uint8_t ColumnToStart,
 		{
 			OLED_FontBuffer[0] = ((MF_FontBuffer[2]>>i)&0x01)*0xF0 + ((MF_FontBuffer[3]>>i)&0x01)*0x0F;
 			OLED_FontBuffer[1] = ((MF_FontBuffer[4]>>i)&0x01)*0xF0 + ((MF_FontBuffer[5]>>i)&0x01)*0x0F;
+			if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
+							{
+								OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
+								OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
+							}
 			OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
 		}
 		//--------------------------------------------------
@@ -428,12 +465,22 @@ void OLED_WriteMFChar(uint8_t CharSize, char CharToWrite, uint8_t ColumnToStart,
 		{
 			OLED_FontBuffer[0] = ((MF_FontBuffer[22]>>i)&0x01)*0xF0 + ((MF_FontBuffer[23]>>i)&0x01)*0x0F;
 			OLED_FontBuffer[1] = ((MF_FontBuffer[24]>>i)&0x01)*0xF0 + ((MF_FontBuffer[25]>>i)&0x01)*0x0F;
+			if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
+							{
+								OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
+								OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
+							}
 			OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
 		}
 		for(i=7;i>=0;i--)
 		{
 			OLED_FontBuffer[0] = ((MF_FontBuffer[6]>>i)&0x01)*0xF0 + ((MF_FontBuffer[7]>>i)&0x01)*0x0F;
 			OLED_FontBuffer[1] = ((MF_FontBuffer[8]>>i)&0x01)*0xF0 + ((MF_FontBuffer[9]>>i)&0x01)*0x0F;
+			if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
+							{
+								OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
+								OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
+							}
 			OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
 		}
 		//--------------------------------------------------
@@ -441,12 +488,22 @@ void OLED_WriteMFChar(uint8_t CharSize, char CharToWrite, uint8_t ColumnToStart,
 		{
 			OLED_FontBuffer[0] = ((MF_FontBuffer[26]>>i)&0x01)*0xF0 + ((MF_FontBuffer[27]>>i)&0x01)*0x0F;
 			OLED_FontBuffer[1] = ((MF_FontBuffer[28]>>i)&0x01)*0xF0 + ((MF_FontBuffer[29]>>i)&0x01)*0x0F;
+			if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
+							{
+								OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
+								OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
+							}
 			OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
 		}
 		for(i=7;i>=0;i--)
 		{
 			OLED_FontBuffer[0] = ((MF_FontBuffer[10]>>i)&0x01)*0xF0 + ((MF_FontBuffer[11]>>i)&0x01)*0x0F;
 			OLED_FontBuffer[1] = ((MF_FontBuffer[12]>>i)&0x01)*0xF0 + ((MF_FontBuffer[13]>>i)&0x01)*0x0F;
+			if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
+							{
+								OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
+								OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
+							}
 			OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
 		}
 		//--------------------------------------------------
@@ -454,12 +511,22 @@ void OLED_WriteMFChar(uint8_t CharSize, char CharToWrite, uint8_t ColumnToStart,
 		{
 			OLED_FontBuffer[0] = ((MF_FontBuffer[30]>>i)&0x01)*0xF0 + ((MF_FontBuffer[31]>>i)&0x01)*0x0F;
 			OLED_FontBuffer[1] = ((MF_FontBuffer[32]>>i)&0x01)*0xF0 + ((MF_FontBuffer[33]>>i)&0x01)*0x0F;
+			if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
+							{
+								OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
+								OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
+							}
 			OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
 		}
 		for(i=7;i>=0;i--)
 		{
 			OLED_FontBuffer[0] = ((MF_FontBuffer[14]>>i)&0x01)*0xF0 + ((MF_FontBuffer[15]>>i)&0x01)*0x0F;
 			OLED_FontBuffer[1] = ((MF_FontBuffer[16]>>i)&0x01)*0xF0 + ((MF_FontBuffer[17]>>i)&0x01)*0x0F;
+			if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
+							{
+								OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
+								OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
+							}
 			OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
 		}
 		//--------------------------------------------------
@@ -500,6 +567,11 @@ void OLED_WriteMFChar(uint8_t CharSize, char CharToWrite, uint8_t ColumnToStart,
 			{
 				OLED_FontBuffer[0] = ((MF_FontBuffer[8]>>i)&0x01)*0xF0 + ((MF_FontBuffer[9]>>i)&0x01)*0x0F;
 				OLED_FontBuffer[1] = ((MF_FontBuffer[10]>>i)&0x01)*0xF0 + ((MF_FontBuffer[11]>>i)&0x01)*0x0F;
+				if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
+								{
+									OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
+									OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
+								}
 				OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
 			}
 
@@ -507,18 +579,33 @@ void OLED_WriteMFChar(uint8_t CharSize, char CharToWrite, uint8_t ColumnToStart,
 			{
 				OLED_FontBuffer[0] = ((MF_FontBuffer[0]>>i)&0x01)*0xF0 + ((MF_FontBuffer[1]>>i)&0x01)*0x0F;
 				OLED_FontBuffer[1] = ((MF_FontBuffer[2]>>i)&0x01)*0xF0 + ((MF_FontBuffer[3]>>i)&0x01)*0x0F;
+				if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
+								{
+									OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
+									OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
+								}
 				OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
 			}
 			for(i=7;i>=0;i--)
 			{
 				OLED_FontBuffer[0] = ((MF_FontBuffer[12]>>i)&0x01)*0xF0 + ((MF_FontBuffer[13]>>i)&0x01)*0x0F;
 				OLED_FontBuffer[1] = ((MF_FontBuffer[14]>>i)&0x01)*0xF0 + ((MF_FontBuffer[15]>>i)&0x01)*0x0F;
+				if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
+								{
+									OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
+									OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
+								}
 				OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
 			}
 			for(i=7;i>=0;i--)
 			{
 				OLED_FontBuffer[0] = ((MF_FontBuffer[4]>>i)&0x01)*0xF0 + ((MF_FontBuffer[5]>>i)&0x01)*0x0F;
 				OLED_FontBuffer[1] = ((MF_FontBuffer[6]>>i)&0x01)*0xF0 + ((MF_FontBuffer[7]>>i)&0x01)*0x0F;
+				if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
+								{
+									OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
+									OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
+								}
 				OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
 			}
 		}
@@ -529,12 +616,22 @@ void OLED_WriteMFChar(uint8_t CharSize, char CharToWrite, uint8_t ColumnToStart,
 			{
 				OLED_FontBuffer[0] = ((MF_FontBuffer[0]>>i)&0x01)*0xF0 + ((MF_FontBuffer[1]>>i)&0x01)*0x0F;
 				OLED_FontBuffer[1] = ((MF_FontBuffer[2]>>i)&0x01)*0xF0 + ((MF_FontBuffer[3]>>i)&0x01)*0x0F;
+				if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
+								{
+									OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
+									OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
+								}
 				OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
 			}
 			for(i=7;i>=0;i--)
 			{
 				OLED_FontBuffer[0] = ((MF_FontBuffer[4]>>i)&0x01)*0xF0 + ((MF_FontBuffer[5]>>i)&0x01)*0x0F;
 				OLED_FontBuffer[1] = ((MF_FontBuffer[6]>>i)&0x01)*0xF0 + ((MF_FontBuffer[7]>>i)&0x01)*0x0F;
+				if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
+								{
+									OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
+									OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
+								}
 				OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
 			}
 		}
@@ -543,7 +640,7 @@ void OLED_WriteMFChar(uint8_t CharSize, char CharToWrite, uint8_t ColumnToStart,
 }
 #endif
 
-void OLED_WriteMFString(uint8_t CharSize, char *StringToWrite, uint8_t ColumnToStart, uint8_t RowToStart)
+void OLED_WriteMFString(uint8_t CharSize, const char *StringToWrite, uint8_t ColumnToStart, uint8_t RowToStart, uint8_t FontOptions)
 {
 	uint8_t StringSize;
 	uint8_t i;
@@ -554,18 +651,18 @@ void OLED_WriteMFString(uint8_t CharSize, char *StringToWrite, uint8_t ColumnToS
 	{
 		if(CharSize == MF_ASCII_SIZE_WA)
 		{
-			OLED_WriteMFChar(CharSize, StringToWrite[i], ColumnToStart+i*4, RowToStart);
+			OLED_WriteMFChar(CharSize, StringToWrite[i], ColumnToStart+i*4, RowToStart, FontOptions);
 		}
 		else
 		{
-			OLED_WriteMFChar(CharSize, StringToWrite[i], ColumnToStart+i*2, RowToStart);
+			OLED_WriteMFChar(CharSize, StringToWrite[i], ColumnToStart+i*2, RowToStart, FontOptions);
 		}
 	}
 
 	return;
 }
 
-void OLED_WriteMFString_WA(uint8_t CharSize, char *StringToWrite, uint8_t ColumnToStart, uint8_t RowToStart, uint8_t FontOptions)
+void OLED_WriteMFString_WA(uint8_t CharSize, const char *StringToWrite, uint8_t ColumnToStart, uint8_t RowToStart, uint8_t FontOptions)
 {
 	uint8_t StringSize;
 	int8_t i;
@@ -882,7 +979,7 @@ void OLED_WriteMF_UInt(uint8_t CharSize, uint32_t NumberToWrite, uint8_t ColumnT
 	//printf("\r\n");
 
 
-	OLED_WriteMFString(CharSize, NumberString, ColumnToStart, RowToStart);
+	OLED_WriteMFString(CharSize, NumberString, ColumnToStart, RowToStart, OLED_FONT_NORMAL);
 	return;
 }
 

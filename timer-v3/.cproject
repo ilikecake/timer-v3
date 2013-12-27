@@ -163,6 +163,7 @@
 									<listOptionValue builtIn="false" value="nxp_lpcxpresso_11u14_board_lib"/>
 									<listOptionValue builtIn="false" value="lpc_chip_11uxx_lib"/>
 									<listOptionValue builtIn="false" value="usbd_11uxx_lib"/>
+									<listOptionValue builtIn="false" value="eeprom"/>
 								</option>
 								<option id="gnu.c.link.option.paths.2037978298" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="libPaths">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/nxp_lpcxpresso_11u14_board_lib/Release}&quot;"/>
@@ -171,6 +172,7 @@
 								</option>
 								<option id="com.crt.advproject.link.crpenable.577792561" name="Enable Code Read Protect" superClass="com.crt.advproject.link.crpenable"/>
 								<option id="com.crt.advproject.link.gcc.multicore.slave.618015301" name="Multicore slave" superClass="com.crt.advproject.link.gcc.multicore.slave"/>
+								<option id="com.crt.advproject.link.stackOffset.1114131771" name="Stack offset" superClass="com.crt.advproject.link.stackOffset" value="32" valueType="string"/>
 								<inputType id="cdt.managedbuild.tool.gnu.c.linker.input.727164345" superClass="cdt.managedbuild.tool.gnu.c.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
 									<additionalInput kind="additionalinput" paths="$(LIBS)"/>

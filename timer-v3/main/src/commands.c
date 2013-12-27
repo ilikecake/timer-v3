@@ -29,7 +29,7 @@
 //#include "board.h"
 
 //The number of commands
-const uint8_t NumCommands = 6;
+const uint8_t NumCommands = 8;
 
 //Handler function declerations
 
@@ -72,25 +72,18 @@ const char _F6_NAME[] 			= "beep";
 const char _F6_DESCRIPTION[] 	= "Buzzer Functions";
 const char _F6_HELPTEXT[]		= "beep <time>";
 
-/*
-//Write a register to the ADC
-static int _F6_Handler (void);
-const char _F6_NAME[] PROGMEM 			= "adwrite";
-const char _F6_DESCRIPTION[] PROGMEM 	= "write to a register on the ADC";
-const char _F6_HELPTEXT[] PROGMEM 		= "adwrite <register> <data>";
-
-//Set up the calibration for the internal temperature sensor
+//EEPROM functions
 static int _F7_Handler (void);
-const char _F7_NAME[] PROGMEM 			= "tempcal";
-const char _F7_DESCRIPTION[] PROGMEM 	= "Calibrate the internal temperature sensor";
-const char _F7_HELPTEXT[] PROGMEM 		= "'tempcal' has no parameters";
+const char _F7_NAME[]			= "eeprom";
+const char _F7_DESCRIPTION[]	= "EEPROM functions";
+const char _F7_HELPTEXT[] 		= "eeprom <1> <2>";
 
-//Test the buzzer
+//Timer functions
 static int _F8_Handler (void);
-const char _F8_NAME[] PROGMEM 			= "beep";
-const char _F8_DESCRIPTION[] PROGMEM 	= "Test the buzzer";
-const char _F8_HELPTEXT[] PROGMEM 		= "beep <time>";
-
+const char _F8_NAME[]			= "timer";
+const char _F8_DESCRIPTION[] 	= "Timer functions";
+const char _F8_HELPTEXT[] 		= "timer <1>";
+/*
 //Turn the relay on or off
 static int _F9_Handler (void);
 const char _F9_NAME[] PROGMEM 			= "relay";
@@ -131,10 +124,9 @@ const CommandListItem AppCommandList[] =
 	{ _F4_NAME, 	0,  7,	_F4_Handler,	_F4_DESCRIPTION,	_F4_HELPTEXT	},		//time
 	{ _F5_NAME, 	1,  3,	_F5_Handler,	_F5_DESCRIPTION,	_F5_HELPTEXT	},		//oled
 	{ _F6_NAME, 	0,  1,	_F6_Handler,	_F6_DESCRIPTION,	_F6_HELPTEXT	},		//beep
+	{ _F7_NAME, 	2,  2,	_F7_Handler,	_F7_DESCRIPTION,	_F7_HELPTEXT	},		//eeprom
+	{ _F8_NAME,		1,  1,	_F8_Handler,	_F8_DESCRIPTION,	_F8_HELPTEXT	},		//timer
 	/*
-	{ _F6_NAME, 	2,  2,	_F6_Handler,	_F6_DESCRIPTION,	_F6_HELPTEXT	},		//adwrite	
-	{ _F7_NAME, 	0,  0,	_F7_Handler,	_F7_DESCRIPTION,	_F7_HELPTEXT	},		//tempcal
-	{ _F8_NAME,		1,  1,	_F8_Handler,	_F8_DESCRIPTION,	_F8_HELPTEXT	},		//beep
 	{ _F9_NAME,		1,  1,	_F9_Handler,	_F9_DESCRIPTION,	_F9_HELPTEXT	},		//relay
 	{ _F10_NAME,	0,  0,	_F10_Handler,	_F10_DESCRIPTION,	_F10_HELPTEXT	},		//cal
 	{ _F11_NAME,	0,  0,	_F11_Handler,	_F11_DESCRIPTION,	_F11_HELPTEXT	},		//temp
@@ -173,13 +165,46 @@ static int _F1_Handler (void)
 	return 0;
 }
 
+//cpu
 static int _F2_Handler (void)
 {
+	uint32_t tempVal[4];
+	uint8_t resp;
+
 	if (NumberOfArguments() == 0)
 	{
 		//Output some useful info
 		printf("Main Clk: %u Hz\r\n", Chip_Clock_GetMainClockRate());
 		printf("SSP0 Clk div: %u\r\n", Chip_Clock_GetSSP0ClockDiv());
+		printf("Main Clk: %u Hz\r\n", SystemCoreClock);
+
+		resp = ReadUID(tempVal);
+		if(resp == IAP_CMD_SUCCESS)
+		{
+			printf("UID: 0x%08lX %08lX %08lX %08lX\r\n", tempVal[0], tempVal[1], tempVal[2], tempVal[3]);
+		}
+
+		resp = ReadPartID(tempVal);
+		if(resp == IAP_CMD_SUCCESS)
+		{
+			printf("Part ID: 0x%08lX\r\n", tempVal[0]);
+		}
+
+		resp = ReadBootVersion(tempVal);
+		if(resp == IAP_CMD_SUCCESS)
+		{
+			printf("Boot Code Version: %u.%u\r\n", (uint8_t)((tempVal[0]>>8)&0xFF), (uint8_t)(tempVal[0]&0xFF));
+		}
+
+		printf("----------------------------\r\n");
+		printf("Task Name\tStack Usage\r\n");
+		printf("----------------------------\r\n");
+		printf("vTaskLed1\t%u/64\r\n", 64-uxTaskGetStackHighWaterMark(TaskList[0]));
+		printf("vConsole\t%u/400\r\n", 400-uxTaskGetStackHighWaterMark(TaskList[1]));
+		printf("vOLEDTask\t%u/300\r\n", 300-uxTaskGetStackHighWaterMark(TaskList[2]));
+		printf("vTimer\t\t%u/64\r\n", 64-uxTaskGetStackHighWaterMark(TaskList[3]));
+		printf("----------------------------\r\n");
+
 	}
 
 	return 0;
@@ -427,8 +452,129 @@ static int _F6_Handler (void)
 	return 0;
 }
 
+//EEPROM Functions
+static int _F7_Handler (void)
+{
+	uint8_t cmd;
+	uint8_t val;
+	uint8_t resp;
+	uint32_t ver;
+	uint8_t i;
+	unsigned int temp3[4];
+	cmd = argAsInt(1);
+	val = argAsInt(2);
+
+	uint8_t DataArray[5];
+
+	DataArray[0] = 0;
+	DataArray[1] = 0;
+	DataArray[2] = 0;
+	DataArray[3] = 0;
+	DataArray[4] = 0;
+
+	switch(cmd)
+	{
+	case 0:
+		ver = EELIB_getVersion();
+		printf("Version: %ul\r\n", ver);
+		break;
+
+	case 1:
+		printf("Reading 4 bytes from address %u\r\n", val);
+		resp = EEPROM_Read(val, DataArray, 4);
+		printf("Response is %u\r\n", resp);
+		printf("data[0]: %u\r\n", DataArray[0]);
+		printf("data[1]: %u\r\n", DataArray[1]);
+		printf("data[2]: %u\r\n", DataArray[2]);
+		printf("data[3]: %u\r\n", DataArray[3]);
+		//printf("data[4]: %u\r\n", DataArray[4]);
+		break;
+
+	case 2:
+		DataArray[0] = 0xFA;
+		DataArray[1] = 0xFF;
+		DataArray[2] = 0x10;
+		DataArray[3] = 0xFA;
+		printf("writing 4 bytes starting at %u\r\n", val);
+		resp = EEPROM_Write(val, DataArray, 4);
+		printf("Response is %u\r\n", resp);
+		break;
+
+	case 3:
+		resp = ReadUID(temp3);
+		if(resp == IAP_CMD_SUCCESS)
+		{
+			printf("UID: 0x%08lX %08lX %08lX %08lX\r\n", temp3[0], temp3[1], temp3[2], temp3[3]);
+		}
+		break;
+
+	case 4:
+		resp = ReadPartID(&ver);
+		if(resp == IAP_CMD_SUCCESS)
+		{
+			printf("PID: 0x%08lX\r\n", ver);
+		}
+		break;
+
+	case 5:
+		resp = ReadBootVersion(&ver);
+		if(resp == IAP_CMD_SUCCESS)
+		{
+			printf("BV: %u.%u\r\n", (uint8_t)((ver>>8)&0xFF), (uint8_t)(ver&0xFF));
+		}
+		break;
+	}
+
+	return 0;
+}
+
+//Timer Functions
+static int _F8_Handler (void)
+{
+	uint8_t cmd;
+	cmd = argAsInt(1);
+	TimerEvent NewTimerEvent;
+	TimeAndDate CurrentTime;
 
 
+	DS3232M_GetTime(&CurrentTime);
 
+	printf("Start Out: 0x%02X\r\n", TimerGetOutputState());
+
+	switch (cmd)
+	{
+		case 1:
+			//TimerTask();
+			printf("Out: 0x%02X\r\n", TimerGetOutputState());
+			break;
+
+		case 2:
+			NewTimerEvent.EventType = TIMER_TASK_TYPE_TIME_EVENT;
+			NewTimerEvent.EventTime[0] = 0xFF;	//Trigger on all days of week
+			NewTimerEvent.EventTime[1] = CurrentTime.hour;
+			NewTimerEvent.EventTime[2] = CurrentTime.min+1;
+			NewTimerEvent.EventOutputState = 1;
+			TimerSetEvent(1, 1, &NewTimerEvent);
+
+			NewTimerEvent.EventTime[2] = CurrentTime.min+2;
+			NewTimerEvent.EventOutputState = 0;
+			TimerSetEvent(1, 2, &NewTimerEvent);
+
+			break;
+
+		case 3:
+			TimerGetEvent(1, 1, &NewTimerEvent);
+			printf("type: %u\r\n", NewTimerEvent.EventType);
+			printf("time[0]: %u\r\n", NewTimerEvent.EventTime[0]);
+			printf("time[1]: %u\r\n", NewTimerEvent.EventTime[1]);
+			printf("time[2]: %u\r\n", NewTimerEvent.EventTime[2]);
+			printf("state: %u\r\n", NewTimerEvent.EventOutputState);
+			break;
+
+
+	}
+
+	return 0;
+}
 
 /** @} */

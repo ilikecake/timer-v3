@@ -11,6 +11,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "libeeprom.h"
+
 //FreeRTOS includes
 #include "FreeRTOS.h"
 #include "task.h"
@@ -32,10 +34,17 @@
 #include "ds3232m.h"
 #include "dfu.h"
 #include "NHD28.h"
+#include "iap.h"
+#include "timer_task.h"
+#include "display_task.h"
 
 //FreeRTOS queue to send received data to the command interpreter
+xTaskHandle TaskList[4];
+
+//TODO: move these to their specific .h files?
 xQueueHandle xUSBCharReceived;
 xQueueHandle xOLEDCommands;
+xQueueHandle xTimerCommands;
 
 //Defines for the OLED display task
 #define MENU_TO_IDLE_TIME			4000

@@ -42,6 +42,8 @@
 /*****************************************************************************
  * Private functions
  ****************************************************************************/
+//void UpdateOutputs(void);
+
 
 /* Sets up system hardware */
 static void prvSetupHardware(void)
@@ -50,7 +52,7 @@ static void prvSetupHardware(void)
 	Board_Init();
 }
 
-void DrawIdleScreen(void)
+/*void DrawIdleScreen(void)
 {
 	char TimeString[11];
 
@@ -58,10 +60,10 @@ void DrawIdleScreen(void)
 	DS3232M_GetTimeString(TimeString, 0);
 	OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, TimeString, IDLE_TIME_COLUMN, IDLE_TIME_ROW, OLED_FONT_NORMAL);
 
-	OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, "Out 1", 3, 0, OLED_FONT_NORMAL);
-	OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, "Out 2", 19, 0, OLED_FONT_INVERSE);
-	OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, "Out 3", 35, 0, OLED_FONT_NORMAL);
-	OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, "Out 4", 51, 0, OLED_FONT_NORMAL);
+	//OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, "Out 1", 3, 0, OLED_FONT_NORMAL);
+	//OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, "Out 2", 19, 0, OLED_FONT_INVERSE);
+	//OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, "Out 3", 35, 0, OLED_FONT_NORMAL);
+	//OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, "Out 4", 51, 0, OLED_FONT_NORMAL);
 
 	OLED_WriteLine(16*4, 0, 16*4, 16, 1, 1);
 	OLED_WriteLine(32*4, 0, 32*4, 16, 1, 1);
@@ -75,10 +77,56 @@ void DrawIdleScreen(void)
 
 	DS3232M_GetDateString(TimeString, 0);
 	OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, TimeString, IDLE_DATE_COLUMN, IDLE_DATE_ROW, OLED_FONT_NORMAL);
+
+	UpdateOutputs();
+
 	return;
 }
 
+void UpdateOutputs(void)
+{
+	uint8_t OutputState;
 
+	OutputState = TimerGetOutputState();
+
+	if((OutputState & 0x01) == 0x01)
+	{
+		OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, "Out 1", 3, 0, OLED_FONT_INVERSE);
+	}
+	else
+	{
+		OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, "Out 1", 3, 0, OLED_FONT_NORMAL);
+	}
+
+	if((OutputState & 0x02) == 0x02)
+	{
+		OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, "Out 2", 19, 0, OLED_FONT_INVERSE);
+	}
+	else
+	{
+		OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, "Out 2", 19, 0, OLED_FONT_NORMAL);
+	}
+
+	if((OutputState & 0x04) == 0x04)
+	{
+		OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, "Out 3", 35, 0, OLED_FONT_INVERSE);
+	}
+	else
+	{
+		OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, "Out 3", 35, 0, OLED_FONT_NORMAL);
+	}
+
+	if((OutputState & 0x08) == 0x08)
+	{
+		OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, "Out 4", 51, 0, OLED_FONT_INVERSE);
+	}
+	else
+	{
+		OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, "Out 4", 51, 0, OLED_FONT_NORMAL);
+	}
+
+	return;
+}*/
 
 
 
@@ -159,7 +207,7 @@ static void vConsoleTask(void *pvParameters)
 	}
 }
 
-/* OLED display thread */
+/* OLED display thread */ /*
 static void vOLEDTask(void *pvParameters)
 {
 	OLED_Command CommandToExecute;
@@ -289,10 +337,12 @@ static void vOLEDTask(void *pvParameters)
 				case OLED_CMD_TIME_IN:
 					if(DisplayStatus != DISPLAY_STATUS_MENU)
 					{
+						//TODO: Clear the extra stuff from the display. WHen going from longer strings to shorter strings (12:59 -> 1:00) there is extra stuff on the display.
 						DS3232M_GetTimeString(TimeString, 0);
 						OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, TimeString, IDLE_TIME_COLUMN, IDLE_TIME_ROW, OLED_FONT_NORMAL);
 						DS3232M_GetDateString(TimeString, 0);
 						OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, TimeString, IDLE_DATE_COLUMN, IDLE_DATE_ROW, OLED_FONT_NORMAL);
+						UpdateOutputs();
 					}
 					break;
 
@@ -302,7 +352,7 @@ static void vOLEDTask(void *pvParameters)
 			}
 		}
 	}
-}
+}*/
 
 
 
@@ -318,6 +368,9 @@ static void vOLEDTask(void *pvParameters)
  */
 int main(void)
 {
+
+
+
 	App_SetStatus(APP_STATUS_INIT);
 
 	prvSetupHardware();
@@ -334,17 +387,24 @@ int main(void)
 	App_Button_Init();
 	DS3232M_Init();
 
+	DisplayTaskInit();
+	InitTimerTask();
+
 	App_SetStatus(APP_STATUS_OK);
 
 
 	/* LED1 toggle thread */
-	xTaskCreate(vLEDTask1, (signed char *) "vTaskLed1", configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 2UL), (xTaskHandle *) NULL);
+	xTaskCreate(vLEDTask1, (signed char *) "vTaskLed1", configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 2UL), &TaskList[0]);
 
 	/* LED2 toggle thread */
-	xTaskCreate(vConsoleTask, (signed char *) "vConsole", ( unsigned short )400, NULL, (tskIDLE_PRIORITY + 1UL), (xTaskHandle *) NULL);
+	xTaskCreate(vConsoleTask, (signed char *) "vConsole", ( unsigned short )400, NULL, (tskIDLE_PRIORITY + 1UL), &TaskList[1]);
 
 	/* OLED Display Task */
-	xTaskCreate(vOLEDTask, (signed char *) "vOLEDTask", ( unsigned short )300, NULL, (tskIDLE_PRIORITY + 2UL), (xTaskHandle *) NULL);
+	xTaskCreate(DisplayTask, (signed char *) "vDisplay", ( unsigned short )300, NULL, (tskIDLE_PRIORITY + 2UL), &TaskList[2]);
+
+	//Timer task
+	//This should be the highest priority task
+	xTaskCreate(TimerTask, (signed char *) "vTimer", ( unsigned short )64, NULL, (tskIDLE_PRIORITY + 3UL), &TaskList[3]);
 
 	/* LED0 toggle thread */
 	//xTaskCreate(vLEDTask0, (signed char *) "vTaskLed0", configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL), (xTaskHandle *) NULL);

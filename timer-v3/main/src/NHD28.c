@@ -924,7 +924,7 @@ void MF_GetAsciiChar_4B(uint8_t CharSize, char CharToGet, uint8_t CharStartByte,
 	return;
 }
 
-void OLED_WriteMF_UInt(uint8_t CharSize, uint32_t NumberToWrite, uint8_t ColumnToStart, uint8_t RowToStart)
+void OLED_WriteMF_UInt(uint8_t CharSize, uint32_t NumberToWrite, uint8_t ColumnToStart, uint8_t RowToStart, uint8_t FontOptions, uint8_t Padding)
 {
 	char NumberString[10];
 
@@ -945,10 +945,6 @@ void OLED_WriteMF_UInt(uint8_t CharSize, uint32_t NumberToWrite, uint8_t ColumnT
 	Divisor[9] = 1000000000;
 
 	isStarted = 0xFF;
-
-
-	//printf("blarg\r\n");
-
 
 	for(i=9;i>=0;i--)
 	{
@@ -971,15 +967,27 @@ void OLED_WriteMF_UInt(uint8_t CharSize, uint32_t NumberToWrite, uint8_t ColumnT
 		}
 	}
 
+	//TODO: add a check to make sure the string does not get too big...
+	//TODO: add a check to see if we need to pad
+	if(Padding > isStarted)
+	{
+		digit = Padding-isStarted-1;
+		for(i=isStarted; i>=0; i--)
+		{
+			NumberString[i+digit] = NumberString[i];
+		}
+		for(i=0;i<digit;i++)
+		{
+			NumberString[i] = '0';
+		}
+		NumberString[Padding] = '\0';
+	}
+	else
+	{
+		NumberString[isStarted+1] = '\0';
+	}
 
-	NumberString[isStarted+1] = '\0';
-
-	//printf("out: ");
-	//printf(NumberString);
-	//printf("\r\n");
-
-
-	OLED_WriteMFString(CharSize, NumberString, ColumnToStart, RowToStart, OLED_FONT_NORMAL);
+	OLED_WriteMFString(CharSize, NumberString, ColumnToStart, RowToStart, FontOptions);
 	return;
 }
 

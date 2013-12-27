@@ -28,10 +28,6 @@ void OLED_Init(void)
 {
 	uint8_t DataToSend[2];
 
-	//Create the queue to send data to the command interpreter
-	xOLEDCommands = xQueueCreate( 2, sizeof( OLED_Command ) );
-
-
 	//Initialize GPIO
 	Chip_IOCON_PinMuxSet(LPC_IOCON, OLED_CS_PORT, OLED_CS_PIN, IOCON_FUNC0 | IOCON_MODE_INACT);
 	Chip_IOCON_PinMuxSet(LPC_IOCON, OLED_DC_PORT, OLED_DC_PIN, IOCON_FUNC0 | IOCON_MODE_INACT);

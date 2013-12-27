@@ -8,6 +8,6 @@
 #ifndef DFU_H_
 #define DFU_H_
 
-void ReinvokeISP(void);
+//void ReinvokeISP(void);
 
 #endif /* DFU_H_ */

@@ -523,6 +523,15 @@ static int _F7_Handler (void)
 			printf("BV: %u.%u\r\n", (uint8_t)((ver>>8)&0xFF), (uint8_t)(ver&0xFF));
 		}
 		break;
+
+	case 6:
+		printf("Calling reinvoke ISP...\r\n");
+		ReinvokeISP();
+		break;
+
+
+
+
 	}
 
 	return 0;

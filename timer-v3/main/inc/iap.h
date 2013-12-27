@@ -45,5 +45,6 @@ uint8_t EEPROM_Read(uint8_t AddressToRead, uint8_t *DataArray, uint8_t BytesToRe
 uint8_t ReadUID(uint32_t *UID);
 uint8_t ReadPartID(unsigned int *PID);
 uint8_t ReadBootVersion(uint32_t *BVID);
+void ReinvokeISP(void);
 
 #endif /* EEPROM_H_ */

@@ -1,6 +1,8 @@
 
 #include "main.h"
 
+#define init_msdstate() *((uint32_t *)(0x10000054)) = 0x0
+
 #ifdef USE_EEPROM_LIB
 uint8_t EEPROM_Write(uint8_t AddressToWrite, uint8_t *DataArray, uint8_t BytesToWrite)
 {
@@ -177,5 +179,44 @@ uint8_t ReadBootVersion(uint32_t *BVID)
 	*BVID = IAP_Result[1];
 
 	return (uint8_t)IAP_Result[0];
+}
+
+void ReinvokeISP(void)
+{
+	unsigned int IAP_Command[5];
+	unsigned int IAP_Result[5];
+
+	vPortEnterCritical();
+
+
+	/* make sure USB clock is turned on before calling ISP */
+	Chip_Clock_EnablePeriphClock(SYSCTL_CLOCK_USB);
+
+	/* make sure 32-bit Timer 1 is turned on before calling ISP */
+	Chip_Clock_EnablePeriphClock(SYSCTL_CLOCK_CT32B1);
+
+	/* make sure GPIO clock is turned on before calling ISP */
+	Chip_Clock_EnablePeriphClock(SYSCTL_CLOCK_GPIO);
+
+	/* make sure IO configuration clock is turned on before calling ISP */
+	Chip_Clock_EnablePeriphClock(SYSCTL_CLOCK_IOCON);
+
+	/* make sure AHB clock divider is 1:1 */
+	Chip_Clock_SetSysClockDiv(1);
+
+	/* Send Reinvoke ISP command to ISP entry point*/
+	IAP_Command[0] = IAP_REINVOKE_ISP;	//Reinvoke bootloader command (57)
+
+	init_msdstate();					 /* Initialize Storage state machine */
+	/* Set stack pointer to ROM value (reset default) This must be the last
+     piece of code executed before calling ISP, because most C expressions
+     and function returns will fail after the stack pointer is changed. */
+	__set_MSP(*((uint32_t *)0x00000000));
+
+	/* Enter ISP. We call "iap_entry" to enter ISP because the ISP entry is done
+     through the same command interface as IAP. */
+	iap_entry(IAP_Command, IAP_Result);
+	// Not supposed to come back!
+	vPortExitCritical();
 }
 

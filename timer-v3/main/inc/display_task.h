@@ -8,6 +8,21 @@
 #ifndef DISPLAY_TASK_H_
 #define DISPLAY_TASK_H_
 
+
+typedef struct {
+	void (*handler) (uint8_t);
+	const char *name;
+	uint8_t UpItem;
+	uint8_t DownItem;
+	uint8_t LeftItem;
+	uint8_t RightItem;
+	uint8_t CenterItem;
+} MenuItem;
+
+
+
+
+
 void DisplayTaskInit(void);
 
 void DisplayTask(void *pvParameters);

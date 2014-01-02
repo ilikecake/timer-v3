@@ -382,6 +382,12 @@ static int _F5_Handler (void)
 	uint32_t val;
 	uint8_t val2;
 
+	uint8_t Stuff[4];
+
+	MF_StringOptions StringOptions;
+	MF_LineOptions LineOptions;
+
+
 	char InitString[] = "Initialized";
 
 	val = argAsInt(2);
@@ -404,10 +410,10 @@ static int _F5_Handler (void)
 
 		case 3:
 			OLED_ClearDisplay();
-			OLED_WriteMFString(MF_ASCII_SIZE_5X7, InitString, val, val2);
-			OLED_WriteMFString(MF_ASCII_SIZE_7X8, InitString, val, val2+8);
-			OLED_WriteMFString(MF_ASCII_SIZE_8X16, InitString, val, val2+16);
-			OLED_WriteMFString(MF_ASCII_SIZE_WA, InitString, val, val2+32);
+			OLED_WriteMFString(MF_ASCII_SIZE_5X7, InitString, val, val2, OLED_FONT_NORMAL);
+			OLED_WriteMFString(MF_ASCII_SIZE_7X8, InitString, val, val2+8, OLED_FONT_NORMAL);
+			OLED_WriteMFString(MF_ASCII_SIZE_8X16, InitString, val, val2+16, OLED_FONT_NORMAL);
+			OLED_WriteMFString(MF_ASCII_SIZE_WA, InitString, val, val2+32, OLED_FONT_NORMAL);
 			break;
 
 		case 4:
@@ -419,11 +425,134 @@ static int _F5_Handler (void)
 			break;
 
 		case 6:
-			OLED_WriteMF_UInt(MF_ASCII_SIZE_7X8, val, 5, 10);
+			OLED_WriteMF_UInt(MF_ASCII_SIZE_7X8, val, 5, 10, OLED_FONT_NORMAL, 0);
 			break;
 
 		case 7:
 			 OLED_DisplayRotation(val);
+
+
+		case 8:
+			OLED_ClearDisplay();
+			OLED_SetWindow(0, 0, 0, 5);
+
+			Stuff[0] = 0x0F;
+			Stuff[1] = 0xFF;
+			Stuff[2] = 0xF0;
+			Stuff[3] = 0xAA;
+
+
+			OLED_WriteColumn(Stuff, 6, 0x0F);
+
+		case 9:
+			OLED_ClearDisplay();
+
+			StringOptions.CharSize = MF_ASCII_SIZE_7X8;
+			StringOptions.XStart = 3;
+			StringOptions.YStart = 1;
+			StringOptions.StartPadding = 0;
+			StringOptions.EndPadding = 2;
+			StringOptions.TopPadding = 0;
+			StringOptions.BottomPadding = 0;
+			StringOptions.CharacterSpacing = 0;
+			StringOptions.Brightness = 0x0F;
+			StringOptions.FontOptions = OLED_FONT_INVERSE;
+
+			OLED_WriteMFString2(InitString, &StringOptions);
+
+			printf("Start Column: %u\r\n", StringOptions.StartColumn);
+			printf("End Column: %u\r\n", StringOptions.EndColumn);
+			printf("Pixel Length: %u\r\n", StringOptions.PixelLength);
+			printf("Pixel Height: %u\r\n", StringOptions.PixelHeight);
+
+			StringOptions.YStart = 10;
+			StringOptions.CharSize = MF_ASCII_SIZE_5X7;
+
+			OLED_WriteMFString2(InitString, &StringOptions);
+
+			printf("Start Column: %u\r\n", StringOptions.StartColumn);
+			printf("End Column: %u\r\n", StringOptions.EndColumn);
+			printf("Pixel Length: %u\r\n", StringOptions.PixelLength);
+			printf("Pixel Height: %u\r\n", StringOptions.PixelHeight);
+
+			StringOptions.YStart = 20;
+			StringOptions.CharSize = MF_ASCII_SIZE_8X16;
+
+			OLED_WriteMFString2(InitString, &StringOptions);
+
+			printf("Start Column: %u\r\n", StringOptions.StartColumn);
+			printf("End Column: %u\r\n", StringOptions.EndColumn);
+			printf("Pixel Length: %u\r\n", StringOptions.PixelLength);
+			printf("Pixel Height: %u\r\n", StringOptions.PixelHeight);
+
+
+			StringOptions.YStart = 40;
+			StringOptions.CharSize = MF_ASCII_SIZE_WA;
+
+			OLED_WriteMFString2(InitString, &StringOptions);
+
+			printf("Start Column: %u\r\n", StringOptions.StartColumn);
+			printf("End Column: %u\r\n", StringOptions.EndColumn);
+			printf("Pixel Length: %u\r\n", StringOptions.PixelLength);
+			printf("Pixel Height: %u\r\n", StringOptions.PixelHeight);
+
+
+
+
+			break;
+
+		case 10:
+			OLED_ClearDisplay();
+
+			LineOptions.XStart = 2;
+			LineOptions.XEnd = 2;
+			LineOptions.YStart = 3;
+			LineOptions.YEnd = 30;
+			LineOptions.LinePattern = 0xF0;
+			LineOptions.LineWeight = 1;
+			LineOptions.LineOptions = 0;
+
+			OLED_WriteLine2(&LineOptions);
+
+			LineOptions.XStart = 5;
+			LineOptions.XEnd = 5;
+			LineOptions.LinePattern = 0xC3;
+			OLED_WriteLine2(&LineOptions);
+
+			/*LineOptions.XEnd = 9;
+			LineOptions.LinePattern = 0xFF;
+			LineOptions.YStart = 6;
+			LineOptions.YEnd = 6;
+			OLED_WriteLine2(&LineOptions);
+
+			LineOptions.XStart = 0;
+			LineOptions.XEnd = 30;
+			LineOptions.LinePattern = 0x55;
+			LineOptions.YStart = 7;
+			LineOptions.YEnd = 7;
+			OLED_WriteLine2(&LineOptions);*/
+
+
+
+
+			/*LineOptions.XStart = 0;
+			LineOptions.YStart = 5;
+			LineOptions.YEnd = 5;
+			OLED_WriteLine2(&LineOptions);
+
+			LineOptions.LinePattern = 0xFF;
+			LineOptions.YStart = 6;
+			LineOptions.YEnd = 6;
+			OLED_WriteLine2(&LineOptions);
+
+			LineOptions.LinePattern = 0xAF;
+			LineOptions.XStart = 3;
+			LineOptions.YStart = 2;
+			LineOptions.YEnd = 2;
+			OLED_WriteLine2(&LineOptions);*/
+
+			break;
+
 
 	}
 

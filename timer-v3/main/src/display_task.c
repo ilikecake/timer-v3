@@ -4,15 +4,20 @@
  *  Created on: Dec 26, 2013
  *      Author: pat
  */
+
 #include "main.h"
 
 
+//Private functions
+void DrawIdleScreen(void);
+void UpdateOutputs(void);
+void DrawMenuScreen(void);
 
 
 
 
-
-static void MenuEntry0 (uint8_t Caller);
+static void _MenuItem_TL (uint8_t Caller, uint8_t Previous);
+static void _TimeMenu_1 (uint8_t Caller, uint8_t Previous);
 
 const char _M0_Name[] 			= "Time";
 const char _M1_Name[] 			= "Outputs";
@@ -23,21 +28,34 @@ uint8_t MenuData[8];
 
 const MenuItem MenuItemList[] =
 {
-//	{ handler,		name,		up, 	down, 	left, 	right, 	Center}
-	{ MenuEntry0,	_M0_Name,	3,		1,		0,		0, 		0},		//0
-	{ MenuEntry0,	_M1_Name,	0,		2,		1,		1, 		1},		//1
-	{ MenuEntry0,	_M2_Name,	1,		3,		2,		2, 		2},		//2
-	{ MenuEntry0,	_M3_Name,	2,		4,		3,		3, 		3},		//3
+	//handler,			name,		up, 	down, 	left, 	right, 	Center}
+	//Top level menu entries
+	{ _MenuItem_TL,		_M0_Name,	3,		1,		0,		4, 		4},		//0
+	{ _MenuItem_TL,		_M1_Name,	0,		2,		1,		1, 		1},		//1
+	{ _MenuItem_TL,		_M2_Name,	1,		3,		2,		2, 		2},		//2
+	{ _MenuItem_TL,		_M3_Name,	2,		0,		3,		3, 		3},		//3
+	//Set time menu entries
+	{ _TimeMenu_1,		NULL,		4,		4,		0,		4, 		0},		//4
 
 };
 
-void MenuEntry0 (uint8_t Caller)
+//Top level menu item
+void _MenuItem_TL (uint8_t Caller, uint8_t Previous)
 {
 	uint8_t i;
+	uint8_t MenuItemSize;
 
+	//TODO: make these compiler defines
 	uint8_t Horiz = 4;
 	uint8_t Vert = 39;
-	uint8_t MenuItemSize;
+
+	//If the menu entry redirects to itself, we don't need to do anything
+	if(Caller == Previous) return;
+
+	if(Previous > 3)
+	{
+		DrawMenuScreen();
+	}
 
 	for(i=0;i<4;i++)
 	{
@@ -57,12 +75,59 @@ void MenuEntry0 (uint8_t Caller)
 	return;
 }
 
-//Private functions
-void DrawIdleScreen(void);
-void UpdateOutputs(void);
+static void _TimeMenu_1 (uint8_t Caller, uint8_t Previous)
+{
+	TimeAndDate CurrentTime;
 
-void DrawMenuScreen(void);
+	//TODO: make these compiler defines
+	uint8_t Horiz = 4;
+	uint8_t Vert = 39;
 
+	//If the menu entry redirects to itself, we don't need to do anything
+	if(Caller == Previous) return;
+
+	DS3232M_GetTime(&CurrentTime);
+
+	MenuData[0] = CurrentTime.min;
+	MenuData[1] = CurrentTime.hour;
+	MenuData[2] = CurrentTime.day;
+	MenuData[3] = CurrentTime.month;
+	MenuData[4] = CurrentTime.year;
+	MenuData[5] = CurrentTime.dow;
+
+	DrawMenuScreen();
+	OLED_WriteMFString(MF_ASCII_SIZE_7X8, "> Time", 12, 55, OLED_FONT_NORMAL);
+
+	OLED_WriteMFString(MF_ASCII_SIZE_7X8, "Time:   :", Horiz, Vert, OLED_FONT_NORMAL);
+	if(MenuData[1] > 12)
+	{
+		OLED_WriteMF_UInt(MF_ASCII_SIZE_7X8, MenuData[1]-12, Horiz+12, Vert, OLED_FONT_NORMAL, 2);
+		OLED_WriteMFString(MF_ASCII_SIZE_7X8, "PM", Horiz+23, Vert, OLED_FONT_NORMAL);
+	}
+	else
+	{
+		OLED_WriteMF_UInt(MF_ASCII_SIZE_7X8, MenuData[1], Horiz+12, Vert, OLED_FONT_NORMAL, 2);
+		OLED_WriteMFString(MF_ASCII_SIZE_7X8, "AM", Horiz+23, Vert, OLED_FONT_NORMAL);
+	}
+	OLED_WriteMF_UInt(MF_ASCII_SIZE_7X8, MenuData[0], Horiz+18, Vert, OLED_FONT_NORMAL, 2);
+
+
+	OLED_WriteMFString(MF_ASCII_SIZE_7X8, "Date: ", Horiz, Vert-11, OLED_FONT_NORMAL);
+	OLED_WriteMFString(MF_ASCII_SIZE_7X8, "Use DST: ", Horiz, Vert-22, OLED_FONT_NORMAL);
+
+
+		//OLED_WriteLine((Horiz*4)-2, Vert-1, (Horiz*4)-2, Vert+9, 1, 1);
+		//OLED_WriteLine((Horiz*4+MenuItemSize*8)+1, Vert-1, (Horiz*4+MenuItemSize*8)+1, Vert+9, 1, 1);
+		//OLED_WriteLine((Horiz*4)-2, Vert-1, (Horiz*4+MenuItemSize*8)+1, Vert-1, 1, 1);
+		//OLED_WriteLine((Horiz*4)-2, Vert+9, (Horiz*4+MenuItemSize*8)+1, Vert+9, 1, 1);
+
+
+
+
+
+
+
+}
 
 
 void DisplayTaskInit(void)
@@ -72,7 +137,6 @@ void DisplayTaskInit(void)
 
 	return;
 }
-
 
 void DrawIdleScreen(void)
 {
@@ -104,11 +168,9 @@ void DrawIdleScreen(void)
 
 void DrawMenuScreen(void)
 {
+	OLED_ClearDisplay();
 	OLED_WriteMFString(MF_ASCII_SIZE_7X8, "Menu", 2, 55, OLED_FONT_NORMAL);
 	OLED_WriteLine(0, 53, 255, 53, 1, 1);
-
-
-
 	return;
 }
 
@@ -163,7 +225,7 @@ void DisplayTask(void *pvParameters)
 	OLED_Command CommandToExecute;
 
 	uint8_t CurrentMenuItem = 0;
-	uint8_t CallerMenuItem = 0;
+	uint8_t PreviousMenuItem = 1;	//Note: this cannot be zero, or the menu screen will not be drawn after the first button press
 	//TimeAndDate CurrentTime;
 
 	char TimeString[11];
@@ -180,6 +242,7 @@ void DisplayTask(void *pvParameters)
 	if(App_GetStatus() == APP_STATUS_OK)
 	{
 		OLED_WriteMFString(MF_ASCII_SIZE_7X8, InitString, 16, 28, OLED_FONT_NORMAL);
+		OLED_WriteMFString(MF_ASCII_SIZE_7X8, InitString, 1, 1, OLED_FONT_INVERSE);
 		vTaskDelay(3000);
 		OLED_ClearDisplay();
 	}
@@ -231,15 +294,15 @@ void DisplayTask(void *pvParameters)
 					if(DisplayStatus != DISPLAY_STATUS_MENU)
 					{
 						CurrentMenuItem = 0;
-						CallerMenuItem = 0;
-						OLED_ClearDisplay();
+						PreviousMenuItem = 1;
+						//OLED_ClearDisplay();
 						DisplayStatus = DISPLAY_STATUS_MENU;
 						OLED_DisplayContrast(0x7F);
 						DrawMenuScreen();
 					}
 					else
 					{
-						CallerMenuItem = CurrentMenuItem;
+						PreviousMenuItem = CurrentMenuItem;
 						if(CommandToExecute.CommandData[0] == 4)
 						{
 							CurrentMenuItem = MenuItemList[CurrentMenuItem].CenterItem;
@@ -295,16 +358,14 @@ void DisplayTask(void *pvParameters)
 							}
 						}
 					}
-					(*(MenuItemList[CurrentMenuItem].handler))(CurrentMenuItem);
-					//((void(*)(void))MenuItemList[CurrentMenuItem].handler)();
-					//vTaskDelay(2000);
-					//OLED_WriteMFString(MF_ASCII_SIZE_7X8, "Auto  ", IDLE_STATUS_COLUMN, IDLE_STATUS_ROW);
+					(*(MenuItemList[CurrentMenuItem].handler))(CurrentMenuItem, PreviousMenuItem);
 					break;
 
 				case OLED_CMD_TIME_IN:
-					if(DisplayStatus != DISPLAY_STATUS_MENU)
+					if( (DisplayStatus != DISPLAY_STATUS_MENU) )
 					{
 						//TODO: Clear the extra stuff from the display. WHen going from longer strings to shorter strings (12:59 -> 1:00) there is extra stuff on the display.
+						OLED_ClearWindow(IDLE_TIME_COLUMN, IDLE_DATE_COLUMN+24, IDLE_TIME_ROW, IDLE_TIME_ROW+16);	//TODO: This sort of causes flickering, maybe fix it later
 						DS3232M_GetTimeString(TimeString, 0);
 						OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, TimeString, IDLE_TIME_COLUMN, IDLE_TIME_ROW, OLED_FONT_NORMAL);
 						DS3232M_GetDateString(TimeString, 0);

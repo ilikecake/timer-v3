@@ -256,6 +256,10 @@ void OLED_FillDisplay(uint8_t *FillPattern, uint8_t FillPaternLength)
 	return;
 }
 
+/*
+ * StartColumn and StartRow are zero based.
+ * To write to a single column or row, the start value and end value should be the same. *
+ */
 void OLED_SetWindow(uint8_t StartColumn, uint8_t EndColumn, uint8_t StartRow, uint8_t EndRow)
 {
 	uint8_t OLED_SendBuffer[2];
@@ -403,30 +407,64 @@ void OLED_WriteMFChar(uint8_t CharSize, char CharToWrite, uint8_t ColumnToStart,
 #else
 void OLED_WriteMFChar(uint8_t CharSize, const char CharToWrite, uint8_t ColumnToStart, uint8_t RowToStart, uint8_t FontOptions)
 {
-	uint8_t MF_FontBuffer[34];		//TODO: this needs to be bigger later...
+	//TODO: make this function return the length of the characters written in pixels
+	//TODO: make this function take pixel location instead of column locations
+
+	uint8_t MF_FontBuffer[34];
 	uint8_t OLED_FontBuffer[8];
 	int8_t i;
-	//int8_t j;
+	int8_t j;
 
-	//TODO: add a check to make sure CharSize is an expected value
+	//TODO: do i need all four of these?
+	uint8_t LoopSize;
+	uint8_t StartVal;
+	uint8_t FontBase;
+	uint8_t FontBaseOffset;
+
+	uint8_t CalcFontBase;
 
 	//Get the font data from storage
 	MF_GetAsciiChar(CharSize, CharToWrite, MF_FontBuffer);
 
 
-
+	//Set the windows for the character
+	//This switch also makes sure that CharSize is valid
 	switch(CharSize)
 	{
 		case MF_ASCII_SIZE_5X7:
 		case MF_ASCII_SIZE_7X8:
 			OLED_SetWindow(ColumnToStart, ColumnToStart+1, RowToStart, RowToStart+7);
-			break;
+
+			for(j=0;j<2;j++)
+			{
+				for(i=7;i>=0;i--)
+				{
+					OLED_FontBuffer[0] = ((MF_FontBuffer[(j*4)]>>i)&0x01)*0xF0 + ((MF_FontBuffer[(j*4)+1]>>i)&0x01)*0x0F;
+					OLED_FontBuffer[1] = ((MF_FontBuffer[(j*4)+2]>>i)&0x01)*0xF0 + ((MF_FontBuffer[(j*4)+3]>>i)&0x01)*0x0F;
+
+					if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
+					{
+						OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
+						OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
+					}
+					OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
+				}
+			}
+			return;
 
 		case MF_ASCII_SIZE_8X16:
+			LoopSize = 4;
+			StartVal = 2;
+			FontBase = StartVal;
+			FontBaseOffset = 0;
 			OLED_SetWindow(ColumnToStart, ColumnToStart+1, RowToStart, RowToStart+15);
 			break;
 
 		case MF_ASCII_SIZE_WA:
+			LoopSize = 8;
+			StartVal = 4;
+			FontBase = StartVal;
+			FontBaseOffset = 2;
 			OLED_SetWindow(ColumnToStart, ColumnToStart+3, RowToStart, RowToStart+15);
 			break;
 
@@ -434,208 +472,44 @@ void OLED_WriteMFChar(uint8_t CharSize, const char CharToWrite, uint8_t ColumnTo
 			return;
 	}
 
-	if(CharSize == MF_ASCII_SIZE_WA)
+	//For the 8X16 and width adjusted fonts, the pixels are drawn out of order
+	//For 8x16 fonts, the order of CalcFontBase is 8,0,12,4
+	//for width adjusted fonts, the order of CalcFontBase is 18,2,22,6,26,10,30,14
+	for(j=0;j<LoopSize;j++)
 	{
-		//--------------------------------------------------
-		for(i=7;i>=0;i--)
-		{
-			OLED_FontBuffer[0] = ((MF_FontBuffer[18]>>i)&0x01)*0xF0 + ((MF_FontBuffer[19]>>i)&0x01)*0x0F;
-			OLED_FontBuffer[1] = ((MF_FontBuffer[20]>>i)&0x01)*0xF0 + ((MF_FontBuffer[21]>>i)&0x01)*0x0F;
-			if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
-							{
-								OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
-								OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
-							}
-			OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
-		}
+		CalcFontBase = ((FontBase*4)+FontBaseOffset);
 
 		for(i=7;i>=0;i--)
 		{
-			OLED_FontBuffer[0] = ((MF_FontBuffer[2]>>i)&0x01)*0xF0 + ((MF_FontBuffer[3]>>i)&0x01)*0x0F;
-			OLED_FontBuffer[1] = ((MF_FontBuffer[4]>>i)&0x01)*0xF0 + ((MF_FontBuffer[5]>>i)&0x01)*0x0F;
+			OLED_FontBuffer[0] = ((MF_FontBuffer[CalcFontBase]>>i)&0x01)*0xF0 + ((MF_FontBuffer[(CalcFontBase+1)]>>i)&0x01)*0x0F;
+			OLED_FontBuffer[1] = ((MF_FontBuffer[(CalcFontBase+2)]>>i)&0x01)*0xF0 + ((MF_FontBuffer[(CalcFontBase+3)]>>i)&0x01)*0x0F;
+
 			if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
-							{
-								OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
-								OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
-							}
-			OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
-		}
-		//--------------------------------------------------
-		for(i=7;i>=0;i--)
-		{
-			OLED_FontBuffer[0] = ((MF_FontBuffer[22]>>i)&0x01)*0xF0 + ((MF_FontBuffer[23]>>i)&0x01)*0x0F;
-			OLED_FontBuffer[1] = ((MF_FontBuffer[24]>>i)&0x01)*0xF0 + ((MF_FontBuffer[25]>>i)&0x01)*0x0F;
-			if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
-							{
-								OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
-								OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
-							}
-			OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
-		}
-		for(i=7;i>=0;i--)
-		{
-			OLED_FontBuffer[0] = ((MF_FontBuffer[6]>>i)&0x01)*0xF0 + ((MF_FontBuffer[7]>>i)&0x01)*0x0F;
-			OLED_FontBuffer[1] = ((MF_FontBuffer[8]>>i)&0x01)*0xF0 + ((MF_FontBuffer[9]>>i)&0x01)*0x0F;
-			if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
-							{
-								OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
-								OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
-							}
-			OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
-		}
-		//--------------------------------------------------
-		for(i=7;i>=0;i--)
-		{
-			OLED_FontBuffer[0] = ((MF_FontBuffer[26]>>i)&0x01)*0xF0 + ((MF_FontBuffer[27]>>i)&0x01)*0x0F;
-			OLED_FontBuffer[1] = ((MF_FontBuffer[28]>>i)&0x01)*0xF0 + ((MF_FontBuffer[29]>>i)&0x01)*0x0F;
-			if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
-							{
-								OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
-								OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
-							}
-			OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
-		}
-		for(i=7;i>=0;i--)
-		{
-			OLED_FontBuffer[0] = ((MF_FontBuffer[10]>>i)&0x01)*0xF0 + ((MF_FontBuffer[11]>>i)&0x01)*0x0F;
-			OLED_FontBuffer[1] = ((MF_FontBuffer[12]>>i)&0x01)*0xF0 + ((MF_FontBuffer[13]>>i)&0x01)*0x0F;
-			if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
-							{
-								OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
-								OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
-							}
-			OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
-		}
-		//--------------------------------------------------
-		for(i=7;i>=0;i--)
-		{
-			OLED_FontBuffer[0] = ((MF_FontBuffer[30]>>i)&0x01)*0xF0 + ((MF_FontBuffer[31]>>i)&0x01)*0x0F;
-			OLED_FontBuffer[1] = ((MF_FontBuffer[32]>>i)&0x01)*0xF0 + ((MF_FontBuffer[33]>>i)&0x01)*0x0F;
-			if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
-							{
-								OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
-								OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
-							}
-			OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
-		}
-		for(i=7;i>=0;i--)
-		{
-			OLED_FontBuffer[0] = ((MF_FontBuffer[14]>>i)&0x01)*0xF0 + ((MF_FontBuffer[15]>>i)&0x01)*0x0F;
-			OLED_FontBuffer[1] = ((MF_FontBuffer[16]>>i)&0x01)*0xF0 + ((MF_FontBuffer[17]>>i)&0x01)*0x0F;
-			if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
-							{
-								OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
-								OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
-							}
-			OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
-		}
-		//--------------------------------------------------
-
-
-
-
-
-
-
-
-
-
-
-		/*for(i=7;i>=0;i--)
-		{
-			for(j=18;j<35;j+=2)
 			{
-				OLED_FontBuffer[((j-18)/2)] = ((MF_FontBuffer[j]>>i)&0x01)*0xF0 + ((MF_FontBuffer[j+1]>>i)&0x01)*0x0F;
+				OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
+				OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
 			}
-			OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 8);
+			OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
 		}
 
-		for(i=7;i>=0;i--)
+		if((j&0x01) == 0x01)
 		{
-			for(j=2;j<18;j+=2)
-			{
-				OLED_FontBuffer[((j-2)/2)] = ((MF_FontBuffer[j]>>i)&0x01)*0xF0 + ((MF_FontBuffer[j+1]>>i)&0x01)*0x0F;
-			}
-			OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 8);
-		}*/
-	}
-	else
-	{
-		if(CharSize == MF_ASCII_SIZE_8X16)
-		{
-			for(i=7;i>=0;i--)
-			{
-				OLED_FontBuffer[0] = ((MF_FontBuffer[8]>>i)&0x01)*0xF0 + ((MF_FontBuffer[9]>>i)&0x01)*0x0F;
-				OLED_FontBuffer[1] = ((MF_FontBuffer[10]>>i)&0x01)*0xF0 + ((MF_FontBuffer[11]>>i)&0x01)*0x0F;
-				if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
-								{
-									OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
-									OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
-								}
-				OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
-			}
-
-			for(i=7;i>=0;i--)
-			{
-				OLED_FontBuffer[0] = ((MF_FontBuffer[0]>>i)&0x01)*0xF0 + ((MF_FontBuffer[1]>>i)&0x01)*0x0F;
-				OLED_FontBuffer[1] = ((MF_FontBuffer[2]>>i)&0x01)*0xF0 + ((MF_FontBuffer[3]>>i)&0x01)*0x0F;
-				if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
-								{
-									OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
-									OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
-								}
-				OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
-			}
-			for(i=7;i>=0;i--)
-			{
-				OLED_FontBuffer[0] = ((MF_FontBuffer[12]>>i)&0x01)*0xF0 + ((MF_FontBuffer[13]>>i)&0x01)*0x0F;
-				OLED_FontBuffer[1] = ((MF_FontBuffer[14]>>i)&0x01)*0xF0 + ((MF_FontBuffer[15]>>i)&0x01)*0x0F;
-				if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
-								{
-									OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
-									OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
-								}
-				OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
-			}
-			for(i=7;i>=0;i--)
-			{
-				OLED_FontBuffer[0] = ((MF_FontBuffer[4]>>i)&0x01)*0xF0 + ((MF_FontBuffer[5]>>i)&0x01)*0x0F;
-				OLED_FontBuffer[1] = ((MF_FontBuffer[6]>>i)&0x01)*0xF0 + ((MF_FontBuffer[7]>>i)&0x01)*0x0F;
-				if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
-								{
-									OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
-									OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
-								}
-				OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
-			}
+			//j is odd
+			FontBase += (StartVal+1);
 		}
 		else
 		{
-
-			for(i=7;i>=0;i--)
-			{
-				OLED_FontBuffer[0] = ((MF_FontBuffer[0]>>i)&0x01)*0xF0 + ((MF_FontBuffer[1]>>i)&0x01)*0x0F;
-				OLED_FontBuffer[1] = ((MF_FontBuffer[2]>>i)&0x01)*0xF0 + ((MF_FontBuffer[3]>>i)&0x01)*0x0F;
-				if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
-								{
-									OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
-									OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
-								}
-				OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
-			}
-			for(i=7;i>=0;i--)
-			{
-				OLED_FontBuffer[0] = ((MF_FontBuffer[4]>>i)&0x01)*0xF0 + ((MF_FontBuffer[5]>>i)&0x01)*0x0F;
-				OLED_FontBuffer[1] = ((MF_FontBuffer[6]>>i)&0x01)*0xF0 + ((MF_FontBuffer[7]>>i)&0x01)*0x0F;
-				if((FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
-								{
-									OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
-									OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
-								}
-				OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
-			}
+			//j is even
+			FontBase -= StartVal;
 		}
 	}
+
+
+	//OLED_WriteLine((Horiz*4)-2, Vert-1, (Horiz*4)-2, Vert+9, 1, 1);
+	//OLED_WriteLine((Horiz*4+MenuItemSize*8)+1, Vert-1, (Horiz*4+MenuItemSize*8)+1, Vert+9, 1, 1);
+	//OLED_WriteLine((Horiz*4)-2, Vert-1, (Horiz*4+MenuItemSize*8)+1, Vert-1, 1, 1);
+	//OLED_WriteLine((Horiz*4)-2, Vert+9, (Horiz*4+MenuItemSize*8)+1, Vert+9, 1, 1);
+
 	return;
 }
 #endif
@@ -661,6 +535,430 @@ void OLED_WriteMFString(uint8_t CharSize, const char *StringToWrite, uint8_t Col
 
 	return;
 }
+
+
+void OLED_WriteColumn(uint8_t *ColumnData, uint8_t ColumnHeight, uint8_t ColumnBrightness)
+{
+	uint8_t i;
+	uint8_t CurrentColumnData;
+	uint8_t OLED_FontBuffer[2];
+
+	ColumnBrightness &= 0x0F;		//Column brightness must be <= 0x0F
+
+	CurrentColumnData = ColumnData[0];
+	for(i=0; i<ColumnHeight; i++)
+	{
+		OLED_FontBuffer[0] = ((((CurrentColumnData & 0x01)*ColumnBrightness) << 4) & 0xF0) | ((((CurrentColumnData >> 1) & 0x01)*ColumnBrightness) & 0x0F);
+		OLED_FontBuffer[1] = (((((CurrentColumnData>>2) & 0x01)*ColumnBrightness) << 4) & 0xF0) | ((((CurrentColumnData>>3) & 0x01)*ColumnBrightness) & 0x0F);
+		OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
+
+		if((i & 0x01) == 0x01)
+		{
+			//i is odd
+			CurrentColumnData = ColumnData[(i/2)+1];
+		}
+		else
+		{
+			//i is even
+			CurrentColumnData = CurrentColumnData >> 4;
+		}
+	}
+
+	return;
+}
+
+/**Writes a column of data to the OLED
+ *  ColumnData is formatted in the MF convention. ColumnData is always a multiple of four bytes long.
+ *  Each bit in ColumnData represents one pixel. The MSB of each byte represents the bottom pixel in that byte.One full byte of ColumnData therefore represents eight vertical pixels.
+ *  Each set of four ColumnData bytes represent one column of data that is eight pixels high by four pixels wide.
+ *  The first byte of each set of four ColumnData bytes (byte 0, 4, 8, etc...) represent the left most vertical line. The other bytes in each set are arranged left to right.
+ *  The first four bytes in ColumnData are the bottom pixels in the column.
+ *
+ *  PixelStart is a mask of the bits to be written. A zero in bit 0-3 of this mask will make that vertical pixel always zero.
+ *
+ *	StringOptions.PixelHeight sets the height of the column to be written.
+ *  if StringOptions.FontOptions includes OLED_FONT_INVERSE, the pixels will be inverted before writing.
+ *
+ *  Note: the set window command needs to be called to set the proper window before this function is called.
+ */
+void OLED_WriteColumn2(uint8_t *ColumnData, uint8_t PixelStart, MF_StringOptions *StringOptions)
+{
+	uint8_t OLED_FontBuffer[2];
+	int8_t i;
+	int8_t j;
+	uint8_t ColumnBrightness;				//TODO: make this part of StringOptions
+	uint8_t ColumnHeight;					//The height of the current column to write
+	uint8_t StopRow;
+
+	ColumnBrightness = (StringOptions->Brightness) & 0x0F;
+	StopRow = ((StringOptions->PixelHeight-1)/8)*4;
+	//StopRow = (StringOptions->PixelHeight-1)/8;
+
+	for(j=0; j <= StopRow ; j+=4)
+	//for(j=0; j <= StopRow ; j++)
+	{
+		if(j == StopRow)
+		{
+			//ColumnHeight = StringOptions->PixelHeight - (2*j);
+			ColumnHeight = ((8 - (StringOptions->PixelHeight & 0x07)) & 0x07);
+		}
+		else
+		{
+			//ColumnHeight = 8;
+			ColumnHeight = 0;
+		}
+		printf("Col: %u\r\n", ColumnHeight);
+
+
+		//for(i=ColumnHeight-1; i>=0; i--)
+		for(i=7; i>=ColumnHeight; i--)
+		{
+			OLED_FontBuffer[0] = ((ColumnData[j]>>i) & 0x01)*(ColumnBrightness << 4) + ((ColumnData[j+1]>>i) & 0x01)*(ColumnBrightness);
+			OLED_FontBuffer[1] = ((ColumnData[j+2]>>i) & 0x01)*(ColumnBrightness << 4) + ((ColumnData[j+3]>>i) & 0x01)*(ColumnBrightness);
+			if((StringOptions->FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
+			{
+				OLED_FontBuffer[0] = ~OLED_FontBuffer[0];
+				OLED_FontBuffer[1] = ~OLED_FontBuffer[1];
+			}
+
+			//Mask bits that should always be zero
+			OLED_FontBuffer[0] &= (((PixelStart & 0x01)*0xF0) + (((PixelStart >> 1) & 0x01)*0x0F));
+			OLED_FontBuffer[1] &= ((((PixelStart >> 2) & 0x01)*0xF0) + (((PixelStart >> 3) & 0x01)*0x0F));
+
+			OLED_SendCommand(OLED_WRITE_RAM, OLED_FontBuffer, 2);
+		}
+	}
+
+	return;
+}
+
+
+
+//TODO: make this function wrap text???
+void OLED_WriteMFString2(const char *StringToWrite, MF_StringOptions *StringOptions)
+{
+	int8_t i;
+	uint8_t TotalPixelLength = 0;	//This variable tracks the total length (X direction) of the pixels written
+
+	//In the current OLED configuration, the display is separated into 4 pixel columns (in the X direction)
+	//An entire column slice (four X pixels by one Y pixel) must be written at the same time.
+
+	//TODO: I can probably cut down on the number of variables used here eventually
+	//Display Variables
+	uint8_t CurrentColumn = 0;						//The current column on the OLED.
+	uint8_t CurrentPixel = 0;						//The current pixel in the column. Each column is four pixels wide, so this variable is 0-3 only.
+	uint8_t CurrentPixelInFont = 0;
+	uint8_t VerticalPixelStart;						//The vertical location to start writing characters.
+	uint8_t PixelData[8];							//Pixel data to be sent to the write column function.
+	uint8_t MF_FontData[8];							//Pixel data received from the MF chip.
+	uint8_t MaxPixelInFont;
+
+	uint8_t FontDataLocation = 0;					//The location in the MF_FontData array. The font data is fetched in 4 byte chunks, so this variable should be 0-3 only.
+	uint8_t FontDataOffset = 0;						//The offset from the start of the font in the MF chip memory.
+	uint8_t PixelMask;								//The pixel mask for writing columns. This should always be 0x0F except for the first and last call to the write column function.
+
+	//String variables
+	uint8_t CharNumber = 0;							//The current character to be written to the OLED.
+	uint8_t StringLength = strlen(StringToWrite);	//The total length of the string to be written in characters.
+
+	//Initialize variables for the vertical position and height
+	//The padding will be added at the end of this function, but some of the variables must be initialized first.
+	//Also, since this is the first time we check the CharSize variable, add a check to return if this variable is invalid.
+	VerticalPixelStart = (StringOptions->YStart) + (StringOptions->BottomPadding);
+	if(StringOptions->CharSize == MF_ASCII_SIZE_5X7)
+	{
+		StringOptions->PixelHeight = 8;
+		MaxPixelInFont = 5;
+	}
+	else if(StringOptions->CharSize == MF_ASCII_SIZE_7X8)
+	{
+		StringOptions->PixelHeight = 8;
+		MaxPixelInFont = 7;
+	}
+	else if(StringOptions->CharSize == MF_ASCII_SIZE_8X16)
+	{
+		StringOptions->PixelHeight = 14;
+		MaxPixelInFont = 8;
+	}
+	else if(StringOptions->CharSize == MF_ASCII_SIZE_WA)
+	{
+		StringOptions->PixelHeight = 14;
+		//MaxPixelInFont is set below for each character
+	}
+	else
+	{
+		return;
+	}
+	/**Ending condition:
+	 *  VerticalPixelStart is set to the vertical position to start writing text.
+	 *  StringOptions->PixelHeight is set to the height of the characters without vertical padding.
+	 */
+
+
+
+	//Handle vertical padding
+	//TODO: combine this into the main code?
+	//TODO: make this happen last.
+	/*if((StringOptions->FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
+	{
+		//TODO: Fill top and bottom padding
+	}
+
+	VerticalPixelStart = (StringOptions->YStart) + (StringOptions->BottomPadding);
+	StringOptions->PixelHeight = (StringOptions->BottomPadding) + (StringOptions->TopPadding);
+	if(StringOptions->CharSize == MF_ASCII_SIZE_5X7)
+	{
+		StringOptions->PixelHeight += 7;
+	}
+	else if(StringOptions->CharSize == MF_ASCII_SIZE_7X8)
+	{
+		StringOptions->PixelHeight += 8;
+	}
+	else if( (StringOptions->CharSize == MF_ASCII_SIZE_8X16) || (StringOptions->CharSize == MF_ASCII_SIZE_WA))
+	{
+		StringOptions->PixelHeight += 16;
+	}*/
+	/**Ending condition:
+	 *  Display: if inverse font is requested, padding above and below the text is active
+	 *
+	 *  VerticalPixelStart is set to the vertical position to start writing text
+	 *  StringOptions->PixelHeight is set to the total height of the string (including padding)
+	 */
+
+
+
+	//Handle initial padding padding in X
+	CurrentColumn = (StringOptions->XStart) / 4;
+	StringOptions->StartColumn = CurrentColumn;
+	CurrentPixel = StringOptions->XStart - (StringOptions->StartColumn*4);		//current pixel
+
+	//The bits before the start of the padding should always be zero
+	PixelMask = ((0x0F << CurrentPixel) & 0x0F);
+
+	//CurrentPixel will always be 0-3 when starting this for loop
+	for(i=0;i<StringOptions->StartPadding;i++)
+	{
+		PixelData[CurrentPixel] = 0x00;
+		CurrentPixel++;
+		TotalPixelLength++;
+
+		if(CurrentPixel >= 4)
+		{
+			OLED_SetWindow(CurrentColumn, CurrentColumn, VerticalPixelStart, VerticalPixelStart+StringOptions->PixelHeight);
+			OLED_WriteColumn2(PixelData, PixelMask, StringOptions);
+			PixelMask = 0x0F;		//We only mask the first and last column
+			CurrentPixel = 0;
+			CurrentColumn++;		//TODO: Add a check to make sure we don't exceed the maximum column?
+		}
+	}
+	/**Ending condition:
+	 *  Display: if inverse font is requested, the initial padding is active
+	 *
+	 *  CurrentColum is the column where the first character starts
+	 *  CurrentPixel is the pixel in that column (0-3) where the first character starts
+	 *  TotalPixelLength is equal to the length of the initial padding
+	 *  PixelData is filled with any initial pixels needed, otherwise it is filled with zeros
+	 */
+
+
+	//Write the actual string characters to the display.
+	if((StringOptions->CharSize == MF_ASCII_SIZE_7X8) || (StringOptions->CharSize == MF_ASCII_SIZE_5X7) || (StringOptions->CharSize == MF_ASCII_SIZE_8X16) || (StringOptions->CharSize == MF_ASCII_SIZE_WA))
+	{
+
+		//Setup initial variables based on the char size
+		MF_GetAsciiChar_4B_2(StringOptions->CharSize, StringToWrite[CharNumber], FontDataOffset, MF_FontData);
+		if(StringOptions->CharSize == MF_ASCII_SIZE_WA)
+		{
+			MaxPixelInFont = MF_GetWACharWidth(StringToWrite[CharNumber]);
+			printf("CharWidth for %c is %u\r\n", StringToWrite[CharNumber], MaxPixelInFont);
+		}
+
+		FontDataLocation = 0;
+		CurrentPixelInFont = 0;
+		while(1)
+		{
+
+			if(CurrentPixel == 4)
+			{
+				//The PixelData buffer is full, write data the the OLED
+				OLED_SetWindow(CurrentColumn, CurrentColumn, VerticalPixelStart, VerticalPixelStart+StringOptions->PixelHeight);
+				OLED_WriteColumn2(PixelData, PixelMask, StringOptions);
+				if(PixelMask != 0x0F)
+				{
+					//We only mask the first and last column)
+					PixelMask = 0x0F;
+				}
+				CurrentPixel = 0;
+				CurrentColumn++;		//TODO: Add a check to make sure we don't exceed the maximum column
+			}
+			else if(CurrentPixelInFont == (MaxPixelInFont + StringOptions->CharacterSpacing))
+			{
+				//Go to the next character
+				CurrentPixelInFont = 0;
+
+				printf("end of char\r\n");
+
+				if(FontDataLocation != 0)
+				{
+					CharNumber++;
+					if(CharNumber >= StringLength) break;
+					FontDataOffset = 0;
+					FontDataLocation = 0;
+					MF_GetAsciiChar_4B_2(StringOptions->CharSize, StringToWrite[CharNumber], FontDataOffset, MF_FontData);
+					if(StringOptions->CharSize == MF_ASCII_SIZE_WA)
+					{
+						MaxPixelInFont = MF_GetWACharWidth(StringToWrite[CharNumber]);
+						printf("CharWidth for %c is %u\r\n", StringToWrite[CharNumber], MaxPixelInFont);
+					}
+				}
+			}
+			else if(FontDataLocation > 3)
+			{
+				//We need to get more data from the MF chip.
+				if( ((StringOptions->CharSize == MF_ASCII_SIZE_WA) && (FontDataOffset < 16)) || ((StringOptions->CharSize != MF_ASCII_SIZE_WA) &&  (FontDataOffset < 4)) )
+				{
+					//Get the next 4 bytes from the current character
+					FontDataOffset += 4;
+				}
+				else
+				{
+					//Go to the next character
+					CharNumber++;
+					if(CharNumber >= StringLength) break;
+
+					if(StringOptions->CharSize == MF_ASCII_SIZE_WA)
+					{
+						MaxPixelInFont = MF_GetWACharWidth(StringToWrite[CharNumber]);
+						printf("CharWidth for %c is %u\r\n", StringToWrite[CharNumber], MaxPixelInFont);
+					}
+
+					FontDataOffset = 0;
+				}
+				FontDataLocation = 0;
+				MF_GetAsciiChar_4B_2(StringOptions->CharSize, StringToWrite[CharNumber], FontDataOffset, MF_FontData);
+			}
+			else if((CurrentPixelInFont < (MaxPixelInFont + StringOptions->CharacterSpacing)) && (CurrentPixelInFont >= MaxPixelInFont))
+			{
+				//We have written the entire character, but the we need to write spacing between the characters.
+				PixelData[CurrentPixel] = 0x00;
+				if( (StringOptions->CharSize == MF_ASCII_SIZE_8X16) || (StringOptions->CharSize == MF_ASCII_SIZE_WA))
+				{
+					PixelData[CurrentPixel+4] = 0x00;
+				}
+				CurrentPixel++;
+				TotalPixelLength++;
+				CurrentPixelInFont++;
+			}
+			else
+			{
+				//Put the next line of the character data in the OLED buffer.
+				PixelData[CurrentPixel] = MF_FontData[FontDataLocation];
+				if( (StringOptions->CharSize == MF_ASCII_SIZE_8X16) || (StringOptions->CharSize == MF_ASCII_SIZE_WA))
+				{
+					PixelData[CurrentPixel+4] = MF_FontData[FontDataLocation+4];
+				}
+				CurrentPixelInFont++;
+				FontDataLocation++;
+				CurrentPixel++;
+				TotalPixelLength++;
+			}
+		}
+	}
+
+	//Handle final padding padding in X
+	for(i=0;i<StringOptions->EndPadding;i++)
+	{
+		if(CurrentPixel >= 4)
+		{
+			OLED_SetWindow(CurrentColumn, CurrentColumn, VerticalPixelStart, VerticalPixelStart+StringOptions->PixelHeight);
+			OLED_WriteColumn2(PixelData, PixelMask, StringOptions);
+			CurrentPixel = 0;
+			CurrentColumn++;		//Add a check to make sure we don't exceed the maximum column
+		}
+		PixelData[CurrentPixel] = 0;
+		PixelData[CurrentPixel+4] = 0;
+		CurrentPixel++;
+		TotalPixelLength++;
+	}
+
+	if(CurrentPixel != 0)
+	{
+		PixelMask = 0;
+		for(i=CurrentPixel;i<4;i++)
+		{
+			PixelData[i] = 0;
+			PixelMask |= (1<<i);
+		}
+		//Mask the unused pixels at the end of the last column
+		PixelMask = ~PixelMask;
+		OLED_SetWindow(CurrentColumn, CurrentColumn, VerticalPixelStart, VerticalPixelStart+StringOptions->PixelHeight);
+		OLED_WriteColumn2(PixelData, PixelMask, StringOptions);
+		CurrentColumn++;
+	}
+
+	CurrentColumn--;
+	/**Ending condition:
+	 *  Display: if inverse font is requested, the final padding is active
+	 *
+	 *  CurrentColum is the last column written
+	 *  TotalPixelLength is the length of the string written in pixels, including the pre and post padding, but not including the whitespace(if any) in the first and last column.
+	 */
+
+	StringOptions->PixelLength = TotalPixelLength;
+	StringOptions->EndColumn = CurrentColumn;
+
+	return;
+}
+
+
+/**Gets four bytes of data from the MF chip
+ * If CharSize is 5x7 or 7x8, CharArray is 4 bytes long, if CharSize is 8x16 or WA, CharArray is 8 bytes long
+ * CharStartByte is how many bytes to offset from the begining of the character data.
+ *   Note:	for a WA character, the first two bytes are not part of the bitmap.
+ * 			This function takes this into account, and CharStartByte should be called the same way as the other sizes.
+ */
+void MF_GetAsciiChar_4B_2(uint8_t CharSize, char CharToGet, uint8_t CharStartByte, uint8_t *CharArray)
+{
+	if(CharSize == MF_ASCII_SIZE_8X16)
+	{
+		MF_GetAsciiChar_4B(CharSize, CharToGet, CharStartByte+8, CharArray);
+		MF_GetAsciiChar_4B(CharSize, CharToGet, CharStartByte, &CharArray[4]);
+	}
+	else if (CharSize == MF_ASCII_SIZE_WA)
+	{
+		MF_GetAsciiChar_4B(CharSize, CharToGet, CharStartByte+18, CharArray);
+		MF_GetAsciiChar_4B(CharSize, CharToGet, CharStartByte+2, &CharArray[4]);
+	}
+	else
+	{
+		MF_GetAsciiChar_4B(CharSize, CharToGet, CharStartByte, CharArray);
+	}
+	return;
+}
+
+
+uint8_t MF_GetWACharWidth(char CharToGet)
+{
+	uint32_t MF_CharAddress;
+	uint8_t DataToSend[5];
+	uint8_t DataToReceive[2];
+
+	MF_CharAddress = MF_GetCharAddress(MF_ASCII_SIZE_WA, CharToGet);
+
+	DataToSend[0] = 0x0B;
+	DataToSend[1] = (uint8_t)((MF_CharAddress >> 16) & 0xFF);
+	DataToSend[2] = (uint8_t)((MF_CharAddress >> 8) & 0xFF);
+	DataToSend[3] = (uint8_t)(MF_CharAddress & 0xFF);
+	DataToSend[4] = 0x00;
+
+	OLED_MF_Select(1);
+	Chip_SSP_WriteFrames_Blocking(LPC_SSP0, DataToSend, 5);
+	Chip_SSP_ReadFrames_Blocking(LPC_SSP0, DataToReceive, 2);
+	OLED_MF_Select(0);
+
+	return DataToReceive[1];
+}
+
 
 void OLED_WriteMFString_WA(uint8_t CharSize, const char *StringToWrite, uint8_t ColumnToStart, uint8_t RowToStart, uint8_t FontOptions)
 {
@@ -875,6 +1173,39 @@ void MF_GetAsciiChar(uint8_t CharSize, char CharToGet, uint8_t *CharArray)
 }
 
 
+uint32_t MF_GetCharAddress(uint8_t CharSize, char CharToGet)
+{
+	uint32_t Address;
+
+	if( ((uint8_t)CharToGet >= 0x20) && ((uint8_t)CharToGet <= 0xFF) )
+	{
+		if(CharSize == MF_ASCII_SIZE_5X7)
+		{
+			Address = ((uint32_t)(CharToGet)-0x20)*8;
+		}
+		else if(CharSize == MF_ASCII_SIZE_7X8)
+		{
+			Address = ((uint32_t)(CharToGet)-0x20)*8 + 768;
+		}
+		else if(CharSize == MF_ASCII_SIZE_8X16)
+		{
+			Address = ((uint32_t)(CharToGet)-0x20)*16 + 1536;
+		}
+		else if(CharSize == MF_ASCII_SIZE_WA)
+		{
+			Address = ((uint32_t)(CharToGet)-0x20)*34 + 3072;
+		}
+		else
+		{
+			return 0;
+		}
+		return Address;
+	}
+
+	return 0;
+}
+
+
 void MF_GetAsciiChar_4B(uint8_t CharSize, char CharToGet, uint8_t CharStartByte, uint8_t *CharArray)
 {
 	uint8_t DataToSend[5];
@@ -1071,7 +1402,7 @@ void OLED_WriteLine(uint8_t X_start, uint8_t Y_start, uint8_t X_end, uint8_t Y_e
 {
 	uint8_t i;
 	uint8_t j;
-	int16_t tempval;		//TODO: combine this with j?
+	//int16_t tempval;		//TODO: combine this with j?
 	uint8_t OLED_PixelBuffer[4];
 
 	j = 0;
@@ -1248,5 +1579,198 @@ void OLED_WriteLine(uint8_t X_start, uint8_t Y_start, uint8_t X_end, uint8_t Y_e
 
 	return;
 }
+
+
+
+//Note: this only works for horizontal and vertical lines so far
+//TODO: line weight and pattern are not implemented
+//TODO: Implement the line weight with a wrapper and multiple calls to this function -- this will not work for vertical lines, this will probably have to be implemented internally
+void OLED_WriteLine2(MF_LineOptions *TheLine)
+{
+	uint8_t i;
+	uint8_t j;
+	uint8_t k;
+	uint8_t OLED_PixelBuffer[4];
+	uint8_t PixelBrightness = 0x0F;		//TODO: make this an input later...
+
+	uint8_t ModifiedPattern;
+
+	j = 0;
+
+	if(TheLine->XStart == TheLine->XEnd)
+	{
+		//Vertical line
+		OLED_SetWindow(TheLine->XStart/4, TheLine->XEnd/4, TheLine->YStart, TheLine->YEnd);
+
+		OLED_PixelBuffer[2] = 0x00;
+		OLED_PixelBuffer[3] = 0x00;
+
+		switch(TheLine->XStart & 0x03)
+		{
+			case 0:
+				OLED_PixelBuffer[0] = 0xF0;
+				OLED_PixelBuffer[1] = 0x00;
+				break;
+
+			case 1:
+				OLED_PixelBuffer[0] = 0x0F;
+				OLED_PixelBuffer[1] = 0x00;
+				break;
+
+			case 2:
+				OLED_PixelBuffer[0] = 0x00;
+				OLED_PixelBuffer[1] = 0xF0;
+				break;
+
+			case 3:
+				OLED_PixelBuffer[0] = 0x00;
+				OLED_PixelBuffer[1] = 0x0F;
+				break;
+		}
+
+		for(i=0;i<(TheLine->YEnd-TheLine->YStart+1);i++)
+		{
+			if( ((TheLine->LinePattern >> (i & 0x07)) & 0x01) == 0)
+			{
+				OLED_SendCommand(OLED_WRITE_RAM, &OLED_PixelBuffer[2], 2);
+			}
+			else
+			{
+				OLED_SendCommand(OLED_WRITE_RAM, OLED_PixelBuffer, 2);
+			}
+		}
+	}
+	else if(TheLine->YStart == TheLine->YEnd)
+	{
+		//Horizontal line
+
+		OLED_SetWindow(TheLine->XStart/4, TheLine->XEnd/4, TheLine->YStart, TheLine->YEnd);
+		ModifiedPattern = ((TheLine->LinePattern) >> (4 - (TheLine->XStart & 0x03))) + ((TheLine->LinePattern) << (8-(4 -( TheLine->XStart & 0x03))));
+		//printf("mod: %u, Pattern: 0x%02X, mod 0x%02X\r\n", (TheLine->XStart & 0x03), TheLine->LinePattern, ModifiedPattern);
+
+		j = (TheLine->XEnd/4) - (TheLine->XStart/4);	//The total number of columns to write
+
+		for(i=0; i<=j; i++)
+		{
+			if((i & 0x01) == 0x01)
+			{
+				OLED_PixelBuffer[0] = (((ModifiedPattern >> 0) & 0x01) * (PixelBrightness << 4)) + (((ModifiedPattern >> 1) & 0x01) * PixelBrightness);
+				OLED_PixelBuffer[1] = (((ModifiedPattern >> 2) & 0x01) * (PixelBrightness << 4)) + (((ModifiedPattern >> 3) & 0x01) * PixelBrightness);
+			}
+			else
+			{
+				OLED_PixelBuffer[0] = (((ModifiedPattern >> 4) & 0x01) * (PixelBrightness << 4)) + (((ModifiedPattern >> 5) & 0x01) * PixelBrightness);
+				OLED_PixelBuffer[1] = (((ModifiedPattern >> 6) & 0x01) * (PixelBrightness << 4)) + (((ModifiedPattern >> 7) & 0x01) * PixelBrightness);
+			}
+
+
+			if(i == 0)
+			{
+				//Mask pixels in the first column
+				switch(TheLine->XStart & 0x03)
+				{
+				case 0:
+					break;
+
+				case 1:
+					OLED_PixelBuffer[0] &= 0x0F;
+					OLED_PixelBuffer[1] &= 0xFF;
+					break;
+
+				case 2:
+					OLED_PixelBuffer[0] &= 0x00;
+					OLED_PixelBuffer[1] &= 0xFF;
+					break;
+
+				case 3:
+					OLED_PixelBuffer[0] &= 0x00;
+					OLED_PixelBuffer[1] &= 0x0F;
+					break;
+				}
+			}
+
+			if(i == j)
+			{
+				//Mask pixels in the last column
+				switch((TheLine->XEnd+1) & 0x03)
+				{
+				case 0:
+					break;
+
+				case 1:
+					OLED_PixelBuffer[0] &= 0xF0;
+					OLED_PixelBuffer[1] &= 0x00;
+					break;
+
+				case 2:
+					OLED_PixelBuffer[0] &= 0xFF;
+					OLED_PixelBuffer[1] &= 0x00;
+					break;
+
+				case 3:
+					OLED_PixelBuffer[0] &= 0xFF;
+					OLED_PixelBuffer[1] &= 0xF0;
+					break;
+				}
+			}
+			OLED_SendCommand(OLED_WRITE_RAM, OLED_PixelBuffer, 2);
+			printf("Writing 0: 0x%02X, 1: 0x%02X\r\n", OLED_PixelBuffer[0], OLED_PixelBuffer[1]);
+		}
+	}
+	else
+	{
+		//Uh-oh
+		/*
+		j = Y_start;
+
+
+		for(i=0; i<((((X_end/4)-(X_start/4))+1)*4); i++)
+		{
+			if( i < (X_start & 0x03))
+			{
+				//do nothing
+			}
+			else
+			{
+				tempval = (((int16_t)Y_end-(int16_t)Y_start)*i);
+				tempval = tempval/(X_end-X_start);
+				if(tempval == j)
+				{
+					switch( i & 0x03 )
+					{
+						case 0:
+							OLED_PixelBuffer[0] |= 0xF0;
+							break;
+
+						case 1:
+							OLED_PixelBuffer[0] |= 0x0F;
+							break;
+
+						case 2:
+							OLED_PixelBuffer[1] |= 0xF0;
+							break;
+
+						case 3:
+							OLED_PixelBuffer[1] |= 0x0F;
+							break;
+					}
+				}
+				else
+				{
+
+				}
+			}
+		}
+
+		//OLED_SetWindow(X_start/4, X_end/4, Y_start, Y_end);
+
+		tempval = ((int16_t)Y_end-(int16_t)Y_start);
+		*/
+
+	}
+
+	return;
+}
+
 
 

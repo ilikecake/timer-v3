@@ -8,7 +8,7 @@
 #ifndef EEPROM_H_
 #define EEPROM_H_
 
-#undef USE_EEPROM_LIB
+#define USE_EEPROM_LIB
 
 
 
@@ -39,8 +39,11 @@
 #define IAP_COMPARE_ERROR				10
 #define IAP_BUSY						11
 
-uint8_t EEPROM_Write(uint8_t AddressToWrite, uint8_t *DataArray, uint8_t BytesToWrite);
-uint8_t EEPROM_Read(uint8_t AddressToRead, uint8_t *DataArray, uint8_t BytesToRead);
+uint8_t EEPROM_Write(uint8_t *AddressToWrite, uint8_t *DataArray, uint8_t BytesToWrite);
+uint8_t EEPROM_Read(uint8_t *AddressToRead, uint8_t *DataArray, uint8_t BytesToRead);
+
+//void readEEPROM( uint8_t* eeAddress, uint8_t* buffAddress, uint32_t byteCount );
+//void writeEEPROM( uint8_t* eeAddress, uint8_t* buffAddress, uint32_t byteCount );
 
 uint8_t ReadUID(uint32_t *UID);
 uint8_t ReadPartID(unsigned int *PID);

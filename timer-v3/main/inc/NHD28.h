@@ -66,7 +66,7 @@
 //Font options
 #define OLED_FONT_NORMAL				0x00	//Normal text
 #define OLED_FONT_INVERSE				0x01	//Black text on a lighted background
-#define OLED_FONT_BOX					0x02	//Draws a box around the text
+#define OLED_FONT_BOX					0x02	//Draws a box around the text. This will not do anything if OLED_FONT_INVERSE is also requested
 
 
 

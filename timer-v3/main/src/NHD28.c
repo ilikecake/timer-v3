@@ -590,6 +590,8 @@ void OLED_WriteColumn2(uint8_t *ColumnData, uint8_t PixelStart, MF_StringOptions
 	uint8_t ColumnHeight;					//The height of the current column to write
 	uint8_t StopRow;
 
+	PixelStart = PixelStart & 0x0F;
+
 	ColumnBrightness = (StringOptions->Brightness) & 0x0F;
 	StopRow = ((StringOptions->PixelHeight-1)/8)*4;
 	//StopRow = (StringOptions->PixelHeight-1)/8;
@@ -607,7 +609,7 @@ void OLED_WriteColumn2(uint8_t *ColumnData, uint8_t PixelStart, MF_StringOptions
 			//ColumnHeight = 8;
 			ColumnHeight = 0;
 		}
-		printf("Col: %u\r\n", ColumnHeight);
+		//printf("Col: %u\r\n", ColumnHeight);
 
 
 		//for(i=ColumnHeight-1; i>=0; i--)
@@ -640,6 +642,8 @@ void OLED_WriteMFString2(const char *StringToWrite, MF_StringOptions *StringOpti
 	int8_t i;
 	uint8_t TotalPixelLength = 0;	//This variable tracks the total length (X direction) of the pixels written
 
+	MF_LineOptions LineOptions;
+
 	//In the current OLED configuration, the display is separated into 4 pixel columns (in the X direction)
 	//An entire column slice (four X pixels by one Y pixel) must be written at the same time.
 
@@ -651,7 +655,7 @@ void OLED_WriteMFString2(const char *StringToWrite, MF_StringOptions *StringOpti
 	uint8_t VerticalPixelStart;						//The vertical location to start writing characters.
 	uint8_t PixelData[8];							//Pixel data to be sent to the write column function.
 	uint8_t MF_FontData[8];							//Pixel data received from the MF chip.
-	uint8_t MaxPixelInFont;
+	uint8_t MaxPixelInFont = 0;
 
 	uint8_t FontDataLocation = 0;					//The location in the MF_FontData array. The font data is fetched in 4 byte chunks, so this variable should be 0-3 only.
 	uint8_t FontDataOffset = 0;						//The offset from the start of the font in the MF chip memory.
@@ -694,38 +698,10 @@ void OLED_WriteMFString2(const char *StringToWrite, MF_StringOptions *StringOpti
 	 *  StringOptions->PixelHeight is set to the height of the characters without vertical padding.
 	 */
 
-
-
-	//Handle vertical padding
-	//TODO: combine this into the main code?
-	//TODO: make this happen last.
-	/*if((StringOptions->FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
-	{
-		//TODO: Fill top and bottom padding
-	}
-
-	VerticalPixelStart = (StringOptions->YStart) + (StringOptions->BottomPadding);
-	StringOptions->PixelHeight = (StringOptions->BottomPadding) + (StringOptions->TopPadding);
-	if(StringOptions->CharSize == MF_ASCII_SIZE_5X7)
-	{
-		StringOptions->PixelHeight += 7;
-	}
-	else if(StringOptions->CharSize == MF_ASCII_SIZE_7X8)
-	{
-		StringOptions->PixelHeight += 8;
-	}
-	else if( (StringOptions->CharSize == MF_ASCII_SIZE_8X16) || (StringOptions->CharSize == MF_ASCII_SIZE_WA))
-	{
-		StringOptions->PixelHeight += 16;
-	}*/
-	/**Ending condition:
-	 *  Display: if inverse font is requested, padding above and below the text is active
-	 *
-	 *  VerticalPixelStart is set to the vertical position to start writing text
-	 *  StringOptions->PixelHeight is set to the total height of the string (including padding)
-	 */
-
-
+	//if( ((StringOptions->FontOptions & OLED_FONT_BOX) == OLED_FONT_BOX) && (StringOptions->StartPadding == 0) )
+	//{
+	//	StringOptions->StartPadding = 1;
+	//}
 
 	//Handle initial padding padding in X
 	CurrentColumn = (StringOptions->XStart) / 4;
@@ -733,12 +709,23 @@ void OLED_WriteMFString2(const char *StringToWrite, MF_StringOptions *StringOpti
 	CurrentPixel = StringOptions->XStart - (StringOptions->StartColumn*4);		//current pixel
 
 	//The bits before the start of the padding should always be zero
-	PixelMask = ((0x0F << CurrentPixel) & 0x0F);
+	PixelMask = (0xFF << CurrentPixel);	//Note: we do not mask the upper four bits in this variable. The presence of 1s in the upper four bits of this variable signify the first call to WriteColumn has not been made.
 
 	//CurrentPixel will always be 0-3 when starting this for loop
 	for(i=0;i<StringOptions->StartPadding;i++)
 	{
-		PixelData[CurrentPixel] = 0x00;
+		if( ((StringOptions->FontOptions & OLED_FONT_BOX) == OLED_FONT_BOX) && (((StringOptions->FontOptions & OLED_FONT_INVERSE) != OLED_FONT_INVERSE)) && (i == 0) )
+		{
+			//The first column of pixels should be highlighted if a box is requested. This is not done if the inverse font is also requested
+			PixelData[CurrentPixel] = 0xFF;
+			PixelData[CurrentPixel+4] = 0xFF;
+		}
+		else
+		{
+			PixelData[CurrentPixel] = 0x00;
+			PixelData[CurrentPixel+4] = 0x00;		//This is not needed for the shorter fonts, but there is no harm in setting it here
+		}
+
 		CurrentPixel++;
 		TotalPixelLength++;
 
@@ -762,92 +749,95 @@ void OLED_WriteMFString2(const char *StringToWrite, MF_StringOptions *StringOpti
 
 
 	//Write the actual string characters to the display.
-	if((StringOptions->CharSize == MF_ASCII_SIZE_7X8) || (StringOptions->CharSize == MF_ASCII_SIZE_5X7) || (StringOptions->CharSize == MF_ASCII_SIZE_8X16) || (StringOptions->CharSize == MF_ASCII_SIZE_WA))
-	{
+	//if((StringOptions->CharSize == MF_ASCII_SIZE_7X8) || (StringOptions->CharSize == MF_ASCII_SIZE_5X7) || (StringOptions->CharSize == MF_ASCII_SIZE_8X16) || (StringOptions->CharSize == MF_ASCII_SIZE_WA))
+	//{
 
-		//Setup initial variables based on the char size
-		MF_GetAsciiChar_4B_2(StringOptions->CharSize, StringToWrite[CharNumber], FontDataOffset, MF_FontData);
+	//printf("pixelmask: 0x%02X\r\n", PixelMask);
+
+	//Count for the number of characters in the string
+	for(CharNumber = 0; CharNumber < StringLength; CharNumber++)
+	{
+		//Find the length of the character in pixels. For non WA fonts, this value is fixed.
 		if(StringOptions->CharSize == MF_ASCII_SIZE_WA)
 		{
 			MaxPixelInFont = MF_GetWACharWidth(StringToWrite[CharNumber]);
-			printf("CharWidth for %c is %u\r\n", StringToWrite[CharNumber], MaxPixelInFont);
+			//printf("CharWidth for %c is %u\r\n", StringToWrite[CharNumber], MaxPixelInFont);
 		}
 
+		FontDataOffset = 0;
 		FontDataLocation = 0;
-		CurrentPixelInFont = 0;
-		while(1)
-		{
+		MF_GetAsciiChar_4B_2(StringOptions->CharSize, StringToWrite[CharNumber], FontDataOffset, MF_FontData);
 
+		//Count for the number of pixels in the character
+		for(CurrentPixelInFont = 0; CurrentPixelInFont < MaxPixelInFont+StringOptions->CharacterSpacing; CurrentPixelInFont++)
+		{
 			if(CurrentPixel == 4)
 			{
 				//The PixelData buffer is full, write data the the OLED
 				OLED_SetWindow(CurrentColumn, CurrentColumn, VerticalPixelStart, VerticalPixelStart+StringOptions->PixelHeight);
-				OLED_WriteColumn2(PixelData, PixelMask, StringOptions);
+				//OLED_WriteColumn2(PixelData, PixelMask, StringOptions);
 				if(PixelMask != 0x0F)
 				{
 					//We only mask the first and last column)
+					//printf("Blarg");
+					if( ((StringOptions->FontOptions & OLED_FONT_BOX) == OLED_FONT_BOX) && (((StringOptions->FontOptions & OLED_FONT_INVERSE) != OLED_FONT_INVERSE)) )
+					{
+						if((PixelMask & 0x0F) == 0x0F)
+						{
+							PixelData[0] = 0xFF;
+							PixelData[4] = 0xFF;
+						}
+						else if((PixelMask & 0x0F) == 0x0E)
+						{
+							PixelData[1] = 0xFF;
+							PixelData[5] = 0xFF;
+						}
+						else if((PixelMask & 0x0F) == 0x0C)
+						{
+							PixelData[2] = 0xFF;
+							PixelData[6] = 0xFF;
+						}
+						else if((PixelMask & 0x0F) == 0x08)
+						{
+							PixelData[3] = 0xFF;
+							PixelData[7] = 0xFF;
+						}
+					}
+					OLED_WriteColumn2(PixelData, PixelMask, StringOptions);
 					PixelMask = 0x0F;
+				}
+				else
+				{
+					OLED_WriteColumn2(PixelData, PixelMask, StringOptions);
 				}
 				CurrentPixel = 0;
 				CurrentColumn++;		//TODO: Add a check to make sure we don't exceed the maximum column
 			}
-			else if(CurrentPixelInFont == (MaxPixelInFont + StringOptions->CharacterSpacing))
-			{
-				//Go to the next character
-				CurrentPixelInFont = 0;
 
-				printf("end of char\r\n");
 
-				if(FontDataLocation != 0)
-				{
-					CharNumber++;
-					if(CharNumber >= StringLength) break;
-					FontDataOffset = 0;
-					FontDataLocation = 0;
-					MF_GetAsciiChar_4B_2(StringOptions->CharSize, StringToWrite[CharNumber], FontDataOffset, MF_FontData);
-					if(StringOptions->CharSize == MF_ASCII_SIZE_WA)
-					{
-						MaxPixelInFont = MF_GetWACharWidth(StringToWrite[CharNumber]);
-						printf("CharWidth for %c is %u\r\n", StringToWrite[CharNumber], MaxPixelInFont);
-					}
-				}
-			}
-			else if(FontDataLocation > 3)
+			if(FontDataLocation > 3)
 			{
 				//We need to get more data from the MF chip.
-				if( ((StringOptions->CharSize == MF_ASCII_SIZE_WA) && (FontDataOffset < 16)) || ((StringOptions->CharSize != MF_ASCII_SIZE_WA) &&  (FontDataOffset < 4)) )
-				{
-					//Get the next 4 bytes from the current character
-					FontDataOffset += 4;
-				}
-				else
-				{
-					//Go to the next character
-					CharNumber++;
-					if(CharNumber >= StringLength) break;
-
-					if(StringOptions->CharSize == MF_ASCII_SIZE_WA)
-					{
-						MaxPixelInFont = MF_GetWACharWidth(StringToWrite[CharNumber]);
-						printf("CharWidth for %c is %u\r\n", StringToWrite[CharNumber], MaxPixelInFont);
-					}
-
-					FontDataOffset = 0;
-				}
+				//Get the next 4 bytes from the current character
+				FontDataOffset += 4;
 				FontDataLocation = 0;
 				MF_GetAsciiChar_4B_2(StringOptions->CharSize, StringToWrite[CharNumber], FontDataOffset, MF_FontData);
 			}
-			else if((CurrentPixelInFont < (MaxPixelInFont + StringOptions->CharacterSpacing)) && (CurrentPixelInFont >= MaxPixelInFont))
+
+			if(CurrentPixelInFont >= MaxPixelInFont)
 			{
-				//We have written the entire character, but the we need to write spacing between the characters.
-				PixelData[CurrentPixel] = 0x00;
-				if( (StringOptions->CharSize == MF_ASCII_SIZE_8X16) || (StringOptions->CharSize == MF_ASCII_SIZE_WA))
+				//Don't pad the last character
+				if(CharNumber != (StringLength-1))
 				{
-					PixelData[CurrentPixel+4] = 0x00;
+					//We have written the entire character, but the we need to write spacing between the characters.
+					PixelData[CurrentPixel] = 0x00;
+					if( (StringOptions->CharSize == MF_ASCII_SIZE_8X16) || (StringOptions->CharSize == MF_ASCII_SIZE_WA))
+					{
+						PixelData[CurrentPixel+4] = 0x00;
+					}
+					CurrentPixel++;
+					TotalPixelLength++;
 				}
-				CurrentPixel++;
-				TotalPixelLength++;
-				CurrentPixelInFont++;
 			}
 			else
 			{
@@ -857,13 +847,13 @@ void OLED_WriteMFString2(const char *StringToWrite, MF_StringOptions *StringOpti
 				{
 					PixelData[CurrentPixel+4] = MF_FontData[FontDataLocation+4];
 				}
-				CurrentPixelInFont++;
 				FontDataLocation++;
 				CurrentPixel++;
 				TotalPixelLength++;
 			}
 		}
 	}
+	//}
 
 	//Handle final padding padding in X
 	for(i=0;i<StringOptions->EndPadding;i++)
@@ -874,6 +864,7 @@ void OLED_WriteMFString2(const char *StringToWrite, MF_StringOptions *StringOpti
 			OLED_WriteColumn2(PixelData, PixelMask, StringOptions);
 			CurrentPixel = 0;
 			CurrentColumn++;		//Add a check to make sure we don't exceed the maximum column
+			//printf("Blarg2\r\n");
 		}
 		PixelData[CurrentPixel] = 0;
 		PixelData[CurrentPixel+4] = 0;
@@ -883,10 +874,18 @@ void OLED_WriteMFString2(const char *StringToWrite, MF_StringOptions *StringOpti
 
 	if(CurrentPixel != 0)
 	{
+		//printf("Blarg\r\n");
+		if( ((StringOptions->FontOptions & OLED_FONT_BOX) == OLED_FONT_BOX) && (((StringOptions->FontOptions & OLED_FONT_INVERSE) != OLED_FONT_INVERSE)) )
+		{
+			PixelData[CurrentPixel-1] = 0xFF;
+			PixelData[CurrentPixel+3] = 0xFF;
+		}
+
 		PixelMask = 0;
 		for(i=CurrentPixel;i<4;i++)
 		{
 			PixelData[i] = 0;
+			PixelData[i+4] = 0;
 			PixelMask |= (1<<i);
 		}
 		//Mask the unused pixels at the end of the last column
@@ -904,9 +903,100 @@ void OLED_WriteMFString2(const char *StringToWrite, MF_StringOptions *StringOpti
 	 *  TotalPixelLength is the length of the string written in pixels, including the pre and post padding, but not including the whitespace(if any) in the first and last column.
 	 */
 
-	StringOptions->PixelLength = TotalPixelLength;
-	StringOptions->EndColumn = CurrentColumn;
+	StringOptions->PixelLength = TotalPixelLength;		//TODO: eliminate the TotalPixelLength variable and simply use StringOptions.PixelLength
+	StringOptions->EndColumn = CurrentColumn;			//TODO: I can eliminate CurrentColumn and use StringOptions.EndColumn instead
 
+
+
+	//Handle padding on the top and bottom of the string.
+	LineOptions.XStart = StringOptions->XStart;
+	LineOptions.XEnd = StringOptions->PixelLength + StringOptions->XStart - 1;
+
+	LineOptions.LineWeight	= 1;
+	LineOptions.LineOptions = 0;
+
+	if((StringOptions->FontOptions & OLED_FONT_INVERSE) == OLED_FONT_INVERSE)
+	{
+		LineOptions.LinePattern = 0xFF;
+	}
+	else
+	{
+		LineOptions.LinePattern = 0x00;
+	}
+
+	for(i = StringOptions->YStart; i < VerticalPixelStart; i++)
+	{
+		LineOptions.YStart = i;
+		LineOptions.YEnd = i;
+		OLED_WriteLine2(&LineOptions);
+	}
+
+	for(i = StringOptions->YStart + StringOptions->PixelHeight + StringOptions->BottomPadding; i < StringOptions->YStart + StringOptions->PixelHeight + StringOptions->BottomPadding + StringOptions->TopPadding; i++)
+	{
+		LineOptions.YStart = i;
+		LineOptions.YEnd = i;
+		OLED_WriteLine2(&LineOptions);
+	}
+
+	StringOptions->PixelHeight += StringOptions->BottomPadding;
+	StringOptions->PixelHeight += StringOptions->TopPadding;
+	if( ((StringOptions->FontOptions & OLED_FONT_BOX) == OLED_FONT_BOX) && (((StringOptions->FontOptions & OLED_FONT_INVERSE) != OLED_FONT_INVERSE)) )
+	{
+		//Bottom Line
+		LineOptions.YStart = StringOptions->YStart;
+		LineOptions.YEnd = StringOptions->YStart;
+		LineOptions.LinePattern = 0xFF;
+		OLED_WriteLine2(&LineOptions);
+
+		//Top Line
+		LineOptions.YStart = StringOptions->YStart + StringOptions->PixelHeight - 1;
+		LineOptions.YEnd = StringOptions->YStart + StringOptions->PixelHeight - 1;
+		LineOptions.LinePattern = 0xFF;
+		OLED_WriteLine2(&LineOptions);
+
+		//Fill in the rest of the bottom line
+		for(i = StringOptions->YStart+1; i < VerticalPixelStart; i++)
+		{
+			LineOptions.YStart = i;
+			LineOptions.YEnd = i;
+
+			LineOptions.XStart = StringOptions->XStart;
+			LineOptions.XEnd = StringOptions->XStart;
+			OLED_WriteLine2(&LineOptions);
+
+			LineOptions.XStart = StringOptions->PixelLength + StringOptions->XStart - 1;
+			LineOptions.XEnd = StringOptions->PixelLength + StringOptions->XStart - 1;
+			OLED_WriteLine2(&LineOptions);
+		}
+
+
+
+		//Fill in the rest of the top line
+		for(i = StringOptions->YStart + StringOptions->PixelHeight - StringOptions->TopPadding; i < StringOptions->YStart + StringOptions->PixelHeight - 1; i++)
+		{
+			LineOptions.YStart = i;
+			LineOptions.YEnd = i;
+
+			LineOptions.XStart = StringOptions->XStart;
+			LineOptions.XEnd = StringOptions->XStart;
+			OLED_WriteLine2(&LineOptions);
+
+			LineOptions.XStart = StringOptions->PixelLength + StringOptions->XStart - 1;
+			LineOptions.XEnd = StringOptions->PixelLength + StringOptions->XStart - 1;
+			OLED_WriteLine2(&LineOptions);
+		}
+
+
+
+
+		//OLED_WriteColumn2(PixelData, PixelMask, StringOptions);
+
+
+	}
+
+
+
+	//printf("Done\r\n");
 	return;
 }
 
@@ -1714,7 +1804,7 @@ void OLED_WriteLine2(MF_LineOptions *TheLine)
 				}
 			}
 			OLED_SendCommand(OLED_WRITE_RAM, OLED_PixelBuffer, 2);
-			printf("Writing 0: 0x%02X, 1: 0x%02X\r\n", OLED_PixelBuffer[0], OLED_PixelBuffer[1]);
+			//printf("Writing 0: 0x%02X, 1: 0x%02X\r\n", OLED_PixelBuffer[0], OLED_PixelBuffer[1]);
 		}
 	}
 	else

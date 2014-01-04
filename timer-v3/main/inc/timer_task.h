@@ -29,12 +29,11 @@
  * 		EventTime[1]: Hour of the event (in 24 hour format)
  * 		EventTime[2]: Minute of the event
  *
- *
  * EventOutputState:
  * 	0 - Output off
  * 	1 - Output on
  */
-typedef struct {
+typedef struct __attribute__((packed)){
 	uint8_t EventType;
 	uint8_t EventTime[3];
 	uint8_t EventOutputState;

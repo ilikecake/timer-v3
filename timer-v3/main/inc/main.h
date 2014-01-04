@@ -50,6 +50,7 @@ xQueueHandle xTimerCommands;
 #define MENU_TO_IDLE_TIME			4000
 #define IDLE_TO_DIM_TIME			3000
 
+//TODOL Change these to pixels instead of columns
 #define IDLE_TIME_ROW				37
 #define IDLE_TIME_COLUMN			4
 #define IDLE_DATE_ROW				37

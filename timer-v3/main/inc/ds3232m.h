@@ -61,6 +61,7 @@
 #define DS3232M_INT_MODE_1KHZ		0x01
 #define DS3232M_INT_MODE_1KHZ_BBU	0x02
 
+//TODO: Put functions in to read/write to the SRAM
 
 //TODO: This should probably go somewhere else...
 //TODO: Is there a standard struct I can use for this?

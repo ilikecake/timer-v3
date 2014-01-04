@@ -460,41 +460,74 @@ static int _F5_Handler (void)
 
 			OLED_WriteMFString2(InitString, &StringOptions);
 
-			printf("Start Column: %u\r\n", StringOptions.StartColumn);
-			printf("End Column: %u\r\n", StringOptions.EndColumn);
-			printf("Pixel Length: %u\r\n", StringOptions.PixelLength);
-			printf("Pixel Height: %u\r\n", StringOptions.PixelHeight);
+			//printf("Start Column: %u\r\n", StringOptions.StartColumn);
+			//printf("End Column: %u\r\n", StringOptions.EndColumn);
+			//printf("Pixel Length: %u\r\n", StringOptions.PixelLength);
+			//printf("Pixel Height: %u\r\n", StringOptions.PixelHeight);
 
 			StringOptions.YStart = 10;
 			StringOptions.CharSize = MF_ASCII_SIZE_5X7;
 
 			OLED_WriteMFString2(InitString, &StringOptions);
 
-			printf("Start Column: %u\r\n", StringOptions.StartColumn);
-			printf("End Column: %u\r\n", StringOptions.EndColumn);
-			printf("Pixel Length: %u\r\n", StringOptions.PixelLength);
-			printf("Pixel Height: %u\r\n", StringOptions.PixelHeight);
+			//printf("Start Column: %u\r\n", StringOptions.StartColumn);
+			//printf("End Column: %u\r\n", StringOptions.EndColumn);
+			//printf("Pixel Length: %u\r\n", StringOptions.PixelLength);
+			//printf("Pixel Height: %u\r\n", StringOptions.PixelHeight);
 
 			StringOptions.YStart = 20;
-			StringOptions.CharSize = MF_ASCII_SIZE_8X16;
-
-			OLED_WriteMFString2(InitString, &StringOptions);
-
-			printf("Start Column: %u\r\n", StringOptions.StartColumn);
-			printf("End Column: %u\r\n", StringOptions.EndColumn);
-			printf("Pixel Length: %u\r\n", StringOptions.PixelLength);
-			printf("Pixel Height: %u\r\n", StringOptions.PixelHeight);
-
-
-			StringOptions.YStart = 40;
 			StringOptions.CharSize = MF_ASCII_SIZE_WA;
+			StringOptions.CharacterSpacing = 0;
+
+			OLED_WriteMFString2(InitString, &StringOptions);
+
+			//printf("Start Column: %u\r\n", StringOptions.StartColumn);
+			//printf("End Column: %u\r\n", StringOptions.EndColumn);
+			printf("Pixel Length: %u\r\n", StringOptions.PixelLength);
+			printf("Pixel Height: %u\r\n", StringOptions.PixelHeight);
+			printf("Y Start: %u\r\n", StringOptions.YStart);
+
+
+
+			StringOptions.YStart = 20;
+			StringOptions.XStart = 80;
+			StringOptions.StartPadding = 2;
+			StringOptions.EndPadding = 2;
+			StringOptions.TopPadding = 2;
+			StringOptions.BottomPadding = 4;
+			OLED_WriteMFString2(InitString, &StringOptions);
+
+			//printf("Start Column: %u\r\n", StringOptions.StartColumn);
+			//printf("End Column: %u\r\n", StringOptions.EndColumn);
+			printf("Pixel Length: %u\r\n", StringOptions.PixelLength);
+			printf("Pixel Height: %u\r\n", StringOptions.PixelHeight);
+			printf("Y Start: %u\r\n", StringOptions.YStart);
+
+
+			StringOptions.CharSize = MF_ASCII_SIZE_7X8;
+			StringOptions.XStart = 100;
+			StringOptions.YStart = 1;
+			StringOptions.StartPadding = 1;
+			StringOptions.EndPadding = 2;
+			StringOptions.TopPadding = 2;
+			StringOptions.BottomPadding = 1;
+			StringOptions.CharacterSpacing = 0;
+			StringOptions.Brightness = 0x0F;
+			StringOptions.FontOptions = OLED_FONT_BOX;
+
+			OLED_WriteMFString2(InitString, &StringOptions);
+
+
+			/*StringOptions.YStart = 40;
+			StringOptions.CharSize = MF_ASCII_SIZE_WA;
+			StringOptions.CharacterSpacing = 2;
 
 			OLED_WriteMFString2(InitString, &StringOptions);
 
 			printf("Start Column: %u\r\n", StringOptions.StartColumn);
 			printf("End Column: %u\r\n", StringOptions.EndColumn);
 			printf("Pixel Length: %u\r\n", StringOptions.PixelLength);
-			printf("Pixel Height: %u\r\n", StringOptions.PixelHeight);
+			printf("Pixel Height: %u\r\n", StringOptions.PixelHeight);*/
 
 
 
@@ -589,6 +622,8 @@ static int _F7_Handler (void)
 	uint8_t resp;
 	uint32_t ver;
 	uint8_t i;
+	TimerEvent TestEvent;
+
 	unsigned int temp3[4];
 	cmd = argAsInt(1);
 	val = argAsInt(2);
@@ -610,22 +645,26 @@ static int _F7_Handler (void)
 
 	case 1:
 		printf("Reading 4 bytes from address %u\r\n", val);
-		resp = EEPROM_Read(val, DataArray, 4);
+		//resp = EEPROM_Read((uint8_t*)val, (uint8_t*)&ver, 4);
+		resp = EEPROM_Read((uint8_t*)val, DataArray, 4);
 		printf("Response is %u\r\n", resp);
-		printf("data[0]: %u\r\n", DataArray[0]);
-		printf("data[1]: %u\r\n", DataArray[1]);
-		printf("data[2]: %u\r\n", DataArray[2]);
-		printf("data[3]: %u\r\n", DataArray[3]);
-		//printf("data[4]: %u\r\n", DataArray[4]);
+		//printf("data: 0x%08lX\r\n", ver);
+		printf("data[0]: 0x%02X\r\n", DataArray[0]);
+		printf("data[1]: 0x%02X\r\n", DataArray[1]);
+		printf("data[2]: 0x%02X\r\n", DataArray[2]);
+		printf("data[3]: 0x%02X\r\n", DataArray[3]);
 		break;
 
 	case 2:
-		DataArray[0] = 0xFA;
-		DataArray[1] = 0xFF;
-		DataArray[2] = 0x10;
-		DataArray[3] = 0xFA;
+		//DataArray[0] = 0xFA;
+		//DataArray[1] = 0xFF;
+		//DataArray[2] = 0x10;
+		//DataArray[3] = 0xFA;
+
+		ver = 0xFAFF10FB;
+
 		printf("writing 4 bytes starting at %u\r\n", val);
-		resp = EEPROM_Write(val, DataArray, 4);
+		resp = EEPROM_Write((uint8_t*)val, (uint8_t*)&ver, 4);
 		printf("Response is %u\r\n", resp);
 		break;
 
@@ -658,8 +697,34 @@ static int _F7_Handler (void)
 		ReinvokeISP();
 		break;
 
+	case 7:
+		printf("Writing to EEPROM...\r\n");
+		TestEvent.EventType = 0xA2;
+		TestEvent.EventOutputState = 0x01;
+		TestEvent.EventTime[0] = 0x0A;
+		TestEvent.EventTime[1] = 0xFF;
+		TestEvent.EventTime[2] = 0xCA;
+		resp = EEPROM_Write((uint8_t*)0, (uint8_t*)&TestEvent, sizeof(TestEvent));
+		printf("Response is %u\r\n", resp);
+		break;
 
+	case 8:
+		TestEvent.EventType = 0x00;
+		TestEvent.EventOutputState = 0x00;
+		TestEvent.EventTime[0] = 0x00;
+		TestEvent.EventTime[2] = 0x00;
+		TestEvent.EventTime[3] = 0x00;
 
+		printf("Reading from EEPROM...\r\n");
+		resp = EEPROM_Read((uint8_t*)0, (uint8_t*)&TestEvent, sizeof(TestEvent));
+		printf("Response is %u\r\n", resp);
+
+		printf("EventType: 0x%02X\r\n", TestEvent.EventType);
+		printf("EventOutput: 0x%02X\r\n", TestEvent.EventOutputState);
+		printf("EventTime[0]: 0x%02X\r\n", TestEvent.EventTime[0]);
+		printf("EventTime[1]: 0x%02X\r\n", TestEvent.EventTime[1]);
+		printf("EventTime[2]: 0x%02X\r\n", TestEvent.EventTime[2]);
+		break;
 
 	}
 

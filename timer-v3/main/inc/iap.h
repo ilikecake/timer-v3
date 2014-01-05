@@ -39,8 +39,8 @@
 #define IAP_COMPARE_ERROR				10
 #define IAP_BUSY						11
 
-uint8_t EEPROM_Write(uint8_t *AddressToWrite, uint8_t *DataArray, uint8_t BytesToWrite);
-uint8_t EEPROM_Read(uint8_t *AddressToRead, uint8_t *DataArray, uint8_t BytesToRead);
+uint8_t EEPROM_Write(uint16_t AddressToWrite, void* DataArray, uint16_t BytesToWrite);
+uint8_t EEPROM_Read(uint16_t AddressToRead, void* DataArray, uint16_t BytesToRead);
 
 //void readEEPROM( uint8_t* eeAddress, uint8_t* buffAddress, uint32_t byteCount );
 //void writeEEPROM( uint8_t* eeAddress, uint8_t* buffAddress, uint32_t byteCount );

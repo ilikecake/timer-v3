@@ -43,13 +43,13 @@ void PININT_IRQ_HANDLER(void)
 
 	if(App_GetStatus() != APP_STATUS_INIT)
 	{
-		OLED_Command CommandToSend;
+		DisplayCommand CommandToSend;
 		uint8_t TimerCommand = TIMER_TASK_CMD_TICK;
 		Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(GPIO_PININT_INDEX));
 		DS3232M_ClearAlarmFlag(2);
 		CommandToSend.CommandName = OLED_CMD_TIME_IN;
 		xQueueSendFromISR(xTimerCommands, (void *)&TimerCommand, NULL);
-		xQueueSendFromISR(xOLEDCommands, (void *)&CommandToSend, NULL);
+		xQueueSendFromISR(xDisplayCommands, (void *)&CommandToSend, NULL);
 
 		//Board_LED_Set(3, 1);
 	}

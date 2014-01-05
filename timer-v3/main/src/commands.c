@@ -18,7 +18,6 @@
 *	\version	1.1
 *	\date		1/13/2013
 *	\copyright	Copyright 2013, Pat Satyshur
-*	\ingroup 	beer_heater_main
 *
 *	@{
 */
@@ -29,9 +28,9 @@
 //#include "board.h"
 
 //The number of commands
-const uint8_t NumCommands = 8;
+const uint8_t NumCommands = 9;
 
-//Handler function declerations
+//Handler function declarations
 
 //LED control function
 static int _F1_Handler (void);
@@ -83,13 +82,14 @@ static int _F8_Handler (void);
 const char _F8_NAME[]			= "timer";
 const char _F8_DESCRIPTION[] 	= "Timer functions";
 const char _F8_HELPTEXT[] 		= "timer <1>";
-/*
-//Turn the relay on or off
-static int _F9_Handler (void);
-const char _F9_NAME[] PROGMEM 			= "relay";
-const char _F9_DESCRIPTION[] PROGMEM 	= "Control the relay";
-const char _F9_HELPTEXT[] PROGMEM 		= "relay <state>";
 
+//List or update events
+static int _F9_Handler (void);
+const char _F9_NAME[] 			= "event";
+const char _F9_DESCRIPTION[]	= "List or update events";
+const char _F9_HELPTEXT[]		= "event <cmd> <data...>";
+
+/*
 //Manual calibration of the ADC
 static int _F10_Handler (void);
 const char _F10_NAME[] PROGMEM 			= "cal";
@@ -126,8 +126,8 @@ const CommandListItem AppCommandList[] =
 	{ _F6_NAME, 	0,  1,	_F6_Handler,	_F6_DESCRIPTION,	_F6_HELPTEXT	},		//beep
 	{ _F7_NAME, 	2,  2,	_F7_Handler,	_F7_DESCRIPTION,	_F7_HELPTEXT	},		//eeprom
 	{ _F8_NAME,		1,  1,	_F8_Handler,	_F8_DESCRIPTION,	_F8_HELPTEXT	},		//timer
+	{ _F9_NAME,		1,  8,	_F9_Handler,	_F9_DESCRIPTION,	_F9_HELPTEXT	},		//event
 	/*
-	{ _F9_NAME,		1,  1,	_F9_Handler,	_F9_DESCRIPTION,	_F9_HELPTEXT	},		//relay
 	{ _F10_NAME,	0,  0,	_F10_Handler,	_F10_DESCRIPTION,	_F10_HELPTEXT	},		//cal
 	{ _F11_NAME,	0,  0,	_F11_Handler,	_F11_DESCRIPTION,	_F11_HELPTEXT	},		//temp
 	{ _F12_NAME,	0,  0,	_F12_Handler,	_F12_DESCRIPTION,	_F12_HELPTEXT	},		//twiscan
@@ -621,7 +621,7 @@ static int _F7_Handler (void)
 	uint8_t val;
 	uint8_t resp;
 	uint32_t ver;
-	uint8_t i;
+	//uint8_t i;
 	TimerEvent TestEvent;
 
 	unsigned int temp3[4];
@@ -646,7 +646,7 @@ static int _F7_Handler (void)
 	case 1:
 		printf("Reading 4 bytes from address %u\r\n", val);
 		//resp = EEPROM_Read((uint8_t*)val, (uint8_t*)&ver, 4);
-		resp = EEPROM_Read((uint8_t*)val, DataArray, 4);
+		resp = EEPROM_Read(val, &DataArray, 4);
 		printf("Response is %u\r\n", resp);
 		//printf("data: 0x%08lX\r\n", ver);
 		printf("data[0]: 0x%02X\r\n", DataArray[0]);
@@ -656,15 +656,15 @@ static int _F7_Handler (void)
 		break;
 
 	case 2:
-		//DataArray[0] = 0xFA;
-		//DataArray[1] = 0xFF;
-		//DataArray[2] = 0x10;
-		//DataArray[3] = 0xFA;
+		DataArray[0] = 0xFA;
+		DataArray[1] = 0xFF;
+		DataArray[2] = 0x10;
+		DataArray[3] = 0xFA;
 
 		ver = 0xFAFF10FB;
 
 		printf("writing 4 bytes starting at %u\r\n", val);
-		resp = EEPROM_Write((uint8_t*)val, (uint8_t*)&ver, 4);
+		resp = EEPROM_Write(val, &DataArray, 4);
 		printf("Response is %u\r\n", resp);
 		break;
 
@@ -704,19 +704,22 @@ static int _F7_Handler (void)
 		TestEvent.EventTime[0] = 0x0A;
 		TestEvent.EventTime[1] = 0xFF;
 		TestEvent.EventTime[2] = 0xCA;
-		resp = EEPROM_Write((uint8_t*)0, (uint8_t*)&TestEvent, sizeof(TestEvent));
+		resp = EEPROM_Write(0, &TestEvent, sizeof(TestEvent));
+
+		//resp = EEPROM_Write((uint8_t*)0, (uint8_t*)&TestEvent, sizeof(TestEvent));
 		printf("Response is %u\r\n", resp);
 		break;
 
 	case 8:
 		TestEvent.EventType = 0x00;
 		TestEvent.EventOutputState = 0x00;
-		TestEvent.EventTime[0] = 0x00;
+		TestEvent.EventTime[0] = 0x20;
 		TestEvent.EventTime[2] = 0x00;
 		TestEvent.EventTime[3] = 0x00;
 
 		printf("Reading from EEPROM...\r\n");
-		resp = EEPROM_Read((uint8_t*)0, (uint8_t*)&TestEvent, sizeof(TestEvent));
+		resp = EEPROM_Read(0, &TestEvent, sizeof(TestEvent));
+		//resp = EEPROM_Read((uint8_t*)0, (uint8_t*)&TestEvent, sizeof(TestEvent));
 		printf("Response is %u\r\n", resp);
 
 		printf("EventType: 0x%02X\r\n", TestEvent.EventType);
@@ -725,6 +728,17 @@ static int _F7_Handler (void)
 		printf("EventTime[1]: 0x%02X\r\n", TestEvent.EventTime[1]);
 		printf("EventTime[2]: 0x%02X\r\n", TestEvent.EventTime[2]);
 		break;
+
+	case 9:
+		TimerReadEventsFromEEPROM();
+		break;
+
+	case 10:
+		TimerReadSingleEventFromEEPROM(1, 3, &TestEvent);
+		TimerReadSingleEventFromEEPROM(0, 4, &TestEvent);
+		TimerReadSingleEventFromEEPROM(3, 1, &TestEvent);
+		break;
+
 
 	}
 
@@ -776,6 +790,125 @@ static int _F8_Handler (void)
 
 
 	}
+
+	return 0;
+}
+
+static int _F9_Handler (void)
+{
+	uint8_t cmd;
+	uint8_t i,j;
+
+	TimerEvent EventData;
+
+	char LineChar[] = "-----------------------------------------------\r\n";
+
+	//argAsChar(uint8_t argNum, char *ArgString);
+
+	cmd = argAsInt(1);
+
+	switch (cmd)
+	{
+		case 1:
+			printf("List Events from RAM:\r\n");
+			for(i=0; i<TIMER_OUTPUT_NUMBER; i++)
+			{
+				printf(LineChar);
+				printf("Output %u\r\n", i+1);
+				printf(LineChar);
+				printf("Event\tType\tTime[2]\tTime[1]\tTime[0]\tOutput\r\n");
+				printf(LineChar);
+
+				for(j=0; j<TIMER_EVENT_NUMBER; j++)
+				{
+					TimerGetEvent(i, j, &EventData);
+					printf("%u\t%u\t%u\t%u\t%u\t%u\r\n", j, EventData.EventType, EventData.EventTime[2], EventData.EventTime[1], EventData.EventTime[0], EventData.EventOutputState);
+				}
+				printf(LineChar);
+			}
+			break;
+
+		case 2:
+			printf("List Events from EEPROM:\r\n");
+			for(i=0; i<TIMER_OUTPUT_NUMBER; i++)
+			{
+				printf(LineChar);
+				printf("Output %u\r\n", i+1);
+				printf(LineChar);
+				printf("Event\tType\tTime[2]\tTime[1]\tTime[0]\tOutput\r\n");
+				printf(LineChar);
+
+				for(j=0; j<TIMER_EVENT_NUMBER; j++)
+				{
+					if(TimerReadSingleEventFromEEPROM(i, j, &EventData) != 0)
+					{
+						printf("Read Error\r\n");
+						return 0;
+					}
+					printf("%u\t%u\t%u\t%u\t%u\t%u\r\n", j, EventData.EventType, EventData.EventTime[2], EventData.EventTime[1], EventData.EventTime[0], EventData.EventOutputState);
+				}
+				printf(LineChar);
+			}
+			break;
+
+		case 3:
+			printf("Reload Events from EEPROM...");
+			if(TimerReadEventsFromEEPROM() == 0x00)
+			{
+				printf("Done\r\n");
+			}
+			else
+			{
+				printf("Read Error\r\n");
+			}
+			break;
+
+		case 4:
+			printf("Write RAM event list to EEPROM...");
+			if(TimerWriteEventsToEEPROM() == 0x00)
+			{
+				printf("Done\r\n");
+			}
+			else
+			{
+				printf("Write Error\r\n");
+			}
+			break;
+
+		case 5:
+			i = argAsInt(2);
+			j = argAsInt(3);
+			printf("Clear output %u event %u from RAM..", i, j);
+			TimerClearRamEvent(i, j);
+			printf("Done\r\n");
+			break;
+
+		case 6:
+			i = argAsInt(2);
+			j = argAsInt(3);
+
+			EventData.EventType = argAsInt(4);
+			EventData.EventTime[0] = argAsInt(5);
+			EventData.EventTime[1] = argAsInt(6);
+			EventData.EventTime[2] = argAsInt(7);
+			EventData.EventOutputState = argAsInt(8);
+
+			//printf("Set: %u, %u, %u, %u, %u\r\n",EventData.EventType, EventData.EventTime[0], EventData.EventTime[1], EventData.EventTime[2], EventData.EventOutputState);
+
+			printf("Setting output %u event %u in RAM..", i, j);
+			TimerSetEvent(i, j, &EventData);
+			printf("Done\r\n");
+
+			break;
+
+
+	}
+
+
+
+
+
+
 
 	return 0;
 }

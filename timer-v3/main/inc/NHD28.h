@@ -76,26 +76,6 @@
 #define OLED_Y_MIN		0
 #define OLED_Y_MAX		63
 
-
-
-
-//TODO: put in a list of commands to send with the following struct
-#define OLED_CMD_DISPLAY_OFF			0x00
-#define OLED_CMD_DISPLAY_ON				0x01
-#define OLED_CMD_CLEAR_DISPLAY			0x02
-#define OLED_CMD_FILL_DISPLAY			0x03
-#define OLED_CMD_WRITE_STRING			0x04		//TODO: make more commands for different fonts, etc...
-#define OLED_CMD_BUTTON_IN				0x05
-#define OLED_CMD_TIME_IN				0x06
-
-//A struct to pass messages to the OLED task
-typedef struct
-{
-	uint8_t CommandName;
-	uint8_t CommandData[5];
-	char CommandCharData[16];
-} OLED_Command;
-
 //Font options struct
 typedef struct
 {
@@ -182,6 +162,7 @@ void OLED_WriteColumn(uint8_t *ColumnData, uint8_t ColumnHeight, uint8_t ColumnB
 void OLED_WriteColumn2(uint8_t *ColumnData, uint8_t PixelStart, MF_StringOptions *StringOptions);
 
 void OLED_WriteMFString2(const char *StringToWrite, MF_StringOptions *StringOptions);
+void OLED_WriteMF_UInt2(uint32_t NumberToWrite, uint8_t Padding, MF_StringOptions *StringOptions);
 
 
 void OLED_WriteMF_UInt(uint8_t CharSize, uint32_t NumberToWrite, uint8_t ColumnToStart, uint8_t RowToStart, uint8_t FontOptions, uint8_t Padding);		//TODO: check if this breaks for 0

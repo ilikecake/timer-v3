@@ -1001,6 +1001,75 @@ void OLED_WriteMFString2(const char *StringToWrite, MF_StringOptions *StringOpti
 }
 
 
+void OLED_WriteMF_UInt2(uint32_t NumberToWrite, uint8_t Padding, MF_StringOptions *StringOptions)
+{
+	char NumberString[10];
+
+	int8_t i;
+	uint32_t Divisor[10];
+	uint8_t digit;
+	uint8_t isStarted;
+
+	Divisor[0] = 1;
+	Divisor[1] = 10;
+	Divisor[2] = 100;
+	Divisor[3] = 1000;
+	Divisor[4] = 10000;
+	Divisor[5] = 100000;
+	Divisor[6] = 1000000;
+	Divisor[7] = 10000000;
+	Divisor[8] = 100000000;
+	Divisor[9] = 1000000000;
+
+	isStarted = 0xFF;
+
+	for(i=9;i>=0;i--)
+	{
+		digit = (uint8_t)(NumberToWrite/Divisor[i]);
+		//printf("num: %lu\r\n", NumberToWrite);
+		//printf("%u: %u\r\n", i, digit);
+
+		if((digit > 0) && (isStarted == 0xFF))
+		{
+			//printf("start\r\n");
+			isStarted = i;
+		}
+
+		if(isStarted != 0xFF)
+		{
+			//printf("ch: %c\r\n", (char)(digit + 48));
+			NumberString[isStarted-i] = (char)(digit + 48);
+			//printf("sub: %lu\r\n", (Divisor[i]*(uint32_t)digit));
+			NumberToWrite = NumberToWrite - (Divisor[i]*(uint32_t)digit);
+		}
+	}
+
+	//TODO: add a check to make sure the string does not get too big...
+	//TODO: add a check to see if we need to pad
+	if(Padding > isStarted)
+	{
+		digit = Padding-isStarted-1;
+		for(i=isStarted; i>=0; i--)
+		{
+			NumberString[i+digit] = NumberString[i];
+		}
+		for(i=0;i<digit;i++)
+		{
+			NumberString[i] = '0';
+		}
+		NumberString[Padding] = '\0';
+	}
+	else
+	{
+		NumberString[isStarted+1] = '\0';
+	}
+
+	OLED_WriteMFString2(NumberString, StringOptions);
+	//OLED_WriteMFString(CharSize, NumberString, ColumnToStart, RowToStart, FontOptions);
+	return;
+}
+
+
 /**Gets four bytes of data from the MF chip
  * If CharSize is 5x7 or 7x8, CharArray is 4 bytes long, if CharSize is 8x16 or WA, CharArray is 8 bytes long
  * CharStartByte is how many bytes to offset from the begining of the character data.
@@ -1432,7 +1501,7 @@ void OLED_WriteMF_Int(uint8_t CharSize, int32_t NumberToWrite, uint8_t ColumnToS
 
 void OLED_WriteMFString_Q(uint8_t CharSize, char *StringToWrite, uint8_t ColumnToStart, uint8_t RowToStart)
 {
-	OLED_Command CommandToSend;
+	DisplayCommand CommandToSend;
 	uint8_t sz;
 
 	sz = strlen (StringToWrite);
@@ -1451,7 +1520,7 @@ void OLED_WriteMFString_Q(uint8_t CharSize, char *StringToWrite, uint8_t ColumnT
 		memcpy(CommandToSend.CommandCharData, StringToWrite, sz);
 	}
 
-	xQueueSend(xOLEDCommands, (void *)&CommandToSend, portMAX_DELAY);
+	xQueueSend(xDisplayCommands, (void *)&CommandToSend, portMAX_DELAY);
 
 	return;
 }

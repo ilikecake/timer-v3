@@ -43,8 +43,8 @@ xTaskHandle TaskList[4];
 
 //TODO: move these to their specific .h files?
 xQueueHandle xUSBCharReceived;
-xQueueHandle xOLEDCommands;
-xQueueHandle xTimerCommands;
+extern xQueueHandle xDisplayCommands;
+extern xQueueHandle xTimerCommands;
 
 //Defines for the OLED display task
 #define MENU_TO_IDLE_TIME			4000

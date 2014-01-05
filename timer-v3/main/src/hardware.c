@@ -132,11 +132,11 @@ void App_HandleButtonPress(uint8_t ButtonNumber)
 {
 	if(App_GetStatus() != APP_STATUS_INIT)
 	{
-		OLED_Command CommandToSend;
+		DisplayCommand CommandToSend;
 
 		CommandToSend.CommandName = OLED_CMD_BUTTON_IN;
 		CommandToSend.CommandData[0] = ButtonNumber;
-		xQueueSendFromISR(xOLEDCommands, (void *)&CommandToSend, NULL);
+		xQueueSendFromISR(xDisplayCommands, (void *)&CommandToSend, NULL);
 	}
 	return;
 }

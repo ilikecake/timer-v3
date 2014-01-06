@@ -31,6 +31,8 @@
 #include "stdint.h"
 //#include "common_types.h"
 
+#define INCLUDE_DOW_STRINGS
+
 #define DS3232M_SLA_ADDRESS		0x68
 
 //Register map
@@ -61,13 +63,26 @@
 #define DS3232M_INT_MODE_1KHZ		0x01
 #define DS3232M_INT_MODE_1KHZ_BBU	0x02
 
-//TODO: Put functions in to read/write to the SRAM
+#ifdef INCLUDE_DOW_STRINGS
+
+//The names of the days of the week.
+static char DOW0[] = "Sunday";
+static char DOW1[] = "Monday";
+static char DOW2[] = "Tuesday";
+static char DOW3[] = "Wednesday";
+static char DOW4[] = "Thursday";
+static char DOW5[] = "Friday";
+static char DOW6[] = "Saturday";
+
+static char* DOW[7] = {DOW0, DOW1, DOW2, DOW3, DOW4, DOW5, DOW6};
+
+#endif
 
 //TODO: This should probably go somewhere else...
 //TODO: Is there a standard struct I can use for this?
 typedef struct TimeAndDate
 {
-        uint16_t year;
+        uint16_t year;		/** The full year (ex: include all digits, like 1982, 2014, etc...) */
         uint8_t month;
         uint8_t day;
         uint8_t dow;
@@ -112,6 +127,12 @@ uint8_t DS3232M_GetTemp(int8_t *TempLHS, uint8_t *TempRHS);									//Not tested
 
 void DS3232M_Reset(void);																	//Needs work
 
+uint8_t GetDOW(uint16_t Year, uint16_t Month, uint16_t Day);
+
+void WriteSRAM(uint8_t* DataToWrite, uint8_t BytesToWrite);
+void ReadSRAM(uint8_t AddressToRead, uint8_t* DataToRead, uint8_t BytesToRead);
+
+void ClearCenturyBit(void);
 
 #endif
 

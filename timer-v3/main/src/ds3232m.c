@@ -38,6 +38,8 @@ I2C_XFER_T DS3232M_I2C;
 #define PININT_IRQ_HANDLER			FLEX_INT0_IRQHandler	/* PININT IRQ function name */
 #define PININT_NVIC_NAME			PIN_INT0_IRQn			/* PININT NVIC interrupt name */
 
+#define YEAR_MSB_SRAM_ADDRESS		0xFE	/** The address to put the two most significant bits in the year register. (ex: for 1982, 19 would go into this register.) */
+
 void PININT_IRQ_HANDLER(void)
 {
 
@@ -192,20 +194,34 @@ void DS3232M_ClearOSCFlag(void)
 void DS3232M_SetTime(TimeAndDate *TheTime)
 {
 	uint8_t SendData[8];
+	uint16_t YearMSD;
+	uint16_t YearLSD;
+
+	//DOW is set automatically based on the date entered.
+	TheTime->dow = GetDOW(TheTime->year, (uint16_t)(TheTime->month), (uint16_t)(TheTime->day));
 
 	SendData[0] = DS3232M_REG_SEC;
 	SendData[1] = ((TheTime->sec % 10) | ((TheTime->sec / 10) << 4));
 	SendData[2] = ((TheTime->min % 10) | ((TheTime->min / 10) << 4));
-	SendData[3] = ((((TheTime->hour % 10) | ((TheTime->hour / 10) << 4))) & 0x3F);		//Note: this sets the RTC in 24 hour mode
+	SendData[3] = ((((TheTime->hour % 10) | ((TheTime->hour / 10) << 4))) & 0x3F);				//Note: this sets the RTC in 24 hour mode
 	SendData[4] = TheTime->dow;
 	SendData[5] = ((TheTime->day % 10) | ((TheTime->day / 10) << 4));
-	SendData[6] = ((TheTime->month % 10) | ((TheTime->month / 10) << 4));	//NOTE: this probably clears the century bit. maybe look at this later.
-	SendData[7] = ((TheTime->year % 10) | ((TheTime->year / 10) << 4));
+	SendData[6] = (((TheTime->month % 10) | ((TheTime->month / 10) << 4))) & 0x7F;				//NOTE: This clears the century bit. The two most significant digits of the year are saved in SRAM. When the date is read, the century bit is checked and the century is updated if required.
+
+	YearMSD = TheTime->year/100;
+	YearLSD = TheTime->year - (YearMSD*100);
+
+	SendData[7] = ((YearLSD % 10) | ((YearLSD / 10) << 4));
 
 	DS3232M_I2C.txBuff = SendData;
 	DS3232M_I2C.txSz = 8;
 	DS3232M_I2C.rxSz = 0;
 	Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);
+
+	//Write the two most significant digits of the year (ex: 19 for 1982, 20 for 2013, etc...) to SRAM
+	SendData[0] = YEAR_MSB_SRAM_ADDRESS;
+	SendData[1] = (uint8_t)(YearMSD);
+	WriteSRAM(SendData, 1);
 
 	DS3232M_ClearOSCFlag();
 
@@ -249,14 +265,30 @@ void DS3232M_GetTime(TimeAndDate *TheTime)
 	TheTime->dow = (RecieveData[3] & 0x07);
 	TheTime->day = ((RecieveData[4] & 0x0F) + ((RecieveData[4] & 0x30) >> 4)*10);
 	TheTime->month = ((RecieveData[5] & 0x0F) + ((RecieveData[5] & 0x10) >> 4)*10);
-	//TODO: Handle century bit...
-	TheTime->year = ((RecieveData[6] & 0x0F) + ((RecieveData[6] & 0xF0) >> 4)*10);
+
+	//Assemble the year
+	TheTime->year = ((RecieveData[6] & 0x0F) + ((RecieveData[6] & 0xF0) >> 4)*10);	//The two LSD of the year
+
+	//If the century bit is one, the year most significant digits are incremented by 1. The century bit is then set back to zero.
+	ReadSRAM(YEAR_MSB_SRAM_ADDRESS, &RecieveData[1], 1);
+
+	if((RecieveData[5] & 0x7F) == 0x80)
+	{
+		//Increment the year MSD in SRAM and clear the century bit
+		RecieveData[0] = YEAR_MSB_SRAM_ADDRESS;
+		RecieveData[1] += 1;
+		WriteSRAM(RecieveData, 1);
+		ClearCenturyBit();
+	}
+
+	TheTime->year += (100*RecieveData[1]);
 
 	return;
 }
 
 //AlarmMasks format: <DY/DT(1=day, 0=date)> <AxM4> <AxM3> <AxM2> <A1M1>
 //Note: A2M1 does not exist (no seconds register)
+//TODO: look at DOW register in this function
 void DS3232M_SetAlarm(uint8_t AlarmNumber, uint8_t AlarmMasks, TimeAndDate *AlarmTime)
 {
 	//uint8_t RecieveData;
@@ -636,14 +668,15 @@ void DS3232M_GetTimeString(char *TimeString, uint8_t StringOptions)
 void DS3232M_GetDateString(char *DateString, uint8_t StringOptions)
 {
 	TimeAndDate CurrentTime;
+	uint16_t TempVar;
 
 	DS3232M_GetTime(&CurrentTime);
 
 	DateString[2] = '/';
 	DateString[5] = '/';
 
-	DateString[6] = '2';
-	DateString[7] = '0';
+	//DateString[6] = '2';
+	//DateString[7] = '0';
 
 	DateString[10] = '\0';
 
@@ -660,8 +693,93 @@ void DS3232M_GetDateString(char *DateString, uint8_t StringOptions)
 	DateString[3] = (char)((CurrentTime.day/10)+48);
 	DateString[4] = (char)((CurrentTime.day%10)+48);
 
-	DateString[8] = (char)((CurrentTime.year/10)+48);
-	DateString[9] = (char)((CurrentTime.year%10)+48);
+
+	TempVar = CurrentTime.year/100;
+	DateString[6] = (char)((TempVar/10)+48);
+	DateString[7] = (char)((TempVar%10)+48);
+
+	TempVar = CurrentTime.year - (TempVar*100);
+	DateString[8] = (char)((TempVar/10)+48);
+	DateString[9] = (char)((TempVar%10)+48);
+
+	return;
+}
+
+/**Returns the day of the week for a given day, month and year
+ *  Method stolen from http://en.wikipedia.org/wiki/Determination_of_the_day_of_the_week#Other_methods_.28using_tables_or_computational_devices.29
+ *  Year:	The four digit year (ex: 1982)
+ *  Month:	The month number (ex: 9 for September)
+ *  Day:	The day in the month (ex: 14)
+ *
+ *  Returns: The day of the week, with 0 = Sunday, 1 = Monday, etc...
+ */
+uint8_t GetDOW(uint16_t Year, uint16_t Month, uint16_t Day)
+{
+	static uint16_t t[] = {0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4};
+	Year -= Month < 3;
+	return (Year + Year/4 - Year/100 + Year/400 + t[Month-1] + Day) % 7;
+}
+
+/**Write data to the battery backed SRAM
+ *
+ *  DataToWrite: The array of data to write. Position zero in the array should be filled with the address to start writing data.
+ *  			 The starting address must be greater than 0x13.
+ *  BytesToWrite: The number of bytes to write. This does not include the address byte.
+ */
+void WriteSRAM(uint8_t* DataToWrite, uint8_t BytesToWrite)
+{
+	BytesToWrite++;
+
+	if(DataToWrite[0] > 0x13)
+	{
+		DS3232M_I2C.txSz = BytesToWrite;
+		DS3232M_I2C.rxSz = 0;
+		DS3232M_I2C.txBuff = DataToWrite;
+		DS3232M_I2C.rxBuff = NULL;
+		Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);
+	}
+	return;
+}
+
+/**Read data from the battery backed SRAM
+ *
+ *  AddressToRead: The starting read address. Must be greater than 0x13.
+ *  DataToRead: The array to put the bytes read.
+ *  BytesToRead: The number of bytes to read
+ */
+void ReadSRAM(uint8_t AddressToRead, uint8_t* DataToRead, uint8_t BytesToRead)
+{
+	DS3232M_I2C.txBuff = &AddressToRead;
+	DS3232M_I2C.txSz = 1;
+	DS3232M_I2C.rxBuff = DataToRead;
+	DS3232M_I2C.rxSz = BytesToRead;
+	Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);
+
+	return;
+}
+
+/**Clears the century bit, but leaves the month data intact */
+void ClearCenturyBit(void)
+{
+	uint8_t RecieveData;
+	uint8_t SendData[2];
+
+	//Get the current status register
+	SendData[0] = DS3232M_REG_MONTH;
+	DS3232M_I2C.txSz = 1;
+	DS3232M_I2C.rxSz = 1;
+	DS3232M_I2C.txBuff = SendData;
+	DS3232M_I2C.rxBuff = &RecieveData;
+	Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);
+
+	//Mask the century bit and write the data back
+	SendData[0] = DS3232M_REG_MONTH;		//This may not be needed, but sometimes the I2C function will change this :(
+	SendData[1] = (RecieveData & 0x7F);
+	DS3232M_I2C.txSz = 2;
+	DS3232M_I2C.rxSz = 0;
+	DS3232M_I2C.txBuff = SendData;
+	DS3232M_I2C.rxBuff = &RecieveData;
+	Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);
 
 	return;
 }

@@ -13,6 +13,7 @@
 #define TIMER_TASK_CMD_TICK		2
 #define TIMER_TASK_CMD_PAUSE	3
 
+//TODO: Put the status variables in EEPROM
 #define TIMER_STATUS_OFF		0x00
 #define TIMER_STATUS_ON			0x01
 #define TIMER_STATUS_PAUSED		0x02	//TODO: Pause the timer task for a certain length of time. We will probably want to set the override status here...

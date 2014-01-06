@@ -277,9 +277,9 @@ static int _F4_Handler (void)
 
 					//Set the alarm for 1 min from now and enable
 					DS3232M_GetTime(&CurrentTime);
-					printf("Current Time: %02u:%02u:%02u %02u/%02u/20%02u \r\n", CurrentTime.hour, CurrentTime.min, CurrentTime.sec, CurrentTime.month, CurrentTime.day, CurrentTime.year);
+					printf("Current Time: %02u:%02u:%02u %02u/%02u/%04u \r\n", CurrentTime.hour, CurrentTime.min, CurrentTime.sec, CurrentTime.month, CurrentTime.day, CurrentTime.year);
 					CurrentTime.min += 1;
-					printf("Alarm Time: %02u:%02u:%02u %02u/%02u/20%02u \r\n", CurrentTime.hour, CurrentTime.min, CurrentTime.sec, CurrentTime.month, CurrentTime.day, CurrentTime.year);
+					printf("Alarm Time: %02u:%02u:%02u %02u/%02u/%04u \r\n", CurrentTime.hour, CurrentTime.min, CurrentTime.sec, CurrentTime.month, CurrentTime.day, CurrentTime.year);
 					DS3232M_SetAlarm(argAsInt(1), 0x00, &CurrentTime);
 					DS3232M_EnableAlarm(argAsInt(1));
 					printf("Alarm %u set\r\n", argAsInt(1));
@@ -295,7 +295,7 @@ static int _F4_Handler (void)
 				case 6:
 					printf("Get Alarm %u\r\n", argAsInt(1)-4);
 					DS3232M_GetAlarmTime(argAsInt(1)-4, &temp, &CurrentTime);
-					printf("Alarm set to: %02u:%02u:%02u %02u/%02u/20%02u \r\n", CurrentTime.hour, CurrentTime.min, CurrentTime.sec, CurrentTime.month, CurrentTime.day, CurrentTime.year);
+					printf("Alarm set to: %02u:%02u:%02u %02u/%02u/%04u \r\n", CurrentTime.hour, CurrentTime.min, CurrentTime.sec, CurrentTime.month, CurrentTime.day, CurrentTime.year);
 					printf("Alarm Mask: 0x%02X\r\n", temp);
 					break;
 
@@ -334,6 +334,18 @@ static int _F4_Handler (void)
 					printf("\r\n");
 					break;
 
+				case 15:
+					printf("%u/%u/%u is %u\r\n", 9, 14, 1982, GetDOW(1982, 9, 14));
+					printf("%u/%u/%u is %u\r\n", 1, 23, 1914, GetDOW(1914, 1, 23));
+					printf("%u/%u/%u is %u\r\n", 7, 3, 2182, GetDOW(2182, 7, 3));
+					printf("%u/%u/%u is %u\r\n", 12, 1, 2000, GetDOW(2000, 12, 1));
+					printf("%u/%u/%u is %u\r\n", 2, 4, 3124, GetDOW(3124, 2, 4));
+
+
+
+					//GetDOW(uint16_t Year, uint16_t Month, uint16_t Day)
+					break;
+
 			}
 			break;
 
@@ -342,16 +354,15 @@ static int _F4_Handler (void)
 
 			//Set the alarm for 1 min from now and enable
 			DS3232M_GetTime(&CurrentTime);
-			printf("Current Time: %02u:%02u:%02u %02u/%02u/20%02u \r\n", CurrentTime.hour, CurrentTime.min, CurrentTime.sec, CurrentTime.month, CurrentTime.day, CurrentTime.year);
+			printf("Current Time: %02u:%02u:%02u %02u/%02u/%04u \r\n", CurrentTime.hour, CurrentTime.min, CurrentTime.sec, CurrentTime.month, CurrentTime.day, CurrentTime.year);
 			CurrentTime.min += 1;
-			printf("Alarm Time: %02u:%02u:%02u %02u/%02u/20%02u \r\n", CurrentTime.hour, CurrentTime.min, CurrentTime.sec, CurrentTime.month, CurrentTime.day, CurrentTime.year);
+			printf("Alarm Time: %02u:%02u:%02u %02u/%02u/%04u \r\n", CurrentTime.hour, CurrentTime.min, CurrentTime.sec, CurrentTime.month, CurrentTime.day, CurrentTime.year);
 			DS3232M_SetAlarm(argAsInt(1), argAsInt(2), &CurrentTime);
 			DS3232M_EnableAlarm(argAsInt(1));
 			printf("Alarm %u set\r\n", argAsInt(1));
 			break;
 
 		case 6:
-		case 7:
 			//Set the time
 			CurrentTime.day		= argAsInt(4);
 			CurrentTime.month	= argAsInt(5);
@@ -359,18 +370,24 @@ static int _F4_Handler (void)
 			CurrentTime.hour	= argAsInt(1);
 			CurrentTime.min		= argAsInt(2);
 			CurrentTime.sec		= argAsInt(3);
-			if(NumberOfArguments() > 6)
-			{
-				CurrentTime.dow	= argAsInt(7);
-			}
-			 DS3232M_SetTime(&CurrentTime);
-			 printf("Time set to: %02u:%02u:%02u %02u/%02u/20%02u \r\n", CurrentTime.hour, CurrentTime.min, CurrentTime.sec, CurrentTime.month, CurrentTime.day, CurrentTime.year);
+			DS3232M_SetTime(&CurrentTime);
+			printf("Time set to: %02u:%02u:%02u %02u/%02u/%04u ", CurrentTime.hour, CurrentTime.min, CurrentTime.sec, CurrentTime.month, CurrentTime.day, CurrentTime.year);
+#ifdef INCLUDE_DOW_STRINGS
+			printf("%s\r\n", DOW[CurrentTime.dow]);
+#else
+			printf("DOW: %u\r\n", CurrentTime.dow);
+#endif
 			 break;
 
 		default:
 			DS3232M_GetTime(&CurrentTime);
 			printf("Current Time:\r\n");
-			printf("%02u:%02u:%02u %02u/%02u/20%02u \r\n", CurrentTime.hour, CurrentTime.min, CurrentTime.sec, CurrentTime.month, CurrentTime.day, CurrentTime.year);
+			printf("%02u:%02u:%02u %02u/%02u/%04u ", CurrentTime.hour, CurrentTime.min, CurrentTime.sec, CurrentTime.month, CurrentTime.day, CurrentTime.year);
+#ifdef INCLUDE_DOW_STRINGS
+			printf("%s\r\n", DOW[CurrentTime.dow]);
+#else
+			printf("DOW: %u\r\n", CurrentTime.dow);
+#endif
 	}
 
 	return 0;

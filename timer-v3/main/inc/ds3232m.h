@@ -89,10 +89,16 @@ typedef struct TimeAndDate
         uint8_t hour;
         uint8_t min;
         uint8_t sec;
+        uint8_t DST_Bit;
 } TimeAndDate;
 
 //TODO: Abstract the TWI send function?
 //TODO: Add a register modify function
+
+uint8_t DS3232M_ReadReg(uint8_t Reg, uint8_t* Data);
+uint8_t DS3232M_WriteReg(uint8_t Reg, uint8_t Data);
+uint8_t DS3232M_ModifyReg(uint8_t Reg, uint8_t Value, uint8_t Bitmask);
+
 
 uint8_t DS3232M_Init( void );																//Working
 
@@ -133,6 +139,26 @@ void WriteSRAM(uint8_t* DataToWrite, uint8_t BytesToWrite);
 void ReadSRAM(uint8_t AddressToRead, uint8_t* DataToRead, uint8_t BytesToRead);
 
 void ClearCenturyBit(void);
+
+//Functions to deal with time zones
+void SetUTOffset (uint8_t Offset);
+uint8_t GetUTOffset(void);
+
+
+//Functions to deal with DST
+void SetDST(uint8_t DST_Bit);
+uint8_t GetDST(void);
+
+void SetDSTActive(uint8_t DST_Bit);
+uint8_t GetDSTActive(void);
+
+//This function only uses the year from the TimeAndDate struct.
+void GetDSTStartAndEnd(TimeAndDate *TheTime, uint8_t* DSTStartDay, uint8_t* DSTEndDay);
+
+//Returns 1 if TheTime is a DST date, 0 otherwise.
+uint8_t IsDSTDate(TimeAndDate *TheTime);
+
+void ModifyHour(int8_t AmmountToAdd);
 
 #endif
 

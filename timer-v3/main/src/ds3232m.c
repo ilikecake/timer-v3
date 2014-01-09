@@ -29,6 +29,8 @@
 
 //TODO: Add I2C status checking
 //TODO: Implement a mutex for the i2c?
+//TODO: Write some sort of writereg function to abstract the I2C stuff from the rest of the code.
+//TODO: Convert this code to use UTC and offset for timezones/DST
 
 I2C_XFER_T DS3232M_I2C;
 
@@ -39,7 +41,14 @@ I2C_XFER_T DS3232M_I2C;
 #define PININT_NVIC_NAME			PIN_INT0_IRQn			/* PININT NVIC interrupt name */
 
 #define YEAR_MSB_SRAM_ADDRESS		0xFE	/** The address to put the two most significant bits in the year register. (ex: for 1982, 19 would go into this register.) */
+#define USE_DST_ADDRESS				0xFD	/** The address to put the use DST flag. If this flag is 1, the time will automatically be updated for DST when the time is read */
+#define DST_ACTIVE_ADDRESS			0xFC	/** The address to put the DST active flag. If the clock has been adjusted for DST, this register will be 1. If the clock has been adjusted for no DST, this register will be 0. */
+#define UT_OFFSET_ADDRESS			0xFB	/** The offset (in hours) that should be added to the Universal Time to get the local time. The offset will be added to the time when it is retrieved from the device, hence, for CST, this number should be -6 */
 
+
+//Hardware specific functions
+
+//Handler for the alarm interrupt
 void PININT_IRQ_HANDLER(void)
 {
 
@@ -58,6 +67,59 @@ void PININT_IRQ_HANDLER(void)
 	return;
 }
 
+//Reads the value from a single register
+uint8_t DS3232M_ReadReg(uint8_t Reg, uint8_t* Data)
+{
+	uint8_t SendData;
+
+	SendData = Reg;
+
+	DS3232M_I2C.txBuff = &SendData;
+	DS3232M_I2C.txSz = 1;
+	DS3232M_I2C.rxBuff = Data;
+	DS3232M_I2C.rxSz = 1;
+	return (Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C));
+}
+
+//Writes data to one register. Will overwrite the contents of the register
+uint8_t DS3232M_WriteReg(uint8_t Reg, uint8_t Data)
+{
+	uint8_t SendData[2];
+
+	SendData[0] = Reg;
+	SendData[1] = Data;
+	DS3232M_I2C.txSz = 2;
+	DS3232M_I2C.rxSz = 0;
+	DS3232M_I2C.txBuff = SendData;
+	DS3232M_I2C.rxBuff = NULL;
+	return (Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C));
+}
+
+//Modify the contents of a single register. Only the bits marked with a 1 in the Bitmask register will be set based on their values in the Value register.
+uint8_t DS3232M_ModifyReg(uint8_t Reg, uint8_t Value, uint8_t Bitmask)
+{
+	uint8_t SendData[2];
+	uint8_t ReceiveData;
+	uint8_t stat;
+
+	//Get the current register
+	SendData[0] = Reg;
+	DS3232M_I2C.txSz = 1;
+	DS3232M_I2C.rxSz = 1;
+	DS3232M_I2C.txBuff = SendData;
+	DS3232M_I2C.rxBuff = &ReceiveData;
+	stat = Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);
+	if(stat != I2C_STATUS_DONE) return stat;
+
+	//Write the new value to the register
+	SendData[0] = Reg;
+	SendData[1] = (ReceiveData & (~Bitmask)) | (Value & Bitmask);
+	DS3232M_I2C.txSz = 2;
+	DS3232M_I2C.rxSz = 0;
+	DS3232M_I2C.txBuff = SendData;
+	DS3232M_I2C.rxBuff = NULL;
+	return Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);
+}
 
 
 
@@ -123,8 +185,8 @@ uint8_t DS3232M_Init( void )
 	DS3232M_SetAlarm(2, 0x0E, &AlarmTime);
 	DS3232M_EnableAlarm(2);
 
-	//DS3232M_DisableAlarm(2);
-	return 0x00;
+	//Returns 1 if the OSC has stopped, zero otherwise.
+	return DS3232M_GetOSCFlag();
 }
 
 void DS3232M_Reset(void)
@@ -191,11 +253,20 @@ void DS3232M_ClearOSCFlag(void)
 	return;
 }
 
+/** Set the time
+ *
+ * Note: it is assumed that the time is entered in local time (including DST, if applicable)
+ */
 void DS3232M_SetTime(TimeAndDate *TheTime)
 {
 	uint8_t SendData[8];
 	uint16_t YearMSD;
 	uint16_t YearLSD;
+	uint8_t AlarmState;
+
+	AlarmState = DS3232M_AlarmsActive();
+	DS3232M_DisableAlarm(1);
+	DS3232M_DisableAlarm(2);
 
 	//DOW is set automatically based on the date entered.
 	TheTime->dow = GetDOW(TheTime->year, (uint16_t)(TheTime->month), (uint16_t)(TheTime->day));
@@ -223,8 +294,26 @@ void DS3232M_SetTime(TimeAndDate *TheTime)
 	SendData[1] = (uint8_t)(YearMSD);
 	WriteSRAM(SendData, 1);
 
+	//Write the DST bit to SRAM
+	SetDST(TheTime->DST_Bit);
+	if(TheTime->DST_Bit == 1)
+	{
+		SendData[0] = IsDSTDate(TheTime);
+		SetDSTActive(SendData[0]);
+		//printf("Active: %u\r\n", SendData[0]);
+	}
+
 	DS3232M_ClearOSCFlag();
 
+	//Reenable alarms
+	if((AlarmState & 0x01) == 0x01)
+	{
+		DS3232M_EnableAlarm(1);
+	}
+	if((AlarmState & 0x02) == 0x02)
+	{
+		DS3232M_EnableAlarm(2);
+	}
 	return;
 }
 
@@ -282,6 +371,37 @@ void DS3232M_GetTime(TimeAndDate *TheTime)
 	}
 
 	TheTime->year += (100*RecieveData[1]);
+
+	//Handle DST if required
+	RecieveData[0] = GetDST();
+	RecieveData[1] = GetDSTActive();
+	RecieveData[2] = IsDSTDate(TheTime);
+
+	//printf("DST? %u, Act? %u, IS? %u\r\n", RecieveData[0], RecieveData[1], RecieveData[2]);
+
+	if(RecieveData[0] == 0x01)
+	{
+		//DST should be applied
+		if(RecieveData[1] != RecieveData[2])
+		{
+			//DST has not been applied
+			if(RecieveData[2] == 0x01)
+			{
+				//It is now DST time and we have not added an hour
+				ModifyHour(1);
+				TheTime->hour += 1;
+			}
+			else
+			{
+				//It is no longer DST, but DST is still applied;
+				ModifyHour(-1);
+				TheTime->hour -= 1;
+			}
+			SetDSTActive(RecieveData[2]);
+		}
+	}
+
+	TheTime->DST_Bit = RecieveData[0];
 
 	return;
 }
@@ -783,5 +903,152 @@ void ClearCenturyBit(void)
 
 	return;
 }
+
+void SetDST(uint8_t DST_Bit)
+{
+	uint8_t DatToSend[2];
+
+	if((DST_Bit == 0) || (DST_Bit == 1))
+	{
+		DatToSend[0] = USE_DST_ADDRESS;
+		DatToSend[1] = DST_Bit;
+
+		WriteSRAM(DatToSend, 1);
+	}
+	return;
+}
+
+uint8_t GetDST(void)
+{
+	uint8_t DST_Bit;
+	ReadSRAM(USE_DST_ADDRESS, &DST_Bit, 1);
+	return DST_Bit;
+}
+
+void SetDSTActive(uint8_t DST_Bit)
+{
+	uint8_t DatToSend[2];
+
+	if((DST_Bit == 0) || (DST_Bit == 1))
+	{
+		DatToSend[0] = DST_ACTIVE_ADDRESS;
+		DatToSend[1] = DST_Bit;
+
+		WriteSRAM(DatToSend, 1);
+	}
+	return;
+}
+
+uint8_t GetDSTActive(void)
+{
+	uint8_t DST_Bit;
+	ReadSRAM(DST_ACTIVE_ADDRESS, &DST_Bit, 1);
+	return DST_Bit;
+}
+
+//There should be an easier way to do this...
+void GetDSTStartAndEnd(TimeAndDate *TheTime, uint8_t* DSTStartDay, uint8_t* DSTEndDay)
+{
+	uint8_t TempDOW;
+
+	TempDOW = GetDOW(TheTime->year, 3, 1);	//Get the day of the week for March 1st.
+	//DST starts on the 2nd Sunday of March.
+	if(TempDOW == 0)
+	{
+		*DSTStartDay = 8;
+	}
+	else
+	{
+		*DSTStartDay = (15 - TempDOW);
+	}
+
+	TempDOW = GetDOW(TheTime->year, 11, 1);	//Get the day of the week for November 1st.
+	//DST ends on the 1st Sunday of November.
+	if(TempDOW == 0)
+	{
+		*DSTEndDay = 1;
+	}
+	else
+	{
+		*DSTEndDay = (8 - TempDOW);
+	}
+	return;
+}
+
+uint8_t IsDSTDate(TimeAndDate *TheTime)
+{
+	uint32_t SecFromStartOfMonth;
+	uint32_t DST_SecFromStartOfMonth;
+	uint8_t StartOfDSTDay;
+	uint8_t EndOfDSTDay;
+
+	if(TheTime->month == 3)
+	{
+		GetDSTStartAndEnd(TheTime, &StartOfDSTDay, &EndOfDSTDay);
+		DST_SecFromStartOfMonth = 7200 + (StartOfDSTDay-1)*86400;
+		SecFromStartOfMonth = ((TheTime->day-1) * 86400) + (TheTime->hour * 3600) + (TheTime->min *60) + TheTime->sec;
+
+		if(SecFromStartOfMonth > DST_SecFromStartOfMonth)
+		{
+			return 0x01;
+		}
+		else
+		{
+			return 0x00;
+		}
+	}
+	else if(TheTime->month == 11)
+	{
+		GetDSTStartAndEnd(TheTime, &StartOfDSTDay, &EndOfDSTDay);
+		DST_SecFromStartOfMonth = 7200 + (EndOfDSTDay-1)*86400;
+		SecFromStartOfMonth = ((TheTime->day-1) * 86400) + (TheTime->hour * 3600) + (TheTime->min *60) + TheTime->sec;
+
+		if(SecFromStartOfMonth > DST_SecFromStartOfMonth)
+		{
+			return 0x00;
+		}
+		else
+		{
+			return 0x01;
+		}
+	}
+	else if( (TheTime->month > 3) && (TheTime->month < 11) )
+	{
+		return 0x01;
+	}
+	else
+	{
+		return 0x00;
+	}
+}
+
+void ModifyHour(int8_t AmmountToAdd)
+{
+	uint8_t RecieveData;
+	uint8_t SendData[2];
+
+	//Get the hours
+	SendData[0] = DS3232M_REG_HOUR;
+	DS3232M_I2C.txSz = 1;
+	DS3232M_I2C.rxSz = 1;
+	DS3232M_I2C.txBuff = SendData;
+	DS3232M_I2C.rxBuff = &RecieveData;
+	Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);
+
+	//Add (or subtract) from the hours
+	RecieveData += AmmountToAdd;
+
+	//Write the modified time back to the device
+	SendData[0] = DS3232M_REG_HOUR;		//This may not be needed, but sometimes the I2C function will change this :(
+	SendData[1] = RecieveData;
+	DS3232M_I2C.txSz = 2;
+	DS3232M_I2C.rxSz = 0;
+	DS3232M_I2C.txBuff = SendData;
+	DS3232M_I2C.rxBuff = &RecieveData;
+	Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);
+
+	return;
+}
+
 
 /** @} */

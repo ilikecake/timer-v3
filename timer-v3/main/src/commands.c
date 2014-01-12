@@ -201,9 +201,11 @@ static int _F2_Handler (void)
 		printf("----------------------------\r\n");
 		printf("vTaskLed1\t%u/64\r\n", 64-uxTaskGetStackHighWaterMark(TaskList[0]));
 		printf("vConsole\t%u/400\r\n", 400-uxTaskGetStackHighWaterMark(TaskList[1]));
-		printf("vOLEDTask\t%u/300\r\n", 300-uxTaskGetStackHighWaterMark(TaskList[2]));
+		printf("vOLEDTask\t%u/200\r\n", 200-uxTaskGetStackHighWaterMark(TaskList[2]));
 		printf("vTimer\t\t%u/64\r\n", 64-uxTaskGetStackHighWaterMark(TaskList[3]));
+		//printf("vButton\t\t%u/64\r\n", 64-uxTaskGetStackHighWaterMark(TaskList[4]));
 		printf("----------------------------\r\n");
+		printf("Free Heap Space: %u\r\n", xPortGetFreeHeapSize());
 
 	}
 
@@ -224,6 +226,7 @@ static int _F4_Handler (void)
 	TimeAndDate CurrentTime;
 	uint8_t temp;
 	uint8_t temp2;
+	uint8_t i;
 	char TimeString[9];
 
 	switch(NumberOfArguments())
@@ -340,11 +343,32 @@ static int _F4_Handler (void)
 					printf("%u/%u/%u is %u\r\n", 7, 3, 2182, GetDOW(2182, 7, 3));
 					printf("%u/%u/%u is %u\r\n", 12, 1, 2000, GetDOW(2000, 12, 1));
 					printf("%u/%u/%u is %u\r\n", 2, 4, 3124, GetDOW(3124, 2, 4));
-
-
-
-					//GetDOW(uint16_t Year, uint16_t Month, uint16_t Day)
 					break;
+
+				case 16:
+					CurrentTime.year = 2010;
+
+					for(i=0;i < 10;i++)
+					{
+						GetDSTStartAndEnd(&CurrentTime, &temp, &temp2);
+						printf("In %u, DST start on march %u and ends on Nov %u\r\n", CurrentTime.year, temp, temp2);
+						CurrentTime.year++;
+					}
+					break;
+
+				case 17:
+					CurrentTime.day		= 9;
+					CurrentTime.month	= 3;
+					CurrentTime.year	= 2014;
+					CurrentTime.hour	= 1;
+					CurrentTime.min		= 58;
+					CurrentTime.sec		= 00;
+					CurrentTime.DST_Bit = 0x01;		//Use DST
+					DS3232M_SetTime(&CurrentTime);
+
+					break;
+
+
 
 			}
 			break;
@@ -370,6 +394,7 @@ static int _F4_Handler (void)
 			CurrentTime.hour	= argAsInt(1);
 			CurrentTime.min		= argAsInt(2);
 			CurrentTime.sec		= argAsInt(3);
+			CurrentTime.DST_Bit = 0x01;		//Use DST
 			DS3232M_SetTime(&CurrentTime);
 			printf("Time set to: %02u:%02u:%02u %02u/%02u/%04u ", CurrentTime.hour, CurrentTime.min, CurrentTime.sec, CurrentTime.month, CurrentTime.day, CurrentTime.year);
 #ifdef INCLUDE_DOW_STRINGS
@@ -388,6 +413,15 @@ static int _F4_Handler (void)
 #else
 			printf("DOW: %u\r\n", CurrentTime.dow);
 #endif
+
+			CurrentTime.day		= 7;
+			CurrentTime.month	= 1;
+			CurrentTime.year	= 2014;
+			GetSunriseAndSunsetTime(43.0667, -89.4, &CurrentTime, &CurrentTime);
+
+			//printf("JD: %u\r\n", ConvertToJD(&CurrentTime));
+
+
 	}
 
 	return 0;
@@ -614,6 +648,7 @@ static int _F5_Handler (void)
 //Buzzer Functions
 static int _F6_Handler (void)
 {
+	//double blarg = .5;
 	uint8_t cmd;
 	cmd = argAsInt(1);
 
@@ -626,6 +661,11 @@ static int _F6_Handler (void)
 	{
 		printf("Beep off\r\n");
 		App_Buzzer_off();
+	}
+	else
+	{
+		//printf("sin(90) = %f\r\n", sin(90.0));
+		//printf("sin(pi/2) = %f\r\n", sin(3.1415/2));
 	}
 
 	return 0;

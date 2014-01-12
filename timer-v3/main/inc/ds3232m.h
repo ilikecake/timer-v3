@@ -85,26 +85,49 @@ typedef struct TimeAndDate
         uint16_t year;		/** The full year (ex: include all digits, like 1982, 2014, etc...) */
         uint8_t month;
         uint8_t day;
-        uint8_t dow;
         uint8_t hour;
         uint8_t min;
         uint8_t sec;
-        uint8_t DST_Bit;
+        uint8_t DST_Bit;	/**Set to 1 when calling SetTime to indicate that DST corrections should be used. */
+        int8_t UTOffset;	/**When calling the SetTime function, this will be set as the offset from UT to local time. This value should not include DST corrections. */
+        uint8_t dow;		/**This will be set by the GetTime function to the day of the week (0 = Sunday, 1 = Monday, etc...) This value is ignored by the SetTime function. */
 } TimeAndDate;
 
 //TODO: Abstract the TWI send function?
 //TODO: Add a register modify function
 
+//Hardware specific function headers
 uint8_t DS3232M_ReadReg(uint8_t Reg, uint8_t* Data);
 uint8_t DS3232M_WriteReg(uint8_t Reg, uint8_t Data);
 uint8_t DS3232M_ModifyReg(uint8_t Reg, uint8_t Value, uint8_t Bitmask);
-
+uint8_t DS3232M_WriteBytes(uint8_t* DataToWrite, uint8_t BytesToWrite);
+uint8_t DS3232M_ReadBytes(uint8_t AddressToRead, uint8_t* DataToRead, uint8_t BytesToRead);
 
 uint8_t DS3232M_Init( void );																//Working
 
+
+//Non-hardware specific function headers
+
+/** Resets all registers on the DS3232M to their defaults states */
+void DS3232M_Reset(void);																	//Done
+
+/** Gets the two status registers from the DS3232M
+ *   *status:	A pointer to the status register
+ *   *control:	A pointer to the control register
+ */
 void DS3232M_GetStatus(uint8_t *status, uint8_t *control);									//Done
 
+/**Returns the Oscillator stop flag from the DS3232M.
+ * This flag is 1 if the oscillator has stopped at some point in the past.
+ * This flag should be used to determine whether the time stored in the device is valid.
+ *
+ * returns: The oscillator stop flag. 1 = oscillator has stopped, 0 = oscillator has not stopped
+ */
 uint8_t DS3232M_GetOSCFlag(void);															//Done
+
+/**Clears the oscillator stop flag on the DS3232M.
+ * This flag should be cleared when writing the time to the register.
+ */
 void DS3232M_ClearOSCFlag(void);															//Done
 
 
@@ -131,18 +154,18 @@ void DS3232M_SetIntMode(uint8_t IntMode);													//not implemented
 
 uint8_t DS3232M_GetTemp(int8_t *TempLHS, uint8_t *TempRHS);									//Not tested
 
-void DS3232M_Reset(void);																	//Needs work
+
 
 uint8_t GetDOW(uint16_t Year, uint16_t Month, uint16_t Day);
 
-void WriteSRAM(uint8_t* DataToWrite, uint8_t BytesToWrite);
-void ReadSRAM(uint8_t AddressToRead, uint8_t* DataToRead, uint8_t BytesToRead);
+//void WriteSRAM(uint8_t* DataToWrite, uint8_t BytesToWrite);	//TODO: Combine this with readreg
+//void ReadSRAM(uint8_t AddressToRead, uint8_t* DataToRead, uint8_t BytesToRead);	//TODO: Combine this with readreg
 
 void ClearCenturyBit(void);
 
 //Functions to deal with time zones
-void SetUTOffset (uint8_t Offset);
-uint8_t GetUTOffset(void);
+void SetUTOffset (int8_t Offset);
+int8_t GetUTOffset(void);
 
 
 //Functions to deal with DST
@@ -158,7 +181,9 @@ void GetDSTStartAndEnd(TimeAndDate *TheTime, uint8_t* DSTStartDay, uint8_t* DSTE
 //Returns 1 if TheTime is a DST date, 0 otherwise.
 uint8_t IsDSTDate(TimeAndDate *TheTime);
 
-void ModifyHour(int8_t AmmountToAdd);
+//void ModifyHour(int8_t AmmountToAdd);	//TODO: This is not be needed anymore i think
+
+uint8_t DaysInTheMonth(uint8_t month, uint16_t year);
 
 #endif
 

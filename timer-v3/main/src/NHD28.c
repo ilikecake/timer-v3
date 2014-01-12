@@ -1023,26 +1023,29 @@ void OLED_WriteMF_UInt2(uint32_t NumberToWrite, uint8_t Padding, MF_StringOption
 
 	isStarted = 0xFF;
 
+
 	for(i=9;i>=0;i--)
 	{
 		digit = (uint8_t)(NumberToWrite/Divisor[i]);
-		//printf("num: %lu\r\n", NumberToWrite);
-		//printf("%u: %u\r\n", i, digit);
 
 		if((digit > 0) && (isStarted == 0xFF))
 		{
-			//printf("start\r\n");
+			isStarted = i;
+		}
+
+		//This is needed if NumberToWrite = 0
+		if((i == 0) && (isStarted == 0xFF))
+		{
 			isStarted = i;
 		}
 
 		if(isStarted != 0xFF)
 		{
-			//printf("ch: %c\r\n", (char)(digit + 48));
 			NumberString[isStarted-i] = (char)(digit + 48);
-			//printf("sub: %lu\r\n", (Divisor[i]*(uint32_t)digit));
 			NumberToWrite = NumberToWrite - (Divisor[i]*(uint32_t)digit);
 		}
 	}
+
 
 	//TODO: add a check to make sure the string does not get too big...
 	//TODO: add a check to see if we need to pad

@@ -11,9 +11,9 @@
 
 //Pick more statuses later...
 //Status should include error states and also normal program states
-#define APP_STATUS_INIT		0
-#define APP_STATUS_OK		1
-
+#define APP_STATUS_INIT			0x00
+#define APP_STATUS_OK			0x01
+#define APP_STATUS_OSC_STOPPED	0x02
 
 
 
@@ -29,6 +29,9 @@ uint8_t App_GetStatus(void);
 //TODO: Add a function to enable and disable the interrupts
 void App_Button_Init(void);
 void App_HandleButtonPress(uint8_t ButtonNumber);
+
+void App_EnableButtons(void);
+void App_DisableButtons(void);
 
 
 

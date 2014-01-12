@@ -11,22 +11,26 @@
 #define BUZZ_TIMER_IRQ_HANDLER			TIMER16_1_IRQHandler
 #define BUZZ_TIMER_NVIC_NAME			TIMER_16_1_IRQn
 
+#define DEBOUNCE_TIMER					LPC_TIMER16_0
+#define DEBOUNCE_TIMER_IRQ_HANDLER		TIMER16_0_IRQHandler
+#define DEBOUNCE_TIMER_NVIC_NAME		TIMER_16_0_IRQn
+
 //Setup for the button pins
 //Note: if the GPIO function for the pin is not function 0, the init function will have to be modified
-#define BUTTON_1_PORT					0
-#define BUTTON_1_PIN					18
-#define BUTTON_1_PININT_INDEX			1
-#define BUTTON_1_IRQ_HANDLER			FLEX_INT1_IRQHandler	/* IRQ function name */
-#define BUTTON_1_NVIC_NAME				PIN_INT1_IRQn			/* NVIC interrupt name */
+#define BUTTON_1_PORT				0
+#define BUTTON_1_PIN				18
+#define BUTTON_1_PININT_INDEX		1
+#define BUTTON_1_IRQ_HANDLER		FLEX_INT1_IRQHandler	/* IRQ function name */
+#define BUTTON_1_NVIC_NAME			PIN_INT1_IRQn		/* NVIC interrupt name */
 
 #define BUTTON_2_PORT				0
-#define BUTTON_2_PIN					19
+#define BUTTON_2_PIN				19
 #define BUTTON_2_PININT_INDEX		2
 #define BUTTON_2_IRQ_HANDLER			FLEX_INT2_IRQHandler	/* IRQ function name */
 #define BUTTON_2_NVIC_NAME			PIN_INT2_IRQn			/* NVIC interrupt name */
 
 #define BUTTON_3_PORT				1
-#define BUTTON_3_PIN					16
+#define BUTTON_3_PIN				16
 #define BUTTON_3_PININT_INDEX		3
 #define BUTTON_3_IRQ_HANDLER			FLEX_INT3_IRQHandler	/* IRQ function name */
 #define BUTTON_3_NVIC_NAME			PIN_INT3_IRQn			/* NVIC interrupt name */
@@ -68,6 +72,16 @@ void App_SSP_Init (void)
 
 void App_Button_Init(void)
 {
+	//Initialize the timer for the debouncing, but don't start it
+	Chip_TIMER_Init(DEBOUNCE_TIMER);
+	Chip_TIMER_Reset(DEBOUNCE_TIMER);
+
+	DEBOUNCE_TIMER->PR = 10;
+	DEBOUNCE_TIMER->MCR = (1<<1)|(1<<0);		//Enable MR0 match interrupt, Reset TC on MR0 match
+	DEBOUNCE_TIMER->MR[0]= 0xFFFF;				//MR0 match value
+
+	//Enable the IRQ for the timer
+	NVIC_EnableIRQ(DEBOUNCE_TIMER_NVIC_NAME);
 
 	//Set all button pins to GPIO input with pullup
 	Chip_IOCON_PinMuxSet(LPC_IOCON, BUTTON_1_PORT, BUTTON_1_PIN, (IOCON_FUNC0 | IOCON_MODE_PULLUP));
@@ -107,13 +121,17 @@ void App_Button_Init(void)
 	Chip_PININT_EnableIntLow(LPC_PININT, PININTCH(BUTTON_4_PININT_INDEX));
 	Chip_PININT_EnableIntLow(LPC_PININT, PININTCH(BUTTON_5_PININT_INDEX));
 
-	Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_1_PININT_INDEX));
-	Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_2_PININT_INDEX));
-	Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_3_PININT_INDEX));
-	Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_4_PININT_INDEX));
-	Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_5_PININT_INDEX));
+	//Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_1_PININT_INDEX));
+	//Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_2_PININT_INDEX));
+	//Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_3_PININT_INDEX));
+	//Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_4_PININT_INDEX));
+	//Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_5_PININT_INDEX));
 
-	NVIC_ClearPendingIRQ(BUTTON_1_NVIC_NAME);
+	Chip_PININT_ClearIntStatus(LPC_PININT, ((1 << BUTTON_1_PININT_INDEX)|(1<<BUTTON_2_PININT_INDEX)|(1<<BUTTON_3_PININT_INDEX)|(1<<BUTTON_4_PININT_INDEX)|(1<<BUTTON_5_PININT_INDEX)) );
+
+	App_EnableButtons();
+
+	/*NVIC_ClearPendingIRQ(BUTTON_1_NVIC_NAME);
 	NVIC_ClearPendingIRQ(BUTTON_2_NVIC_NAME);
 	NVIC_ClearPendingIRQ(BUTTON_3_NVIC_NAME);
 	NVIC_ClearPendingIRQ(BUTTON_4_NVIC_NAME);
@@ -123,7 +141,78 @@ void App_Button_Init(void)
 	NVIC_EnableIRQ(BUTTON_2_NVIC_NAME);
 	NVIC_EnableIRQ(BUTTON_3_NVIC_NAME);
 	NVIC_EnableIRQ(BUTTON_4_NVIC_NAME);
+	NVIC_EnableIRQ(BUTTON_5_NVIC_NAME);*/
+
+	return;
+}
+
+void App_EnableButtons(void)
+{
+	NVIC_ClearPendingIRQ(BUTTON_1_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_2_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_3_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_4_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_5_NVIC_NAME);
+
+	NVIC_ClearPendingIRQ(BUTTON_1_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_2_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_3_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_4_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_5_NVIC_NAME);
+
+	NVIC_ClearPendingIRQ(BUTTON_1_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_2_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_3_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_4_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_5_NVIC_NAME);
+
+	NVIC_ClearPendingIRQ(BUTTON_1_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_2_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_3_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_4_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_5_NVIC_NAME);
+
+	NVIC_ClearPendingIRQ(BUTTON_1_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_2_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_3_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_4_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_5_NVIC_NAME);
+
+	//Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_1_PININT_INDEX));
+	//Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_2_PININT_INDEX));
+	//Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_3_PININT_INDEX));
+	//Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_4_PININT_INDEX));
+	//Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_5_PININT_INDEX));
+
+	Chip_PININT_ClearIntStatus(LPC_PININT, ((1 << BUTTON_1_PININT_INDEX)|(1<<BUTTON_2_PININT_INDEX)|(1<<BUTTON_3_PININT_INDEX)|(1<<BUTTON_4_PININT_INDEX)|(1<<BUTTON_5_PININT_INDEX)) );
+	Chip_PININT_ClearIntStatus(LPC_PININT, ((1 << BUTTON_1_PININT_INDEX)|(1<<BUTTON_2_PININT_INDEX)|(1<<BUTTON_3_PININT_INDEX)|(1<<BUTTON_4_PININT_INDEX)|(1<<BUTTON_5_PININT_INDEX)) );
+	Chip_PININT_ClearIntStatus(LPC_PININT, ((1 << BUTTON_1_PININT_INDEX)|(1<<BUTTON_2_PININT_INDEX)|(1<<BUTTON_3_PININT_INDEX)|(1<<BUTTON_4_PININT_INDEX)|(1<<BUTTON_5_PININT_INDEX)) );
+	Chip_PININT_ClearIntStatus(LPC_PININT, ((1 << BUTTON_1_PININT_INDEX)|(1<<BUTTON_2_PININT_INDEX)|(1<<BUTTON_3_PININT_INDEX)|(1<<BUTTON_4_PININT_INDEX)|(1<<BUTTON_5_PININT_INDEX)) );
+	Chip_PININT_ClearIntStatus(LPC_PININT, ((1 << BUTTON_1_PININT_INDEX)|(1<<BUTTON_2_PININT_INDEX)|(1<<BUTTON_3_PININT_INDEX)|(1<<BUTTON_4_PININT_INDEX)|(1<<BUTTON_5_PININT_INDEX)) );
+
+	NVIC_EnableIRQ(BUTTON_1_NVIC_NAME);
+	NVIC_EnableIRQ(BUTTON_2_NVIC_NAME);
+	NVIC_EnableIRQ(BUTTON_3_NVIC_NAME);
+	NVIC_EnableIRQ(BUTTON_4_NVIC_NAME);
 	NVIC_EnableIRQ(BUTTON_5_NVIC_NAME);
+	return;
+}
+
+void App_DisableButtons(void)
+{
+	NVIC_DisableIRQ(BUTTON_1_NVIC_NAME);
+	NVIC_DisableIRQ(BUTTON_2_NVIC_NAME);
+	NVIC_DisableIRQ(BUTTON_3_NVIC_NAME);
+	NVIC_DisableIRQ(BUTTON_4_NVIC_NAME);
+	NVIC_DisableIRQ(BUTTON_5_NVIC_NAME);
+
+	NVIC_ClearPendingIRQ(BUTTON_1_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_2_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_3_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_4_NVIC_NAME);
+	NVIC_ClearPendingIRQ(BUTTON_5_NVIC_NAME);
+
+	Chip_PININT_ClearIntStatus(LPC_PININT, ((1 << BUTTON_1_PININT_INDEX)|(1<<BUTTON_2_PININT_INDEX)|(1<<BUTTON_3_PININT_INDEX)|(1<<BUTTON_4_PININT_INDEX)|(1<<BUTTON_5_PININT_INDEX)) );
 
 	return;
 }
@@ -132,47 +221,62 @@ void App_HandleButtonPress(uint8_t ButtonNumber)
 {
 	if(App_GetStatus() != APP_STATUS_INIT)
 	{
+		//Disable buttons for debouncing
+		App_DisableButtons();
+		DEBOUNCE_TIMER->TCR = 0x01;
+
 		DisplayCommand CommandToSend;
 
 		CommandToSend.CommandName = OLED_CMD_BUTTON_IN;
 		CommandToSend.CommandData[0] = ButtonNumber;
 		xQueueSendFromISR(xDisplayCommands, (void *)&CommandToSend, NULL);
+		//xQueueSendFromISR(xButtonPress, (void *)&ButtonNumber, NULL);
+
+	}
+	else
+	{
+		App_EnableButtons();
 	}
 	return;
 }
 
 void BUTTON_1_IRQ_HANDLER(void)
 {
-	Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_1_PININT_INDEX));
+	App_DisableButtons();
 	App_HandleButtonPress(BUTTON_1_PININT_INDEX);
+	Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_1_PININT_INDEX));
 	return;
 }
 
 void BUTTON_2_IRQ_HANDLER(void)
 {
-	Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_2_PININT_INDEX));
+	App_DisableButtons();
 	App_HandleButtonPress(BUTTON_2_PININT_INDEX);
+	Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_2_PININT_INDEX));
 	return;
 }
 
 void BUTTON_3_IRQ_HANDLER(void)
 {
-	Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_3_PININT_INDEX));
+	App_DisableButtons();
 	App_HandleButtonPress(BUTTON_3_PININT_INDEX);
+	Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_3_PININT_INDEX));
 	return;
 }
 
 void BUTTON_4_IRQ_HANDLER(void)
 {
-	Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_4_PININT_INDEX));
+	App_DisableButtons();
 	App_HandleButtonPress(BUTTON_4_PININT_INDEX);
+	Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_4_PININT_INDEX));
 	return;
 }
 
 void BUTTON_5_IRQ_HANDLER(void)
 {
-	Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_5_PININT_INDEX));
+	App_DisableButtons();
 	App_HandleButtonPress(BUTTON_5_PININT_INDEX);
+	Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_5_PININT_INDEX));
 	return;
 }
 
@@ -187,7 +291,6 @@ uint8_t App_GetStatus(void)
 	return ProgramStatus;
 }
 
-
 void App_Buzzer_Init(void)
 {
 	Chip_IOCON_PinMuxSet(LPC_IOCON, 0, 17, IOCON_FUNC0);		//Set the buzz pin to GPIO
@@ -199,7 +302,7 @@ void App_Buzzer_Init(void)
 	Chip_TIMER_Reset(BUZZ_TIMER);
 
 	BUZZ_TIMER->MCR = (1<<1)|(1<<0);		//Enable MR0 match interrupt, Reset TC on MR0 match
-	BUZZ_TIMER->MR[0]= 12000;			//MR0 match value
+	BUZZ_TIMER->MR[0]= 12000;				//MR0 match value
 
 	//Enable the IRQ for the timer
 	NVIC_EnableIRQ(BUZZ_TIMER_NVIC_NAME);
@@ -225,4 +328,14 @@ void BUZZ_TIMER_IRQ_HANDLER(void)
 {
 	BUZZ_TIMER->IR = 0xFF;
 	Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 17);
+}
+
+void DEBOUNCE_TIMER_IRQ_HANDLER(void)
+{
+	//Reenable buttons
+	DEBOUNCE_TIMER->TCR = 0x00;
+	Chip_TIMER_Reset(DEBOUNCE_TIMER);
+	DEBOUNCE_TIMER->IR = 0xFF;
+
+	App_EnableButtons();
 }

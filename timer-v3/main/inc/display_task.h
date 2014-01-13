@@ -33,7 +33,7 @@ typedef struct
 xQueueHandle xDisplayCommands;
 
 typedef struct {
-	void (*handler) (uint8_t, uint8_t);
+	void (*handler) (uint8_t, uint8_t, uint8_t);
 	const char *name;
 	uint8_t UpItem;
 	uint8_t DownItem;

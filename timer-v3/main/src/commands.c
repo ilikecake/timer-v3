@@ -203,7 +203,6 @@ static int _F2_Handler (void)
 		printf("vConsole\t%u/400\r\n", 400-uxTaskGetStackHighWaterMark(TaskList[1]));
 		printf("vOLEDTask\t%u/200\r\n", 200-uxTaskGetStackHighWaterMark(TaskList[2]));
 		printf("vTimer\t\t%u/64\r\n", 64-uxTaskGetStackHighWaterMark(TaskList[3]));
-		//printf("vButton\t\t%u/64\r\n", 64-uxTaskGetStackHighWaterMark(TaskList[4]));
 		printf("----------------------------\r\n");
 		printf("Free Heap Space: %u\r\n", xPortGetFreeHeapSize());
 
@@ -226,7 +225,7 @@ static int _F4_Handler (void)
 	TimeAndDate CurrentTime;
 	uint8_t temp;
 	uint8_t temp2;
-	uint8_t i;
+	int8_t i;
 	char TimeString[9];
 
 	switch(NumberOfArguments())
@@ -363,9 +362,21 @@ static int _F4_Handler (void)
 					CurrentTime.hour	= 1;
 					CurrentTime.min		= 58;
 					CurrentTime.sec		= 00;
-					CurrentTime.DST_Bit = 0x01;		//Use DST
+					//CurrentTime.DST_Bit = 0x01;		//Use DST
 					DS3232M_SetTime(&CurrentTime);
 
+					break;
+
+				case 19:
+					SetUTOffset (-6);
+					break;
+
+				case 20:
+					printf("Offset: %d\r\n", GetUTOffset());
+					break;
+
+				case 21:
+					SetDST(0x01);
 					break;
 
 
@@ -394,7 +405,7 @@ static int _F4_Handler (void)
 			CurrentTime.hour	= argAsInt(1);
 			CurrentTime.min		= argAsInt(2);
 			CurrentTime.sec		= argAsInt(3);
-			CurrentTime.DST_Bit = 0x01;		//Use DST
+			//CurrentTime.DST_Bit = 0x01;		//Use DST
 			DS3232M_SetTime(&CurrentTime);
 			printf("Time set to: %02u:%02u:%02u %02u/%02u/%04u ", CurrentTime.hour, CurrentTime.min, CurrentTime.sec, CurrentTime.month, CurrentTime.day, CurrentTime.year);
 #ifdef INCLUDE_DOW_STRINGS
@@ -405,6 +416,7 @@ static int _F4_Handler (void)
 			 break;
 
 		default:
+			//This is what happens if no arguments are entered
 			DS3232M_GetTime(&CurrentTime);
 			printf("Current Time:\r\n");
 			printf("%02u:%02u:%02u %02u/%02u/%04u ", CurrentTime.hour, CurrentTime.min, CurrentTime.sec, CurrentTime.month, CurrentTime.day, CurrentTime.year);
@@ -414,10 +426,43 @@ static int _F4_Handler (void)
 			printf("DOW: %u\r\n", CurrentTime.dow);
 #endif
 
-			CurrentTime.day		= 7;
-			CurrentTime.month	= 1;
-			CurrentTime.year	= 2014;
-			GetSunriseAndSunsetTime(43.0667, -89.4, &CurrentTime, &CurrentTime);
+			i =  GetUTOffset();
+			printf("Timezone : UT%+d", i);
+			if(i == -6)
+			{
+				printf(" (Central)\r\n");
+			}
+			else if(i == -5)
+			{
+				printf(" (Eastern)\r\n");
+			}
+			else if(i == -7)
+			{
+				printf(" (Mountain)\r\n");
+			}
+			else if(i == -8)
+			{
+				printf(" (Pacific)\r\n");
+			}
+			else
+			{
+				printf("\r\n");
+			}
+
+			temp = GetDST();
+			if((temp & 0x01) == 0x01)
+			{
+				printf("DST: Yes\r\n");
+			}
+			else
+			{
+				printf("DST: No\r\n");
+			}
+
+			//CurrentTime.day		= 7;
+			//CurrentTime.month	= 1;
+			//CurrentTime.year	= 2014;
+			//GetSunriseAndSunsetTime(43.0667, -89.4, &CurrentTime, &CurrentTime);
 
 			//printf("JD: %u\r\n", ConvertToJD(&CurrentTime));
 

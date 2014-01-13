@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 #include "libeeprom.h"
 
@@ -37,30 +38,20 @@
 #include "iap.h"
 #include "timer_task.h"
 #include "display_task.h"
+#include "sun.h"
 
-//FreeRTOS queue to send received data to the command interpreter
-xTaskHandle TaskList[4];
+
+xTaskHandle TaskList[5];
 
 //TODO: move these to their specific .h files?
 xQueueHandle xUSBCharReceived;
+//xQueueHandle xButtonPress;
 extern xQueueHandle xDisplayCommands;
 extern xQueueHandle xTimerCommands;
 
-//Defines for the OLED display task
-#define MENU_TO_IDLE_TIME			4000
-#define IDLE_TO_DIM_TIME			3000
 
-//TODOL Change these to pixels instead of columns
-#define IDLE_TIME_ROW				37
-#define IDLE_TIME_COLUMN			4
-#define IDLE_DATE_ROW				37
-#define IDLE_DATE_COLUMN			35
-#define IDLE_STATUS_ROW				19
-#define IDLE_STATUS_COLUMN			13
 
-#define DISPLAY_STATUS_IDLE_DIM		0x00
-#define DISPLAY_STATUS_IDLE_BRIGHT	0x01
-#define DISPLAY_STATUS_MENU			0x02
+
 
 
 

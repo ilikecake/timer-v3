@@ -66,7 +66,6 @@ static void vLEDTask1(void *pvParameters) {
 /* Console thread */
 static void vConsoleTask(void *pvParameters)
 {
-	//TODO: implement a queue to receive characters
 	uint32_t prompt = 0;
 	char DataFromUSB;
 
@@ -79,7 +78,6 @@ static void vConsoleTask(void *pvParameters)
 			CommandGetInputChar(DataFromUSB);
 			RunCommand();
 		}
-
 
 		else if ((vcom_connected() != 0) && (prompt == 0))
 		{
@@ -100,9 +98,6 @@ static void vConsoleTask(void *pvParameters)
  */
 int main(void)
 {
-
-
-
 	App_SetStatus(APP_STATUS_INIT);
 
 	prvSetupHardware();
@@ -117,13 +112,19 @@ int main(void)
 	OLED_Init();
 	vcom_init();
 	App_Button_Init();
-	DS3232M_Init();
+	if(DS3232M_Init() != 0x00)
+	{
+		App_SetStatus(APP_STATUS_OSC_STOPPED);
+	}
 
 	DisplayTaskInit();
 	InitTimerTask();
 
-	App_SetStatus(APP_STATUS_OK);
-
+	//Init finished successfully, set status to OK
+	if(App_GetStatus() == APP_STATUS_INIT)
+	{
+		App_SetStatus(APP_STATUS_OK);
+	}
 
 	/* LED1 toggle thread */
 	xTaskCreate(vLEDTask1, (signed char *) "vTaskLed1", configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 2UL), &TaskList[0]);
@@ -132,14 +133,11 @@ int main(void)
 	xTaskCreate(vConsoleTask, (signed char *) "vConsole", ( unsigned short )400, NULL, (tskIDLE_PRIORITY + 1UL), &TaskList[1]);
 
 	/* OLED Display Task */
-	xTaskCreate(DisplayTask, (signed char *) "vDisplay", ( unsigned short )300, NULL, (tskIDLE_PRIORITY + 2UL), &TaskList[2]);
+	xTaskCreate(DisplayTask, (signed char *) "vDisplay", ( unsigned short )200, NULL, (tskIDLE_PRIORITY + 2UL), &TaskList[2]);
 
 	//Timer task
 	//This should be the highest priority task
-	xTaskCreate(TimerTask, (signed char *) "vTimer", ( unsigned short )64, NULL, (tskIDLE_PRIORITY + 3UL), &TaskList[3]);
-
-	/* LED0 toggle thread */
-	//xTaskCreate(vLEDTask0, (signed char *) "vTaskLed0", configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL), (xTaskHandle *) NULL);
+	xTaskCreate(TimerTask, (signed char *) "vTimer", ( unsigned short )64, NULL, (tskIDLE_PRIORITY + 4UL), &TaskList[3]);
 
 	/* Start the scheduler */
 	vTaskStartScheduler();

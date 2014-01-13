@@ -65,16 +65,7 @@
 
 #ifdef INCLUDE_DOW_STRINGS
 
-//The names of the days of the week.
-static char DOW0[] = "Sunday";
-static char DOW1[] = "Monday";
-static char DOW2[] = "Tuesday";
-static char DOW3[] = "Wednesday";
-static char DOW4[] = "Thursday";
-static char DOW5[] = "Friday";
-static char DOW6[] = "Saturday";
-
-static char* DOW[7] = {DOW0, DOW1, DOW2, DOW3, DOW4, DOW5, DOW6};
+extern char* DOW[7];
 
 #endif
 
@@ -88,8 +79,8 @@ typedef struct TimeAndDate
         uint8_t hour;
         uint8_t min;
         uint8_t sec;
-        uint8_t DST_Bit;	/**Set to 1 when calling SetTime to indicate that DST corrections should be used. */
-        int8_t UTOffset;	/**When calling the SetTime function, this will be set as the offset from UT to local time. This value should not include DST corrections. */
+        //uint8_t DST_Bit;	/**Set to 1 when calling SetTime to indicate that DST corrections should be used. */
+        //int8_t UTOffset;	/**When calling the SetTime function, this will be set as the offset from UT to local time. This value should not include DST corrections. */
         uint8_t dow;		/**This will be set by the GetTime function to the day of the week (0 = Sunday, 1 = Monday, etc...) This value is ignored by the SetTime function. */
 } TimeAndDate;
 
@@ -152,28 +143,25 @@ void DS3232M_32KhzStop(void);																//Done
 
 void DS3232M_SetIntMode(uint8_t IntMode);													//not implemented
 
-uint8_t DS3232M_GetTemp(int8_t *TempLHS, uint8_t *TempRHS);									//Not tested
-
-
+void DS3232M_GetTemp(int8_t *TempLHS, uint8_t *TempRHS);									//Not tested
 
 uint8_t GetDOW(uint16_t Year, uint16_t Month, uint16_t Day);
 
 //void WriteSRAM(uint8_t* DataToWrite, uint8_t BytesToWrite);	//TODO: Combine this with readreg
 //void ReadSRAM(uint8_t AddressToRead, uint8_t* DataToRead, uint8_t BytesToRead);	//TODO: Combine this with readreg
 
-void ClearCenturyBit(void);
+//void ClearCenturyBit(void);
 
 //Functions to deal with time zones
 void SetUTOffset (int8_t Offset);
 int8_t GetUTOffset(void);
 
-
 //Functions to deal with DST
 void SetDST(uint8_t DST_Bit);
 uint8_t GetDST(void);
 
-void SetDSTActive(uint8_t DST_Bit);
-uint8_t GetDSTActive(void);
+//void SetDSTActive(uint8_t DST_Bit);
+//uint8_t GetDSTActive(void);
 
 //This function only uses the year from the TimeAndDate struct.
 void GetDSTStartAndEnd(TimeAndDate *TheTime, uint8_t* DSTStartDay, uint8_t* DSTEndDay);

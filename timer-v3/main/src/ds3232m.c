@@ -27,6 +27,25 @@
 
 #include "main.h"
 
+
+
+#ifdef INCLUDE_DOW_STRINGS
+
+//The names of the days of the week.
+static char DOW0[] = "Sunday";
+static char DOW1[] = "Monday";
+static char DOW2[] = "Tuesday";
+static char DOW3[] = "Wednesday";
+static char DOW4[] = "Thursday";
+static char DOW5[] = "Friday";
+static char DOW6[] = "Saturday";
+
+char* DOW[7] = {DOW0, DOW1, DOW2, DOW3, DOW4, DOW5, DOW6};
+
+#endif
+
+
+
 //TODO: Add I2C status checking
 //TODO: Implement a mutex for the i2c?
 //TODO: Write some sort of writereg function to abstract the I2C stuff from the rest of the code.
@@ -249,7 +268,6 @@ void DS3232M_ClearOSCFlag(void)
 /** Set the time
  *
  * Note: it is assumed that the time is entered in local time (including DST, if applicable)
- * TODO: change this to UT with local correction
  */
 void DS3232M_SetTime(TimeAndDate *TheTime)
 {
@@ -283,8 +301,11 @@ void DS3232M_SetTime(TimeAndDate *TheTime)
 	//Write the two most significant digits of the year (ex: 19 for 1982, 20 for 2013, etc...) to SRAM
 	 DS3232M_WriteReg(YEAR_MSB_SRAM_ADDRESS, (uint8_t)(YearMSD));
 
+	 //Move the UT offset and DST bits to their own functions.
+	 //Call them after setting the time if desired
+
 	//Write the DST bit and DST active bit in SRAM
-	 if(TheTime->DST_Bit == 1)
+	 /*if(TheTime->DST_Bit == 1)
 	 {
 		 if(IsDSTDate(TheTime) == 0x01)
 		 {
@@ -300,7 +321,7 @@ void DS3232M_SetTime(TimeAndDate *TheTime)
 	 else
 	 {
 		 DS3232M_WriteReg(USE_DST_ADDRESS, 0x00);
-	 }
+	 }*/
 
 
 	 //DS3232M_WriteReg(USE_DST_ADDRESS,
@@ -313,7 +334,7 @@ void DS3232M_SetTime(TimeAndDate *TheTime)
 	//}
 
 	//Save the universal time offset
-	DS3232M_WriteReg(UT_OFFSET_ADDRESS,TheTime->UTOffset);
+	//DS3232M_WriteReg(UT_OFFSET_ADDRESS,TheTime->UTOffset);
 
 	//Clear the osc flag to indicate that the time is valid
 	DS3232M_ClearOSCFlag();
@@ -385,7 +406,8 @@ void DS3232M_GetTime(TimeAndDate *TheTime)
 		RecieveData[1] += 1;
 		DS3232M_WriteReg(YEAR_MSB_SRAM_ADDRESS, RecieveData[1]);
 		//WriteSRAM(RecieveData, 1);
-		ClearCenturyBit();
+		DS3232M_ModifyReg(DS3232M_REG_MONTH, 0, 0x80);		//Clear the century bit
+		//ClearCenturyBit();
 	}
 
 	TheTime->year += (100*RecieveData[1]);
@@ -395,7 +417,7 @@ void DS3232M_GetTime(TimeAndDate *TheTime)
 	DS3232M_ReadReg(USE_DST_ADDRESS, &RecieveData[0]);		//Read the DST config bits into array 0.
 	RecieveData[1] = IsDSTDate(TheTime);
 
-	/**NOTE: This will not work if this attempts to correct the hours and adds causes the hours to overflow.
+	/**NOTE: This will not work if this attempts to correct the hours and causes the hours to overflow.
 	 *       The most general form of this function would require the function to check hours, days, months, and years.
 	 *       However, this function should work okay, as long as the GetTime function is not called at < 1 hour to midnight.
 	 */
@@ -424,7 +446,7 @@ void DS3232M_GetTime(TimeAndDate *TheTime)
 		}
 	}
 
-	TheTime->DST_Bit = RecieveData[0];
+	//TheTime->DST_Bit = RecieveData[0];
 
 	return;
 }
@@ -843,38 +865,15 @@ void DS3232M_32KhzStop(void)
 	return;
 }
 
-uint8_t DS3232M_GetTemp(int8_t *TempLHS, uint8_t *TempRHS)
+void DS3232M_GetTemp(int8_t *TempLHS, uint8_t *TempRHS)
 {
-
 	uint8_t RecieveData[2];
-	//uint8_t SendData;
-	//uint8_t ret;
-
 
 	DS3232M_ReadBytes(DS3232M_REG_TEMP_HI, RecieveData, 2);
 
-	/*DS3232M_I2C.txBuff = &SendData;
-	DS3232M_I2C.txSz = 1;
-	DS3232M_I2C.rxBuff = RecieveData;
-	DS3232M_I2C.rxSz = 2;
-
-	SendData = DS3232M_REG_TEMP_HI;
-
-	Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);*/
-	//ret = TWIRW(DS3232M_SLA_ADDRESS, &SendData, RecieveData, 1, 2);
-
-	//if(ret == 0)
-	//{
-		*TempLHS = RecieveData[0];				//LHS is in 2's compliment form
-		*TempRHS = (RecieveData[1] >> 6)*25;	//The two MSB of this byte are the decimal portion of the temperature in .25s
-		return 0;
-		//printf("High: 0x%02X\nLow: 0x%02X\n", RecieveData[0], RecieveData[1]);
-	//}
-	//else
-	//{
-	//	printf_P(PSTR("I2C Error (0x%02X)\n"), ret);
-	//	return ret;
-	//}
+	*TempLHS = RecieveData[0];				//LHS is in 2's compliment form
+	*TempRHS = (RecieveData[1] >> 6)*25;	//The two MSB of this byte are the decimal portion of the temperature in .25s
+	return;
 }
 
 //Time string should be 8 characters plus the terminating character
@@ -968,7 +967,7 @@ void DS3232M_GetDateString(char *DateString, uint8_t StringOptions)
 }
 
 /**Returns the day of the week for a given day, month and year
- *  Method stolen from http://en.wikipedia.org/wiki/Determination_of_the_day_of_the_week#Other_methods_.28using_tables_or_computational_devices.29
+ *  Method from http://en.wikipedia.org/wiki/Determination_of_the_day_of_the_week#Other_methods_.28using_tables_or_computational_devices.29
  *  Year:	The four digit year (ex: 1982)
  *  Month:	The month number (ex: 9 for September)
  *  Day:	The day in the month (ex: 14)
@@ -1022,13 +1021,13 @@ uint8_t GetDOW(uint16_t Year, uint16_t Month, uint16_t Day)
 
 /**Clears the century bit, but leaves the month data intact */
 //TODO: Maybe remove this function also?
-void ClearCenturyBit(void)
-{
+//void ClearCenturyBit(void)
+//{
 	//uint8_t RecieveData;
 	//uint8_t SendData[2];
 
 
-	DS3232M_ModifyReg(DS3232M_REG_MONTH, 0, 0x80);
+	//DS3232M_ModifyReg(DS3232M_REG_MONTH, 0, 0x80);
 
 	//Get the current status register
 	/*SendData[0] = DS3232M_REG_MONTH;
@@ -1047,24 +1046,38 @@ void ClearCenturyBit(void)
 	DS3232M_I2C.rxBuff = &RecieveData;
 	Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);*/
 
-	return;
-}
+	//return;
+//}
 
-//TODO: remove these functions?
+
+/**Set or clear the DST bits
+ * This function does not change the time, it simply updates the DST bits in SRAM to indicate whether DST is in use.
+ * The current time of the device should already be corrected for daylight savings (if required) before this function is called.
+ */
 void SetDST(uint8_t DST_Bit)
 {
-	//uint8_t DatToSend[2];
+	TimeAndDate TheTime;
 
-	if((DST_Bit == 0) || (DST_Bit == 1))
+	DS3232M_GetTime(&TheTime);
+
+	if(DST_Bit == 1)
 	{
-
-		DS3232M_WriteReg(USE_DST_ADDRESS, DST_Bit);
-
-		//DatToSend[0] = USE_DST_ADDRESS;
-		//DatToSend[1] = DST_Bit;
-
-		//WriteSRAM(DatToSend, 1);
+		if(IsDSTDate(&TheTime) == 0x01)
+		{
+			//DST time is requested, and DST is currently active
+			DS3232M_WriteReg(USE_DST_ADDRESS, 0x03);
+		}
+		else
+		{
+			//DST time is requested, and DST is not currently active
+			DS3232M_WriteReg(USE_DST_ADDRESS, 0x01);
+		}
 	}
+	else
+	{
+		DS3232M_WriteReg(USE_DST_ADDRESS, 0x00);
+	}
+
 	return;
 }
 
@@ -1072,8 +1085,6 @@ uint8_t GetDST(void)
 {
 	uint8_t DST_Bit;
 	DS3232M_ReadReg(USE_DST_ADDRESS, &DST_Bit);
-
-	//ReadSRAM(USE_DST_ADDRESS, &DST_Bit, 1);
 	return DST_Bit;
 }
 
@@ -1179,15 +1190,15 @@ uint8_t IsDSTDate(TimeAndDate *TheTime)
 
 void SetUTOffset (int8_t Offset)
 {
-	DS3232M_WriteReg(UT_OFFSET_ADDRESS, Offset);
+	DS3232M_WriteReg(UT_OFFSET_ADDRESS, (uint8_t)Offset);
 	return;
 }
 
 int8_t GetUTOffset(void)
 {
-	int8_t UT_Offset;;
+	uint8_t UT_Offset;;
 	DS3232M_ReadReg(UT_OFFSET_ADDRESS, &UT_Offset);
-	return UT_Offset;
+	return (int8_t)UT_Offset;
 }
 
 uint8_t DaysInTheMonth(uint8_t month, uint16_t year)

@@ -23,6 +23,8 @@
 #define TIMER_OUTPUT_NUMBER					4			/** The number of outputs, starting at one. Setting this to 4 means that there are four outputs*/
 #define TIMER_EVENT_NUMBER					6			/** The number of events for each timer, starting at one. Setting this to 6 means there are 6 events*/
 
+//Defines the type of events. TODO: rename these variables later...
+#define TIMER_TASK_EVENT_TYPE_NONE			0x00		//
 #define TIMER_TASK_TYPE_TIME_EVENT			0x01		//Turn the output on or off at a certain time
 #define TIMER_TASK_TYPE_REPEATING_EVENT		0x02		//Turn the output on or off on a certain interval (for this type, only one event can be specified)
 #define TIMER_TASK_TYPE_SUN_EVENT			0x03		//Turn the output on or off based on sunrise/sunset time

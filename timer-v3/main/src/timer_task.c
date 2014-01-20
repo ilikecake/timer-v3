@@ -184,6 +184,7 @@ uint8_t TimerWriteSingleEventToEEPROM(uint8_t OutputNumber, uint8_t EventNumber,
 
 uint8_t InitTimerTask(void)
 {
+	int8_t i, j;
 	//TODO: Code to read timer events from EEPROM goes here...
 	//TODO: Check if timer tasks are not set?
 
@@ -200,28 +201,53 @@ uint8_t InitTimerTask(void)
 	TimerSetOutput(2, 0);
 	TimerSetOutput(3, 0);
 
-	/*TimerEventList[0][0].EventType = TIMER_TASK_TYPE_STEADY_EVENT;
-	TimerEventList[0][0].EventTime[0] = 0;
-	TimerEventList[0][0].EventTime[0] = 0;
-	TimerEventList[0][0].EventTime[0] = 0;
-	TimerEventList[0][0].EventOutputState = 0;
+
+	//Check to make sure the events read from EEPROM are valid
+	for(i=0;i<TIMER_OUTPUT_NUMBER;i++)
+	{
+		for(j=0;j<TIMER_EVENT_NUMBER;j++)
+		{
+			if( (*TimerEventList[i][j].EventTime != TIMER_TASK_TYPE_TIME_EVENT) || (*TimerEventList[i][j].EventTime != TIMER_TASK_TYPE_REPEATING_EVENT) || (*TimerEventList[i][j].EventTime != TIMER_TASK_TYPE_SUN_EVENT) || (*TimerEventList[i][j].EventTime != TIMER_TASK_TYPE_STEADY_EVENT) )
+			{
+				if(j == 0)
+				{
+					//If this is the first event for a specific output, set the output to off.
+					TimerEventList[i][j].EventType = TIMER_TASK_TYPE_STEADY_EVENT;
+					TimerEventList[i][j].EventOutputState = 0;
+				}
+				else
+				{
+					//otherwise set the event type to none
+					TimerEventList[i][j].EventType = TIMER_TASK_EVENT_TYPE_NONE;
+					TimerEventList[i][j].EventOutputState = 0;
+				}
+			}
+		}
+	}
+
 
 	TimerEventList[1][0].EventType = TIMER_TASK_TYPE_STEADY_EVENT;
 	TimerEventList[1][0].EventTime[0] = 0;
-	TimerEventList[1][0].EventTime[0] = 0;
-	TimerEventList[1][0].EventTime[0] = 0;
+	TimerEventList[1][0].EventTime[1] = 0;
+	TimerEventList[1][0].EventTime[2] = 0;
 	TimerEventList[1][0].EventOutputState = 0;
 
-	TimerEventList[2][0].EventType = TIMER_TASK_TYPE_STEADY_EVENT;
-	TimerEventList[2][0].EventTime[0] = 0;
-	TimerEventList[2][0].EventTime[0] = 0;
-	TimerEventList[2][0].EventTime[0] = 0;
+	TimerEventList[0][0].EventType = TIMER_TASK_TYPE_TIME_EVENT;
+	TimerEventList[0][0].EventTime[0] = 0xFF;
+	TimerEventList[0][0].EventTime[1] = 4;
+	TimerEventList[0][0].EventTime[2] = 23;
+	TimerEventList[0][0].EventOutputState = 0;
+
+	TimerEventList[2][0].EventType = TIMER_TASK_TYPE_TIME_EVENT;
+	TimerEventList[2][0].EventTime[0] = 18;
+	TimerEventList[2][0].EventTime[1] = 18;
+	TimerEventList[2][0].EventTime[2] = 21;
 	TimerEventList[2][0].EventOutputState = 0;
 
-	TimerEventList[3][0].EventType = TIMER_TASK_TYPE_STEADY_EVENT;
+	/*TimerEventList[3][0].EventType = TIMER_TASK_TYPE_STEADY_EVENT;
 	TimerEventList[3][0].EventTime[0] = 0;
-	TimerEventList[3][0].EventTime[0] = 0;
-	TimerEventList[3][0].EventTime[0] = 0;
+	TimerEventList[3][0].EventTime[1] = 0;
+	TimerEventList[3][0].EventTime[2] = 0;
 	TimerEventList[3][0].EventOutputState = 0;*/
 
 	xTimerCommands = xQueueCreate( 2, sizeof( uint8_t ) );

@@ -40,6 +40,8 @@ typedef struct {
 	uint8_t LeftItem;
 	uint8_t RightItem;
 	uint8_t CenterItem;
+	uint8_t X_Start;
+	uint8_t Y_Start;
 } MenuItem;
 
 

@@ -28,7 +28,6 @@
 #include "main.h"
 
 
-
 #ifdef INCLUDE_DOW_STRINGS
 
 //The names of the days of the week.
@@ -48,8 +47,8 @@ char* DOW[7] = {DOW0, DOW1, DOW2, DOW3, DOW4, DOW5, DOW6};
 
 //TODO: Add I2C status checking
 //TODO: Implement a mutex for the i2c?
-//TODO: Write some sort of writereg function to abstract the I2C stuff from the rest of the code.
-//TODO: Convert this code to use UTC and offset for timezones/DST
+//TODO: Write some sort of writereg function to abstract the I2C stuff from the rest of the code. (done?)
+//TODO: Convert this code to use UTC and offset for timezones/DST (No)
 
 I2C_XFER_T DS3232M_I2C;
 
@@ -234,8 +233,6 @@ uint8_t DS3232M_Init( void )
 
 
 //Universal functions
-
-
 void DS3232M_Reset(void)
 {
 	//Sending 0x80 to the test register resets all registers to their default states.
@@ -301,43 +298,19 @@ void DS3232M_SetTime(TimeAndDate *TheTime)
 	//Write the two most significant digits of the year (ex: 19 for 1982, 20 for 2013, etc...) to SRAM
 	 DS3232M_WriteReg(YEAR_MSB_SRAM_ADDRESS, (uint8_t)(YearMSD));
 
-	 //Move the UT offset and DST bits to their own functions.
-	 //Call them after setting the time if desired
-
-	//Write the DST bit and DST active bit in SRAM
-	 /*if(TheTime->DST_Bit == 1)
-	 {
-		 if(IsDSTDate(TheTime) == 0x01)
-		 {
-			 //DST time is requested, and DST is currently active
-			 DS3232M_WriteReg(USE_DST_ADDRESS, 0x03);
-		 }
-		 else
-		 {
-			 //DST time is requested, and DST is not currently active
-			 DS3232M_WriteReg(USE_DST_ADDRESS, 0x01);
-		 }
-	 }
-	 else
-	 {
-		 DS3232M_WriteReg(USE_DST_ADDRESS, 0x00);
-	 }*/
-
-
-	 //DS3232M_WriteReg(USE_DST_ADDRESS,
-
-	//SetDST(TheTime->DST_Bit);
-	//if(TheTime->DST_Bit == 1)
-	//{
-	//	SendData[0] = IsDSTDate(TheTime);
-	//	SetDSTActive(SendData[0]);
-	//}
-
-	//Save the universal time offset
-	//DS3232M_WriteReg(UT_OFFSET_ADDRESS,TheTime->UTOffset);
-
 	//Clear the osc flag to indicate that the time is valid
 	DS3232M_ClearOSCFlag();
+
+	//Update the DST bits
+	//We assume that if the user entered a new time, they already applied the DST correction if required.
+	//Here we will check if the clock is using DST and if so, update the DST bit to indicate that DST has already been applied
+	DS3232M_ReadReg(USE_DST_ADDRESS, &SendData[0]);		//Read the DST config bits into array 0.
+	if((SendData[0] & 0x01) == 0x01)
+	{
+		//The clock is using DST
+		SendData[0] = (IsDSTDate(TheTime) << 1) | 0x01;
+		DS3232M_WriteReg(USE_DST_ADDRESS, SendData[0]);
+	}
 
 	//Reenable alarms
 	if((AlarmState & 0x01) == 0x01)
@@ -396,8 +369,6 @@ void DS3232M_GetTime(TimeAndDate *TheTime)
 
 	//If the century bit is one, the year most significant digits are incremented by 1. The century bit is then set back to zero.
 	DS3232M_ReadReg(YEAR_MSB_SRAM_ADDRESS, &RecieveData[1]);
-
-	//ReadSRAM(YEAR_MSB_SRAM_ADDRESS, &RecieveData[1], 1);
 
 	if((RecieveData[5] & 0x7F) == 0x80)
 	{
@@ -479,10 +450,7 @@ void DS3232M_SetAlarm(uint8_t AlarmNumber, uint8_t AlarmMasks, TimeAndDate *Alar
 			//Alarm on date
 			SendData[4] = (((AlarmMasks & 0x08) << 4) | ((AlarmMasks & 0x10) << 2) | (AlarmTime->day % 10) | ((AlarmTime->day / 10) << 4));
 		}
-
 		DS3232M_WriteBytes(SendData, 5);
-		//DS3232M_I2C.txSz = 5;
-		//Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);
 	}
 	else
 	{
@@ -501,142 +469,53 @@ void DS3232M_SetAlarm(uint8_t AlarmNumber, uint8_t AlarmMasks, TimeAndDate *Alar
 			SendData[3] = (((AlarmMasks & 0x08) << 4) | ((AlarmMasks & 0x10) << 2) | (AlarmTime->day % 10) | ((AlarmTime->day / 10) << 4));
 		}
 		DS3232M_WriteBytes(SendData, 4);
-
-
-		//DS3232M_I2C.txSz = 4;
-		//Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);
 	}
 	return;
 }
 
 void DS3232M_EnableAlarm(uint8_t AlarmNumber)
 {
-	//uint8_t RecieveData;
-	//uint8_t SendData[2];
-
 	if((AlarmNumber == 1) || (AlarmNumber == 2))
 	{
 		DS3232M_ModifyReg(DS3232M_REG_CONTROL, AlarmNumber, AlarmNumber);
-
-		//Get the current control register
-		/*SendData[0] = DS3232M_REG_CONTROL;
-		DS3232M_I2C.txSz = 1;
-		DS3232M_I2C.rxSz = 1;
-		DS3232M_I2C.txBuff = SendData;
-		DS3232M_I2C.rxBuff = &RecieveData;
-		Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);
-
-		//Enable the requested alarm
-		SendData[1] = RecieveData | AlarmNumber;
-		DS3232M_I2C.txSz = 2;
-		DS3232M_I2C.rxSz = 0;
-		DS3232M_I2C.txBuff = SendData;
-		DS3232M_I2C.rxBuff = &RecieveData;
-		Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);*/
 	}
 	return;
 }
 
 void DS3232M_DisableAlarm(uint8_t AlarmNumber)
 {
-	//uint8_t RecieveData;
-	//uint8_t SendData[2];
-
 	if((AlarmNumber == 1) || (AlarmNumber == 2))
 	{
 		DS3232M_ModifyReg(DS3232M_REG_CONTROL, 0, AlarmNumber);
-
-		//Get the current control register
-		/*SendData[0] = DS3232M_REG_CONTROL;
-		DS3232M_I2C.txSz = 1;
-		DS3232M_I2C.rxSz = 1;
-		DS3232M_I2C.txBuff = SendData;
-		DS3232M_I2C.rxBuff = &RecieveData;
-		Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);
-
-		//Disable the requested alarm
-		SendData[1] = (RecieveData & (~AlarmNumber));
-		DS3232M_I2C.txSz = 2;
-		DS3232M_I2C.rxSz = 0;
-		DS3232M_I2C.txBuff = SendData;
-		DS3232M_I2C.rxBuff = &RecieveData;
-		Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);*/
-
-
 		DS3232M_ModifyReg(DS3232M_REG_STATUS, 0, AlarmNumber);
-
-		//Get the current status register
-		/*SendData[0] = DS3232M_REG_STATUS;
-		DS3232M_I2C.txSz = 1;
-		DS3232M_I2C.rxSz = 1;
-		DS3232M_I2C.txBuff = SendData;
-		DS3232M_I2C.rxBuff = &RecieveData;
-		Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);
-
-		//Clear the interrupt flag for the requested alarm
-		SendData[1] = (RecieveData & (~AlarmNumber));
-		DS3232M_I2C.txSz = 2;
-		DS3232M_I2C.rxSz = 0;
-		DS3232M_I2C.txBuff = SendData;
-		DS3232M_I2C.rxBuff = &RecieveData;
-		Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);*/
 	}
 	return;
 }
 
 uint8_t DS3232M_AlarmsActive(void)
 {
-	//uint8_t StatusReg;
 	uint8_t ControlReg;
 
 	DS3232M_ReadReg(DS3232M_REG_CONTROL, &ControlReg);
-
-	//DS3232M_GetStatus(&StatusReg, &ControlReg);
-
 	return (ControlReg & 0x07);
 }
 
 void DS3232M_ClearAlarmFlag(uint8_t AlarmNumber)
 {
-	//uint8_t RecieveData;
-	//uint8_t SendData[2];
-
 	if((AlarmNumber == 1) || (AlarmNumber == 2))
 	{
 		DS3232M_ModifyReg(DS3232M_REG_STATUS, 0, AlarmNumber);
 	}
-
-	//Get the current status register
-	/*SendData[0] = DS3232M_REG_STATUS;
-	DS3232M_I2C.txSz = 1;
-	DS3232M_I2C.rxSz = 1;
-	DS3232M_I2C.txBuff = SendData;
-	DS3232M_I2C.rxBuff = &RecieveData;
-	Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);
-
-	//Clear the interrupt flag for the requested alarm
-	SendData[1] = (RecieveData & (~AlarmNumber));
-	DS3232M_I2C.txSz = 2;
-	DS3232M_I2C.rxSz = 0;
-	DS3232M_I2C.txBuff = SendData;
-	DS3232M_I2C.rxBuff = &RecieveData;
-	Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);*/
-
 	return;
 }
 
 void DS3232M_GetAlarmTime(uint8_t AlarmNumber, uint8_t *AlarmMasks, TimeAndDate *AlarmTime)
 {
 	uint8_t RecieveData[4];
-	//uint8_t SendData;
 
 	//These will always be zero
 	AlarmTime->month = 0;
 	AlarmTime->year = 0;
-
-	//DS3232M_I2C.txBuff = &SendData;
-	//DS3232M_I2C.rxBuff = RecieveData;
-	//DS3232M_I2C.txSz = 1;
 
 	if(AlarmNumber == 1)
 	{
@@ -698,170 +577,18 @@ void DS3232M_GetAlarmTime(uint8_t AlarmNumber, uint8_t *AlarmMasks, TimeAndDate 
 
 	*AlarmMasks = ((RecieveData[0] & 0x80) >> 7) | ((RecieveData[1] & 0x80) >> 6) | ((RecieveData[2] & 0x80) >> 5) | ((RecieveData[3] & 0x80) >> 4) | ((RecieveData[3] & 0x40) >> 2);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	/*
-
-	//TODO: I should be able to combine the code for alarm 1 and 2 somehow
-	if(AlarmNumber == 1)
-	{
-		//SendData = DS3232M_REG_A1_SEC;
-		//DS3232M_I2C.rxSz = 4;
-		//Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);
-
-		AlarmTime->sec = ((RecieveData[0] & 0x0F) + ((RecieveData[0] & 0x70) >> 4)*10 );
-		AlarmTime->min = ((RecieveData[1] & 0x0F) + ((RecieveData[1] & 0x70) >> 4)*10 );
-
-		//Handle hours in 12 or 24 hour mode. We will always return the hours in 24 hour format.
-		if( (RecieveData[2] & 0x40) == 0x04)		//12 hour mode
-		{
-			if((RecieveData[2] & 0x20) == 0x20)		//PM
-			{
-				AlarmTime->hour = 12 + (RecieveData[2] & 0x0F) + ((RecieveData[2] & 0x10) >> 4)*10;
-			}
-			else	//AM
-			{
-				AlarmTime->hour = (RecieveData[2] & 0x0F) + ((RecieveData[2] & 0x10) >> 4)*10;
-			}
-		}
-		else	//24 Hour Mode
-		{
-			AlarmTime->hour = (RecieveData[2] & 0x0F) + ((RecieveData[2] & 0x30) >> 4)*10;
-		}
-
-		if((RecieveData[3] & 0x40) == 0x40)
-		{
-			//Alarm on day of the week
-			AlarmTime->dow = (RecieveData[3] & 0x07);
-			AlarmTime->day = 0;
-		}
-		else
-		{
-			//Alarm on date of the month
-			AlarmTime->day = ((RecieveData[3] & 0x0F) + ((RecieveData[3] & 0x30) >> 4)*10);
-			AlarmTime->dow = 0;
-		}
-
-		*AlarmMasks = ((RecieveData[0] & 0x80) >> 7) | ((RecieveData[1] & 0x80) >> 6) | ((RecieveData[2] & 0x80) >> 5) | ((RecieveData[3] & 0x80) >> 4) | ((RecieveData[3] & 0x40) >> 2);
-	}
-	else if(AlarmNumber == 2)
-	{
-		SendData = DS3232M_REG_A2_MIN;
-		DS3232M_I2C.rxSz = 3;
-		Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);
-
-		AlarmTime->sec = 0;
-		AlarmTime->min = ((RecieveData[0] & 0x0F) + ((RecieveData[0] & 0x70) >> 4)*10 );
-
-		//Handle hours in 12 or 24 hour mode. We will always return the hours in 24 hour format.
-		if( (RecieveData[1] & 0x40) == 0x04)		//12 hour mode
-		{
-			if((RecieveData[1] & 0x20) == 0x20)		//PM
-			{
-				AlarmTime->hour = 12 + (RecieveData[1] & 0x0F) + ((RecieveData[1] & 0x10) >> 4)*10;
-			}
-			else	//AM
-			{
-				AlarmTime->hour = (RecieveData[1] & 0x0F) + ((RecieveData[1] & 0x10) >> 4)*10;
-			}
-		}
-		else	//24 Hour Mode
-		{
-			AlarmTime->hour = (RecieveData[1] & 0x0F) + ((RecieveData[1] & 0x30) >> 4)*10;
-		}
-
-		if((RecieveData[2] & 0x40) == 0x40)
-		{
-			//Alarm on day of the week
-			AlarmTime->dow = (RecieveData[2] & 0x07);
-			AlarmTime->day = 0;
-		}
-		else
-		{
-			//Alarm on date of the month
-			AlarmTime->day = ((RecieveData[2] & 0x0F) + ((RecieveData[2] & 0x30) >> 4)*10);
-			AlarmTime->dow = 0;
-		}
-
-		*AlarmMasks = ((RecieveData[0] & 0x80) >> 6) | ((RecieveData[1] & 0x80) >> 5) | ((RecieveData[2] & 0x80) >> 4) | ((RecieveData[2] & 0x40) >> 2);
-	}*/
 	return;
 }
 
 void DS3232M_32KhzStart(uint8_t BatEnable)
 {
-	//uint8_t RecieveData;
-	//uint8_t SendData[2];
-
-
-
-	//(((BatEnable & 0x01) << 6) | 0x08);
-
-
 	DS3232M_ModifyReg(DS3232M_REG_STATUS, (((BatEnable & 0x01) << 6) | 0x08), 0x48);
-
-	//Get the current control register
-	/*SendData[0] = DS3232M_REG_STATUS;
-	DS3232M_I2C.txSz = 1;
-	DS3232M_I2C.rxSz = 1;
-	DS3232M_I2C.txBuff = SendData;
-	DS3232M_I2C.rxBuff = &RecieveData;
-	Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);
-
-	//Enable the 32.768kHz output
-	SendData[1] = RecieveData | (1<<3);
-	if(BatEnable == 1)
-	{
-		SendData[1] |= (1<<6);
-	}
-	DS3232M_I2C.txSz = 2;
-	DS3232M_I2C.rxSz = 0;
-	DS3232M_I2C.txBuff = SendData;
-	DS3232M_I2C.rxBuff = &RecieveData;
-	Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);*/
-
 	return;
 }
 
 void DS3232M_32KhzStop(void)
 {
-	//uint8_t RecieveData;
-	//uint8_t SendData[2];
-
-
-
 	DS3232M_ModifyReg(DS3232M_REG_STATUS, 0, 0x48);
-
-
-
-	//Get the current control register
-	/*SendData[0] = DS3232M_REG_STATUS;
-	DS3232M_I2C.txSz = 1;
-	DS3232M_I2C.rxSz = 1;
-	DS3232M_I2C.txBuff = SendData;
-	DS3232M_I2C.rxBuff = &RecieveData;
-	Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);
-
-	//Enable the 32.768kHz output
-	SendData[1] = RecieveData & 0xB7;
-	DS3232M_I2C.txSz = 2;
-	DS3232M_I2C.rxSz = 0;
-	DS3232M_I2C.txBuff = SendData;
-	DS3232M_I2C.rxBuff = &RecieveData;
-	Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);*/
-
 	return;
 }
 
@@ -879,6 +606,7 @@ void DS3232M_GetTemp(int8_t *TempLHS, uint8_t *TempRHS)
 //Time string should be 8 characters plus the terminating character
 void DS3232M_GetTimeString(char *TimeString, uint8_t StringOptions)
 {
+	uint8_t i;
 	TimeAndDate CurrentTime;
 
 	DS3232M_GetTime(&CurrentTime);
@@ -921,6 +649,17 @@ void DS3232M_GetTimeString(char *TimeString, uint8_t StringOptions)
 	TimeString[2] = ':';
 	TimeString[3] = (char)((CurrentTime.min/10)+48);
 	TimeString[4] = (char)((CurrentTime.min%10)+48);
+
+	if(StringOptions == 1)
+	{
+		if(TimeString[0] == ' ')
+		{
+			for(i=0;i<8;i++)
+			{
+				TimeString[i] = TimeString[i+1];
+			}
+		}
+	}
 
 	return;
 }
@@ -981,75 +720,6 @@ uint8_t GetDOW(uint16_t Year, uint16_t Month, uint16_t Day)
 	return (Year + Year/4 - Year/100 + Year/400 + t[Month-1] + Day) % 7;
 }
 
-/**Write data to the battery backed SRAM
- *
- *  DataToWrite: The array of data to write. Position zero in the array should be filled with the address to start writing data.
- *  			 The starting address must be greater than 0x13.
- *  BytesToWrite: The number of bytes to write. This does not include the address byte.
- */
-/*void WriteSRAM(uint8_t* DataToWrite, uint8_t BytesToWrite)
-{
-	BytesToWrite++;
-
-	if(DataToWrite[0] > 0x13)
-	{
-		DS3232M_I2C.txSz = BytesToWrite;
-		DS3232M_I2C.rxSz = 0;
-		DS3232M_I2C.txBuff = DataToWrite;
-		DS3232M_I2C.rxBuff = NULL;
-		Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);
-	}
-	return;
-}*/
-
-/**Read data from the battery backed SRAM
- *
- *  AddressToRead: The starting read address. Must be greater than 0x13.
- *  DataToRead: The array to put the bytes read.
- *  BytesToRead: The number of bytes to read
- */
-/*void ReadSRAM(uint8_t AddressToRead, uint8_t* DataToRead, uint8_t BytesToRead)
-{
-	DS3232M_I2C.txBuff = &AddressToRead;
-	DS3232M_I2C.txSz = 1;
-	DS3232M_I2C.rxBuff = DataToRead;
-	DS3232M_I2C.rxSz = BytesToRead;
-	Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);
-
-	return;
-}*/
-
-/**Clears the century bit, but leaves the month data intact */
-//TODO: Maybe remove this function also?
-//void ClearCenturyBit(void)
-//{
-	//uint8_t RecieveData;
-	//uint8_t SendData[2];
-
-
-	//DS3232M_ModifyReg(DS3232M_REG_MONTH, 0, 0x80);
-
-	//Get the current status register
-	/*SendData[0] = DS3232M_REG_MONTH;
-	DS3232M_I2C.txSz = 1;
-	DS3232M_I2C.rxSz = 1;
-	DS3232M_I2C.txBuff = SendData;
-	DS3232M_I2C.rxBuff = &RecieveData;
-	Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);
-
-	//Mask the century bit and write the data back
-	SendData[0] = DS3232M_REG_MONTH;		//This may not be needed, but sometimes the I2C function will change this :(
-	SendData[1] = (RecieveData & 0x7F);
-	DS3232M_I2C.txSz = 2;
-	DS3232M_I2C.rxSz = 0;
-	DS3232M_I2C.txBuff = SendData;
-	DS3232M_I2C.rxBuff = &RecieveData;
-	Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);*/
-
-	//return;
-//}
-
-
 /**Set or clear the DST bits
  * This function does not change the time, it simply updates the DST bits in SRAM to indicate whether DST is in use.
  * The current time of the device should already be corrected for daylight savings (if required) before this function is called.
@@ -1087,30 +757,6 @@ uint8_t GetDST(void)
 	DS3232M_ReadReg(USE_DST_ADDRESS, &DST_Bit);
 	return DST_Bit;
 }
-
-/*void SetDSTActive(uint8_t DST_Bit)
-{
-	//uint8_t DatToSend[2];
-
-	if((DST_Bit == 0) || (DST_Bit == 1))
-	{
-		DS3232M_WriteReg(DST_ACTIVE_ADDRESS, DST_Bit);
-
-		//DatToSend[0] = DST_ACTIVE_ADDRESS;
-		//DatToSend[1] = DST_Bit;
-
-		//WriteSRAM(DatToSend, 1);
-	}
-	return;
-}
-
-uint8_t GetDSTActive(void)
-{
-	uint8_t DST_Bit;
-	DS3232M_ReadReg(DST_ACTIVE_ADDRESS, &DST_Bit);
-	//ReadSRAM(DST_ACTIVE_ADDRESS, &DST_Bit, 1);
-	return DST_Bit;
-}*/
 
 //There should be an easier way to do this...
 void GetDSTStartAndEnd(TimeAndDate *TheTime, uint8_t* DSTStartDay, uint8_t* DSTEndDay)
@@ -1223,5 +869,79 @@ uint8_t DaysInTheMonth(uint8_t month, uint16_t year)
 		return 31;
 	}
 }
+
+uint8_t TimeAndDateCompare(TimeAndDate TimeAndDate1, TimeAndDate TimeAndDate2, uint8_t CompareList)
+{
+	if(TimeAndDate1.year > TimeAndDate2.year)
+	{
+		return 1;
+	}
+	else if(TimeAndDate1.year < TimeAndDate2.year)
+	{
+		return 2;
+	}
+	else
+	{
+		if(TimeAndDate1.month > TimeAndDate2.month)
+		{
+			return 1;
+		}
+		else if(TimeAndDate1.month < TimeAndDate2.month)
+		{
+			return 2;
+		}
+		else
+		{
+			if(TimeAndDate1.day > TimeAndDate2.day)
+			{
+				return 1;
+			}
+			else if(TimeAndDate1.day < TimeAndDate2.day)
+			{
+				return 2;
+			}
+			else
+			{
+				if(TimeAndDate1.hour > TimeAndDate2.hour)
+				{
+					return 1;
+				}
+				else if(TimeAndDate1.hour < TimeAndDate2.hour)
+				{
+					return 2;
+				}
+				else
+				{
+					if(TimeAndDate1.min > TimeAndDate2.min)
+					{
+						return 1;
+					}
+					else if(TimeAndDate1.min < TimeAndDate2.min)
+					{
+						return 2;
+					}
+					else
+					{
+						if(TimeAndDate1.sec > TimeAndDate2.sec)
+						{
+							return 1;
+						}
+						else if(TimeAndDate1.sec < TimeAndDate2.sec)
+						{
+							return 2;
+						}
+						else
+						{
+							return 0;
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+
+
 
 /** @} */

@@ -173,6 +173,9 @@ uint8_t IsDSTDate(TimeAndDate *TheTime);
 
 uint8_t DaysInTheMonth(uint8_t month, uint16_t year);
 
+//Compare two TimeAndDate structs. Returns 1 if TimeAndDate1 is greater (further in the future), returns 2 if TimerAndDate2 is greater (furture in the future), returns 0 if the times are the same.
+uint8_t TimeAndDateCompare(TimeAndDate TimeAndDate1, TimeAndDate TimeAndDate2, uint8_t CompareList);
+
 #endif
 
 /** @} */

@@ -202,7 +202,7 @@ static int _F2_Handler (void)
 		printf("vTaskLed1\t%u/64\r\n", 64-uxTaskGetStackHighWaterMark(TaskList[0]));
 		printf("vConsole\t%u/400\r\n", 400-uxTaskGetStackHighWaterMark(TaskList[1]));
 		printf("vOLEDTask\t%u/200\r\n", 200-uxTaskGetStackHighWaterMark(TaskList[2]));
-		printf("vTimer\t\t%u/64\r\n", 64-uxTaskGetStackHighWaterMark(TaskList[3]));
+		printf("vTimer\t\t%u/100\r\n", 100-uxTaskGetStackHighWaterMark(TaskList[3]));
 		printf("----------------------------\r\n");
 		printf("Free Heap Space: %u\r\n", xPortGetFreeHeapSize());
 
@@ -223,10 +223,16 @@ static int _F3_Handler (void)
 static int _F4_Handler (void)
 {
 	TimeAndDate CurrentTime;
+	TimeAndDate CurrentTime2;
 	uint8_t temp;
 	uint8_t temp2;
 	int8_t i;
-	char TimeString[9];
+
+	time_t blarg3;
+
+	struct tm blarg2;
+
+	char TimeString[25];
 
 	switch(NumberOfArguments())
 	{
@@ -379,6 +385,30 @@ static int _F4_Handler (void)
 					SetDST(0x01);
 					break;
 
+				case 22:
+					for(temp = 1; temp<13; temp++)
+					{
+						CurrentTime.day		= 1;
+						CurrentTime.year	= 2014;
+						CurrentTime.hour	= 1;
+						CurrentTime.min		= 1;
+						CurrentTime.sec		= 1;
+						CurrentTime.month	= temp;
+
+						printf("%02u/%02u/%02u, %02u:%02u:%02u ", CurrentTime.day, CurrentTime.month, CurrentTime.year, CurrentTime.hour, CurrentTime.min, CurrentTime.sec);
+
+						GetSunriseAndSunsetTime(&CurrentTime, &CurrentTime2);
+						printf("%02u:%02u ", CurrentTime.hour-6, CurrentTime.min);
+						printf("%02u:%02u\r\n", CurrentTime2.hour-6, CurrentTime2.min);
+					}
+
+
+
+
+
+					//SetDST(0x01);
+					break;
+
 
 
 			}
@@ -458,6 +488,34 @@ static int _F4_Handler (void)
 			{
 				printf("DST: No\r\n");
 			}
+
+
+
+
+
+			blarg2.tm_hour		= (int)CurrentTime.hour;		//hours
+			blarg2.tm_isdst		= 0;
+			blarg2.tm_mday		= (int)CurrentTime.day;			//day
+			blarg2.tm_min		= (int)CurrentTime.min;			//minutes
+			blarg2.tm_mon		= (int)CurrentTime.month-1;		//months
+			blarg2.tm_sec		= (int)CurrentTime.sec;			//seconds
+			blarg2.tm_wday		= 0;
+			blarg2.tm_yday		= 0;
+			blarg2.tm_year		= (int)(CurrentTime.year-1900);
+
+			blarg3 = mktime(&blarg2);
+			printf("C : %u/%u/%u, %u:%u:%u\r\n", blarg2.tm_mday, blarg2.tm_mon, blarg2.tm_year+1900, blarg2.tm_hour, blarg2.tm_min, blarg2.tm_sec);
+			printf("DOW: %u\r\n", blarg2.tm_wday);
+			printf("DOY: %u\r\n", blarg2.tm_yday);
+			printf("UNIXTIME: %u\r\n", blarg3);
+
+			strftime(TimeString, 25, "%I:%M %p\r\n", &blarg2);
+			printf(TimeString);
+
+			GetSunriseAndSunsetTime(&CurrentTime, &CurrentTime2);
+			printf("Sunrise at %02u:%02u\r\n", CurrentTime.hour-6, CurrentTime.min);
+			printf("Sunset at %02u:%02u\r\n", CurrentTime2.hour-6, CurrentTime2.min);
+
 
 			//CurrentTime.day		= 7;
 			//CurrentTime.month	= 1;
@@ -796,7 +854,8 @@ static int _F7_Handler (void)
 
 	case 6:
 		printf("Calling reinvoke ISP...\r\n");
-		ReinvokeISP();
+		RequestISP();
+		//ReinvokeISP();
 		break;
 
 	case 7:
@@ -839,6 +898,37 @@ static int _F7_Handler (void)
 		TimerReadSingleEventFromEEPROM(1, 3, &TestEvent);
 		TimerReadSingleEventFromEEPROM(0, 4, &TestEvent);
 		TimerReadSingleEventFromEEPROM(3, 1, &TestEvent);
+		break;
+
+	case 11:
+		printf("Writing to EEPROM...\r\n");
+		TestEvent.EventType = 0xA2;
+		TestEvent.EventOutputState = 0x01;
+		TestEvent.EventTime[0] = 0x0A;
+		TestEvent.EventTime[1] = 0xFF;
+		TestEvent.EventTime[2] = 0xCA;
+		resp = TimerWriteSingleEventToEEPROM(1, 3, &TestEvent);
+		printf("Response is %u\r\n", resp);
+		break;
+
+	case 12:
+		TestEvent.EventType = 0;
+		TestEvent.EventOutputState = 0;
+		TestEvent.EventTime[0] = 0;
+		TestEvent.EventTime[1] = 0;
+		TestEvent.EventTime[2] = 0;
+		printf("Reading from EEPROM...\r\n");
+		resp = TimerReadSingleEventFromEEPROM(1, 3, &TestEvent);
+		printf("Response is %u\r\n", resp);
+		printf("EventType: 0x%02X\r\n", TestEvent.EventType);
+		printf("EventOutput: 0x%02X\r\n", TestEvent.EventOutputState);
+		printf("EventTime[0]: 0x%02X\r\n", TestEvent.EventTime[0]);
+		printf("EventTime[1]: 0x%02X\r\n", TestEvent.EventTime[1]);
+		printf("EventTime[2]: 0x%02X\r\n", TestEvent.EventTime[2]);
+		break;
+
+	case 13:
+		TimerWriteEventsToEEPROM();
 		break;
 
 

@@ -182,3 +182,12 @@ void ReinvokeISP(void)
 	vPortExitCritical();
 }
 
+void RequestISP(void)
+{
+	Chip_Clock_EnablePeriphClock(SYSCTL_CLOCK_RAM1);
+	//LPC_SYSCON->SYSAHBCLKCTRL |= (1 << 26);	//enable SRAM1
+	ISP_Request = 0x12345678;
+	NVIC_SystemReset();
+	return;
+}
+

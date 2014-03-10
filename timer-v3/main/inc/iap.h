@@ -50,4 +50,6 @@ uint8_t ReadPartID(unsigned int *PID);
 uint8_t ReadBootVersion(uint32_t *BVID);
 void ReinvokeISP(void);
 
+void RequestISP(void);
+
 #endif /* EEPROM_H_ */

@@ -163,6 +163,7 @@ void OLED_WriteColumn2(uint8_t *ColumnData, uint8_t PixelStart, MF_StringOptions
 
 void OLED_WriteMFString2(const char *StringToWrite, MF_StringOptions *StringOptions);
 void OLED_WriteMF_UInt2(uint32_t NumberToWrite, uint8_t Padding, MF_StringOptions *StringOptions);
+void OLED_WriteMF_Int2(void* NumberToWrite, uint8_t Padding, uint8_t isSigned, MF_StringOptions *StringOptions);
 
 
 void OLED_WriteMF_UInt(uint8_t CharSize, uint32_t NumberToWrite, uint8_t ColumnToStart, uint8_t RowToStart, uint8_t FontOptions, uint8_t Padding);		//TODO: check if this breaks for 0

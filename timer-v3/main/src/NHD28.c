@@ -1072,6 +1072,117 @@ void OLED_WriteMF_UInt2(uint32_t NumberToWrite, uint8_t Padding, MF_StringOption
 	return;
 }
 
+void OLED_WriteMF_Int2(void* NumberToWrite, uint8_t Padding, uint8_t isSigned, MF_StringOptions *StringOptions)
+{
+	char NumberString[11];
+
+	int8_t i;
+	uint32_t Divisor[10];
+	uint8_t digit;
+	uint8_t isStarted;
+
+	if(isSigned == 1)
+	{
+		//int32_t TheNumber = (int32_t)NumberToWrite;
+	}
+	else
+	{
+		//uint32_t TheNumber = (uint32_t)NumberToWrite;
+	}
+
+		Divisor[0] = 1;
+		Divisor[1] = 10;
+		Divisor[2] = 100;
+		Divisor[3] = 1000;
+		Divisor[4] = 10000;
+		Divisor[5] = 100000;
+		Divisor[6] = 1000000;
+		Divisor[7] = 10000000;
+		Divisor[8] = 100000000;
+		Divisor[9] = 1000000000;
+
+		isStarted = 0xFF;
+
+
+		for(i=9;i>=0;i--)
+		{
+			if(isSigned == 1)
+			{
+				digit = (uint8_t)(*(int32_t*)NumberToWrite/Divisor[i]);
+			}
+			else
+			{
+				digit = (uint8_t)(*(uint32_t*)NumberToWrite/Divisor[i]);
+			}
+
+
+			if((digit > 0) && (isStarted == 0xFF))
+			{
+				isStarted = i;
+			}
+
+			//This is needed if NumberToWrite = 0
+			if((i == 0) && (isStarted == 0xFF))
+			{
+				isStarted = i;
+			}
+
+			if(isStarted != 0xFF)
+			{
+				NumberString[isStarted-i] = (char)(digit + 48);
+				if(isSigned == 1)
+				{
+					*(int32_t*)NumberToWrite = *(int32_t*)NumberToWrite - (Divisor[i]*(uint32_t)digit);
+				}
+				else
+				{
+					*(uint32_t*)NumberToWrite = *(uint32_t*)NumberToWrite - (Divisor[i]*(uint32_t)digit);
+				}
+			}
+		}
+
+
+		//TODO: add a check to make sure the string does not get too big...
+		//TODO: add a check to see if we need to pad
+		if(Padding > isStarted)
+		{
+			digit = Padding-isStarted-1;
+			for(i=isStarted; i>=0; i--)
+			{
+				NumberString[i+digit] = NumberString[i];
+			}
+			for(i=0;i<digit;i++)
+			{
+				NumberString[i] = '0';
+			}
+			NumberString[Padding] = '\0';
+		}
+		else
+		{
+			NumberString[isStarted+1] = '\0';
+		}
+
+		if(isSigned == 1)
+		{
+			if(*(int32_t*)NumberToWrite < 0)
+			{
+				for(i=0;i<=9;i++)
+				{
+					NumberString[i+1] = NumberString[i];
+				}
+				NumberString[0] = '-';
+			}
+		}
+
+
+
+
+		OLED_WriteMFString2(NumberString, StringOptions);
+		//OLED_WriteMFString(CharSize, NumberString, ColumnToStart, RowToStart, FontOptions);
+		return;
+
+
+}
 
 /**Gets four bytes of data from the MF chip
  * If CharSize is 5x7 or 7x8, CharArray is 4 bytes long, if CharSize is 8x16 or WA, CharArray is 8 bytes long

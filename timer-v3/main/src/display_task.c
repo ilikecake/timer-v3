@@ -33,6 +33,13 @@
 #define DISPLAY_STATUS_MENU			0x02
 #define DISPLAY_STATUS_SET_TIME		0x03
 #define DISPLAY_STATUS_SET_OUTPUT	0x04
+#define DISPLAY_STATUS_STATUS		0x05
+
+
+//Global string for temporary use
+char ScratchString[11];
+TimeAndDate CurrentTime;
+
 
 
 //Private functions
@@ -40,6 +47,7 @@ void DrawIdleScreen(void);
 void UpdateTimeAndDate(void);
 void UpdateOutputs(void);
 void DrawMenuScreen(void);
+void DrawStatusScreen(void);
 
 uint8_t CurrentMenuItem;
 uint8_t PreviousMenuItem;
@@ -73,6 +81,11 @@ static void SetUTHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t
 static void SetOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenuItem, uint8_t thePreviousMenuItem);
 static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenuItem, uint8_t thePreviousMenuItem);
 
+
+static void EEPROMHandler(uint8_t theButtonPressed, uint8_t theCurrentMenuItem, uint8_t thePreviousMenuItem);
+
+
+
 //static void SetTimeMenu(uint8_t ButtonPressed);
 
 uint8_t DisplayStatus;
@@ -96,7 +109,7 @@ const char _TM3_Name[]			= "Timezone";
 const char _TM_Breadcrumb[]		= "> Time";
 
 const char _OM1_Name[]			= "Setup Outputs";
-const char _OM2_Name[]			= "Reload from EEPROM";
+const char _OM2_Name[]			= "Load from EEPROM";
 const char _OM3_Name[]			= "Save to EEPROM";
 const char _OM_Breadcrumb[]		= "> Outputs";
 
@@ -118,7 +131,7 @@ const MenuItem MenuItemList[] =
 	{ NULL,				_M0_Name,		4,		2,		0,		5, 		5,		16,			39},		//1
 	{ NULL,				_M1_Name,		1,		3,		0,		11, 	11,		16,			28},		//2
 	{ NULL,				_M2_Name,		2,		4,		0,		3, 		3,		16,			17},		//3
-	{ NULL,				_M3_Name,		3,		1,		0,		4, 		4,		16,			6},			//4
+	{ NULL,				_M3_Name,		3,		1,		0,		4, 		4,		120,		39},		//4
 
 	//Set time menu
 	{ TimeMenuDisplay,	_TM1_Name,		7,		6,		1,		8, 		8,		16,			39},		//5
@@ -131,9 +144,9 @@ const MenuItem MenuItemList[] =
 	{SetUTHandler,		NULL,			10,		10,		7,		10,		10,		16,			17},		//10	- Set Time Zone
 
 	//Output Menu
-	{ NULL,				_OM1_Name,		13,		12,		2,		14, 	14,		16,			39},		//11
-	{ NULL,				_OM2_Name,		11,		13,		2,		12, 	12,		16,			28},		//12
-	{ NULL,				_OM3_Name,		12,		11,		2,		13, 	13,		16,			17},		//13
+	{ EEPROMHandler,	_OM1_Name,		13,		12,		2,		14, 	14,		16,			39},		//11	-Setup Outputs
+	{ EEPROMHandler,	_OM2_Name,		11,		13,		2,		12, 	12,		16,			28},		//12	-Load from EEPROM
+	{ EEPROMHandler,	_OM3_Name,		12,		11,		2,		13, 	13,		16,			17},		//13	-Save to EEPROM
 
 	//Set Output Menu
 	{SetOutputHandler,	_OSM1_Name,		19,		15,		11,		20,		20,		16,			39},		//14
@@ -156,15 +169,58 @@ uint8_t MenuLevel;		//1=toplevel, 2=timemenu, ...
 
 static void TopLevelMenu(uint8_t ButtonPressed)
 {
+	uint8_t Stuff;
 
-	if(DisplayStatus != DISPLAY_STATUS_MENU)
+	if((DisplayStatus == DISPLAY_STATUS_IDLE_BRIGHT) || (DisplayStatus == DISPLAY_STATUS_IDLE_DIM))
+	//if(DisplayStatus != DISPLAY_STATUS_MENU)
 	{
-		CurrentMenuItem = 1;
-		PreviousMenuItem = 2;
-		DisplayStatus = DISPLAY_STATUS_MENU;
-		OLED_DisplayContrast(0x7F);
-		DrawMenuScreen();
-		MenuLevel = 1;
+		if(ButtonPressed == MENU_BUTTON_CENTER)
+		{
+			//Go to menu
+			CurrentMenuItem = 1;
+			PreviousMenuItem = 2;
+			DisplayStatus = DISPLAY_STATUS_MENU;
+			OLED_DisplayContrast(0x7F);
+			DrawMenuScreen();
+			MenuLevel = 1;
+		}
+		else
+		{
+			switch(ButtonPressed)
+			{
+
+				case MENU_BUTTON_DOWN:
+					Stuff = TIMER_TASK_CMD_STOP;
+					xQueueSend(xTimerCommands, &Stuff, 50);
+					UpdateOutputs();
+					break;
+
+				case MENU_BUTTON_UP:
+					Stuff = TIMER_TASK_CMD_START;
+					xQueueSend(xTimerCommands, &Stuff, 50);
+					UpdateOutputs();
+					break;
+
+				case MENU_BUTTON_LEFT:
+					DisplayStatus = DISPLAY_STATUS_STATUS;
+					OLED_DisplayContrast(0x7F);
+					DrawStatusScreen();
+					break;
+
+
+
+			}
+
+			return;
+		}
+	}
+	else if(DisplayStatus == DISPLAY_STATUS_STATUS)
+	{
+		if(ButtonPressed == MENU_BUTTON_RIGHT)
+		{
+			_GoToIdle(0,0,0);
+		}
+		return;
 	}
 	else
 	{
@@ -223,11 +279,11 @@ static void TimeMenuDisplay(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint
 	StringOptions.YStart = Vert;
 
 
-	StringOptions.XStart = (16+Horiz)*4;
-	DS3232M_GetTimeString(StringToOutput, 0);
+	StringOptions.XStart = (16+Horiz+2)*4;
+	DS3232M_GetTimeString(StringToOutput, 1);
 	OLED_WriteMFString2(StringToOutput, &StringOptions);
 
-	StringOptions.XStart = (32+Horiz)*4;
+	StringOptions.XStart = (32+Horiz+2)*4;
 	DS3232M_GetDateString(StringToOutput, 0);
 	OLED_WriteMFString2(StringToOutput, &StringOptions);
 
@@ -259,7 +315,7 @@ static void SwitchToSetTime(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint
 
 static void SetTimeHandler(uint8_t ButtonPressed)
 {
-	TimeAndDate CurrentTime;
+	//TimeAndDate CurrentTime;
 	MF_StringOptions StringOptions;
 	uint8_t temp;
 
@@ -536,7 +592,7 @@ static void SetTimeHandler(uint8_t ButtonPressed)
 					MenuData[5] = 7;
 
 					StringOptions.XStart = 4*(1);
-					StringOptions.YStart = 2;
+					StringOptions.YStart = 0;
 					OLED_WriteMFString2("Save Changes:", &StringOptions);
 				}
 				else
@@ -562,7 +618,7 @@ static void SetTimeHandler(uint8_t ButtonPressed)
 
 	if(MenuData[5] > 5)
 	{
-		StringOptions.YStart = 2;
+		StringOptions.YStart = 0;
 
 		if(MenuData[5] == 6)
 		{
@@ -830,21 +886,10 @@ static void SetUTHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t
 static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenuItem, uint8_t thePreviousMenuItem)
 {
 	TimerEvent CurrentEvent;
-
+	int8_t i;
 	uint8_t MenuCaller;
 	uint8_t SubmenuLevel;
 	uint16_t ElementToHighlight = 0;
-
-	/*MF_StringOptions StringOptions;
-
-	StringOptions.CharSize = MF_ASCII_SIZE_7X8;
-	StringOptions.StartPadding = 2;
-	StringOptions.EndPadding = 1;
-	StringOptions.TopPadding = 2;
-	StringOptions.BottomPadding = 1;
-	StringOptions.CharacterSpacing = 0;
-	StringOptions.Brightness = 0x0F;
-	StringOptions.FontOptions = OLED_FONT_NORMAL;*/
 
 	//Determine which menu entry called the function
 	if( (thePreviousMenuItem >= 14) && (thePreviousMenuItem <= 19 ) )
@@ -853,25 +898,21 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 		MenuData[2] = thePreviousMenuItem;
 	}
 
-	if(MenuData[2] <= 18)
-	{
-		ElementToHighlight = (1 << (MenuData[2]-14));
-	}
-	else
-	{
-		ElementToHighlight = (1<<7);
-	}
-
 	MenuCaller = (MenuData[2] & 0x00FF);
 	SubmenuLevel = ((MenuData[2]>>8) & 0x00FF);
 
-	//StringOptions.XStart = 0;
-	//StringOptions.YStart = 0;
-	//OLED_WriteMF_UInt2(MenuCaller, 0, &StringOptions);
-
-	//StringOptions.XStart = 30;
-	//StringOptions.YStart = 0;
-	//OLED_WriteMF_UInt2(SubmenuLevel, 0, &StringOptions);
+	if(MenuCaller <= 17)
+	{
+		ElementToHighlight = (1 << (MenuCaller-14));
+	}
+	else if(MenuCaller == 18)
+	{
+		ElementToHighlight = 1 << (4 + SubmenuLevel - 1);
+	}
+	else
+	{
+		ElementToHighlight = 1 << (7 + SubmenuLevel - 1);
+	}
 
 	TimerGetEvent(MenuData[0]-1, MenuData[1]-1, &CurrentEvent);
 
@@ -892,7 +933,21 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 				MenuData[2] = (MenuData[2] & 0x00FF) | (SubmenuLevel << 8);
 				ElementToHighlight = 1 << (4 + SubmenuLevel - 1);
 			}
-			else if( (MenuCaller == 19) && (MenuData[4] == TIMER_TASK_TYPE_TIME_EVENT) )
+			else if( (MenuCaller == 18) && ((MenuData[4] == TIMER_TASK_TYPE_SUNRISE) || (MenuData[4] == TIMER_TASK_TYPE_SUNSET) || (MenuData[4] == TIMER_TASK_TYPE_REPEATING_EVENT)) )
+			{
+				//Time input
+				if(SubmenuLevel == 2)
+				{
+					SubmenuLevel = 1;
+				}
+				else
+				{
+					SubmenuLevel++;
+				}
+				MenuData[2] = (MenuData[2] & 0x00FF) | (SubmenuLevel << 8);
+				ElementToHighlight = 1 << (4 + SubmenuLevel - 1);
+			}
+			else if( (MenuCaller == 19) && ((MenuData[4] == TIMER_TASK_TYPE_TIME_EVENT) || (MenuData[4] == TIMER_TASK_TYPE_SUNRISE) || (MenuData[4] == TIMER_TASK_TYPE_SUNSET)) )
 			{
 				//Day of week
 				if(SubmenuLevel == 7)
@@ -905,6 +960,18 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 				}
 				MenuData[2] = (MenuData[2] & 0x00FF) | (SubmenuLevel << 8);
 				ElementToHighlight = 1 << (7 + SubmenuLevel - 1);
+			}
+			else if (MenuCaller == 19)
+			{
+				//If we get to this condition, the menu item 19 does not have any submenu, reset the CurrentMenuItem and do not highlight anything.
+				CurrentMenuItem = 19;
+				ElementToHighlight = 0;
+			}
+			else if(MenuCaller == 18)
+			{
+				//If we get to this condition, the menu item 18 does not have any submenu, reset the CurrentMenuItem and do not highlight anything.
+				CurrentMenuItem = 18;
+				ElementToHighlight = 0;
 			}
 			break;
 
@@ -921,6 +988,27 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 					{
 						MenuData[0] = 1;
 					}
+
+					//If the event type is none, repeating, or steady, only get the first event for this output
+					TimerGetEvent(MenuData[0]-1, 0, &CurrentEvent);
+					if( (CurrentEvent .EventType == TIMER_TASK_EVENT_TYPE_NONE) || (CurrentEvent .EventType == TIMER_TASK_TYPE_REPEATING_EVENT) || (CurrentEvent .EventType == TIMER_TASK_TYPE_STEADY_EVENT) )
+					{
+						MenuData[1] = 1;
+					}
+					else
+					{
+						//This output has timed or sun based events. Look for the last event up to the previously set event
+						for(i=0;i<MenuData[1];i++)
+						{
+							TimerGetEvent(MenuData[0]-1, i, &CurrentEvent);
+							if((CurrentEvent.EventType != TIMER_TASK_TYPE_SUNRISE) || (CurrentEvent.EventType != TIMER_TASK_TYPE_SUNSET) || (CurrentEvent.EventType != TIMER_TASK_TYPE_TIME_EVENT))
+							{
+								MenuData[1] = i+1;
+								break;
+							}
+						}
+					}
+
 					TimerGetEvent(MenuData[0]-1, MenuData[1]-1, &CurrentEvent);
 					MenuData[3] = CurrentEvent.EventOutputState;
 					MenuData[4] = CurrentEvent.EventType;
@@ -932,21 +1020,27 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 
 				case 15:
 					//Change event number
-					if(MenuData[1] < TIMER_EVENT_NUMBER)
+					//Only change events if the event is timed or sun based
+					//Also, if the current event is none, do not let the user advance to the next event.
+					TimerGetEvent(MenuData[0]-1, 0, &CurrentEvent);
+					if(((CurrentEvent.EventType == TIMER_TASK_TYPE_TIME_EVENT) || (CurrentEvent.EventType == TIMER_TASK_TYPE_SUNRISE) || (CurrentEvent.EventType == TIMER_TASK_TYPE_SUNSET)) && (MenuData[4] != TIMER_TASK_EVENT_TYPE_NONE))
 					{
-						MenuData[1] ++;
+						if(MenuData[1] < TIMER_EVENT_NUMBER)
+						{
+							MenuData[1] ++;
+						}
+						else
+						{
+							MenuData[1] = 1;
+						}
+						TimerGetEvent(MenuData[0]-1, MenuData[1]-1, &CurrentEvent);
+						MenuData[3] = CurrentEvent.EventOutputState;
+						MenuData[4] = CurrentEvent.EventType;
+						MenuData[5] = CurrentEvent.EventTime[0];
+						MenuData[6] = CurrentEvent.EventTime[1];
+						MenuData[7] = CurrentEvent.EventTime[2];
+						ElementToHighlight = 1<<1;
 					}
-					else
-					{
-						MenuData[1] = 1;
-					}
-					TimerGetEvent(MenuData[0]-1, MenuData[1]-1, &CurrentEvent);
-					MenuData[3] = CurrentEvent.EventOutputState;
-					MenuData[4] = CurrentEvent.EventType;
-					MenuData[5] = CurrentEvent.EventTime[0];
-					MenuData[6] = CurrentEvent.EventTime[1];
-					MenuData[7] = CurrentEvent.EventTime[2];
-					ElementToHighlight = 1<<1;
 					break;
 
 				case 16:
@@ -959,66 +1053,139 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 					{
 						MenuData[3] = 1;
 					}
+
 					ElementToHighlight = 1<<2;
+
 					break;
 
 				case 17:
 					//Change event type
-					if(MenuData[4] == TIMER_TASK_TYPE_STEADY_EVENT)
+
+					//If this is the first event for a given output, allow the user to select any event type except for none.
+					if(MenuData[1] == 1)
 					{
-						MenuData[4] = TIMER_TASK_EVENT_TYPE_NONE;
+						if(MenuData[4] == TIMER_TASK_TYPE_STEADY_EVENT)
+						{
+							MenuData[4] = TIMER_TASK_TYPE_TIME_EVENT;
+						}
+						else
+						{
+							MenuData[4]++;
+						}
 					}
 					else
 					{
-						MenuData[4]++;
+
+						//If the current output is timed or sun based, only allow the user to select timed or sun based events
+						TimerGetEvent(MenuData[0]-1, 0, &CurrentEvent);
+						if((CurrentEvent.EventType == TIMER_TASK_TYPE_TIME_EVENT) || (CurrentEvent.EventType == TIMER_TASK_TYPE_SUNRISE) || (CurrentEvent.EventType == TIMER_TASK_TYPE_SUNSET))
+						{
+							if(MenuData[4] == TIMER_TASK_TYPE_SUNSET)
+							{
+								MenuData[4] = TIMER_TASK_EVENT_TYPE_NONE;
+							}
+							else
+							{
+								MenuData[4]++;
+							}
+						}
+						else
+						{
+							if(MenuData[4] == TIMER_TASK_TYPE_STEADY_EVENT)
+							{
+								MenuData[4] = TIMER_TASK_EVENT_TYPE_NONE;
+							}
+							else
+							{
+								MenuData[4]++;
+							}
+						}
 					}
+
 					ElementToHighlight = 1<<3;
+					MenuData[5] = 0xFF;
+					MenuData[6] = 0;
+					MenuData[7] = 0;
+
 					break;
 
 				case 18:
-					if(SubmenuLevel == 1)
+					if(MenuData[4] == TIMER_TASK_TYPE_TIME_EVENT)
 					{
-						//Hours
-						if(MenuData[6] == 12)
+						if(SubmenuLevel == 1)
 						{
-							MenuData[6] = 1;
+							//Hours
+							if(MenuData[6] == 12)
+							{
+								MenuData[6] = 1;
+							}
+							else
+							{
+								MenuData[6] ++;
+							}
+							ElementToHighlight = 1<<4;
 						}
-						else
+						else if(SubmenuLevel == 2)
 						{
-							MenuData[6] ++;
+							//Minutes
+							if(MenuData[7] == 59)
+							{
+								MenuData[7] = 0;
+							}
+							else
+							{
+								MenuData[7] ++;
+							}
+							ElementToHighlight = 1<<5;
 						}
-						ElementToHighlight = 1<<4;
+						else if(SubmenuLevel == 3)
+						{
+							//AM/PM
+							if(MenuData[6] > 12)
+							{
+								MenuData[6] -= 12;
+							}
+							else
+							{
+								MenuData[6] += 12;
+							}
+							ElementToHighlight = 1<<6;
+						}
 					}
-					else if(SubmenuLevel == 2)
+					else if((MenuData[4] == TIMER_TASK_TYPE_SUNRISE) || (MenuData[4] == TIMER_TASK_TYPE_SUNSET) || (MenuData[4] == TIMER_TASK_TYPE_REPEATING_EVENT))
 					{
-						//Minutes
-						if(MenuData[7] == 59)
+						if(SubmenuLevel == 1)
 						{
-							MenuData[7] = 0;
+							//Hours
+							if(MenuData[6] == 12)
+							{
+								MenuData[6] = 0;
+							}
+							else
+							{
+								MenuData[6] ++;
+							}
+							ElementToHighlight = 1<<4;
 						}
-						else
+						else if(SubmenuLevel == 2)
 						{
-							MenuData[7] ++;
+							//Minutes
+							if(MenuData[7] == 59)
+							{
+								MenuData[7] = 0;
+							}
+							else
+							{
+								MenuData[7] ++;
+							}
+							ElementToHighlight = 1<<5;
 						}
-						ElementToHighlight = 1<<5;
-					}
-					else if(SubmenuLevel == 3)
-					{
-						//AM/PM
-						if(MenuData[6] > 12)
-						{
-							MenuData[6] -= 12;
-						}
-						else
-						{
-							MenuData[6] += 12;
-						}
-						ElementToHighlight = 1<<6;
 					}
 					break;
 
 				case 19:
 					MenuData[5] = MenuData[5] ^ (1<<(SubmenuLevel-1));
+					ElementToHighlight = 1 << (7 + SubmenuLevel - 1);
 					break;
 
 			}
@@ -1037,6 +1204,27 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 					{
 						MenuData[0]--;
 					}
+
+					//If the event type is none, repeating, or steady, only get the first event for this output
+					TimerGetEvent(MenuData[0]-1, 0, &CurrentEvent);
+					if( (CurrentEvent .EventType == TIMER_TASK_EVENT_TYPE_NONE) || (CurrentEvent .EventType == TIMER_TASK_TYPE_REPEATING_EVENT) || (CurrentEvent .EventType == TIMER_TASK_TYPE_STEADY_EVENT) )
+					{
+						MenuData[1] = 1;
+					}
+					else
+					{
+						//This output has timed or sun based events. Look for the last event up to the previously set event
+						for(i=0;i<MenuData[1];i++)
+						{
+							TimerGetEvent(MenuData[0]-1, i, &CurrentEvent);
+							if((CurrentEvent.EventType != TIMER_TASK_TYPE_SUNRISE) || (CurrentEvent.EventType != TIMER_TASK_TYPE_SUNSET) || (CurrentEvent.EventType != TIMER_TASK_TYPE_TIME_EVENT))
+							{
+								MenuData[1] = i+1;
+								break;
+							}
+						}
+					}
+
 					TimerGetEvent(MenuData[0]-1, MenuData[1]-1, &CurrentEvent);
 					MenuData[3] = CurrentEvent.EventOutputState;
 					MenuData[4] = CurrentEvent.EventType;
@@ -1048,25 +1236,36 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 
 				case 15:
 					//Change event number
-					if(MenuData[1] == 1)
+					//Only change events if the event is timed or sun based
+					TimerGetEvent(MenuData[0]-1, 0, &CurrentEvent);
+					if((CurrentEvent.EventType == TIMER_TASK_TYPE_TIME_EVENT) || (CurrentEvent.EventType == TIMER_TASK_TYPE_SUNRISE) || (CurrentEvent.EventType != TIMER_TASK_TYPE_SUNSET))
 					{
-						MenuData[1] = TIMER_EVENT_NUMBER;
+						if(MenuData[1] == 1)
+						{
+							//If the user is on event 1, and event six is of type none, do not go to event six.
+							TimerGetEvent(MenuData[0]-1, TIMER_EVENT_NUMBER-1, &CurrentEvent);
+							if(CurrentEvent.EventType != TIMER_TASK_EVENT_TYPE_NONE)
+							{
+								MenuData[1] = TIMER_EVENT_NUMBER;
+							}
+						}
+						else
+						{
+							MenuData[1]--;
+						}
+						TimerGetEvent(MenuData[0]-1, MenuData[1]-1, &CurrentEvent);
+						MenuData[3] = CurrentEvent.EventOutputState;
+						MenuData[4] = CurrentEvent.EventType;
+						MenuData[5] = CurrentEvent.EventTime[0];
+						MenuData[6] = CurrentEvent.EventTime[1];
+						MenuData[7] = CurrentEvent.EventTime[2];
+						ElementToHighlight = 1<<1;
 					}
-					else
-					{
-						MenuData[1]--;
-					}
-					TimerGetEvent(MenuData[0]-1, MenuData[1]-1, &CurrentEvent);
-					MenuData[3] = CurrentEvent.EventOutputState;
-					MenuData[4] = CurrentEvent.EventType;
-					MenuData[5] = CurrentEvent.EventTime[0];
-					MenuData[6] = CurrentEvent.EventTime[1];
-					MenuData[7] = CurrentEvent.EventTime[2];
-					ElementToHighlight = 1<<1;
 					break;
 
 				case 16:
 					//Change event state
+					//TODO: Does this need to be disabled for repeating events?
 					if(MenuData[3] == 1)
 					{
 						MenuData[3] = 0;
@@ -1075,66 +1274,137 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 					{
 						MenuData[3] = 1;
 					}
+
 					ElementToHighlight = 1<<2;
 					break;
 
 				case 17:
 					//Change event type
-					if(MenuData[4] == TIMER_TASK_EVENT_TYPE_NONE)
+
+					//If this is the first event, allow the user to select any event type except for 'none.'
+					if(MenuData[1] == 1)
 					{
-						MenuData[4] = TIMER_TASK_TYPE_STEADY_EVENT;
+						if(MenuData[4] == TIMER_TASK_TYPE_TIME_EVENT)
+						{
+							MenuData[4] = TIMER_TASK_TYPE_STEADY_EVENT;
+						}
+						else
+						{
+							MenuData[4]--;
+						}
+
 					}
 					else
 					{
-						MenuData[4]--;
+						//If the current output is timed or sun based, only allow the user to select timed or sun based events
+						TimerGetEvent(MenuData[0]-1, 0, &CurrentEvent);
+						if(((CurrentEvent.EventType == TIMER_TASK_TYPE_TIME_EVENT) || (CurrentEvent.EventType == TIMER_TASK_TYPE_SUNRISE)|| (CurrentEvent.EventType != TIMER_TASK_TYPE_SUNSET)) && (MenuData[1] != 1))
+						{
+							if(MenuData[4] == TIMER_TASK_EVENT_TYPE_NONE)
+							{
+								MenuData[4] = TIMER_TASK_TYPE_SUNSET;
+							}
+							else
+							{
+								MenuData[4]--;
+							}
+						}
+						else
+						{
+							if(MenuData[4] == TIMER_TASK_EVENT_TYPE_NONE)
+							{
+								MenuData[4] = TIMER_TASK_TYPE_STEADY_EVENT;
+							}
+							else
+							{
+								MenuData[4]--;
+							}
+						}
 					}
+
 					ElementToHighlight = 1<<3;
+					MenuData[5] = 0xFF;
+					MenuData[6] = 0;
+					MenuData[7] = 0;
 					break;
 
 				case 18:
-					if(SubmenuLevel == 1)
+					if(MenuData[4] == TIMER_TASK_TYPE_TIME_EVENT)
 					{
-						//Hours
-						if(MenuData[6] == 1)
+						if(SubmenuLevel == 1)
 						{
-							MenuData[6] = 12;
+							//Hours
+							if(MenuData[6] == 1)
+							{
+								MenuData[6] = 12;
+							}
+							else
+							{
+								MenuData[6] --;
+							}
+							ElementToHighlight = 1<<4;
 						}
-						else
+						else if(SubmenuLevel == 2)
 						{
-							MenuData[6] --;
+							//Minutes
+							if(MenuData[7] == 0)
+							{
+								MenuData[7] = 59;
+							}
+							else
+							{
+								MenuData[7] --;
+							}
+							ElementToHighlight = 1<<5;
 						}
-						ElementToHighlight = 1<<4;
+						else if(SubmenuLevel == 3)
+						{
+							//AM/PM
+							if(MenuData[6] > 12)
+							{
+								MenuData[6] -= 12;
+							}
+							else
+							{
+								MenuData[6] += 12;
+							}
+							ElementToHighlight = 1<<6;
+						}
 					}
-					else if(SubmenuLevel == 2)
+					else if((MenuData[4] == TIMER_TASK_TYPE_SUNRISE) || (MenuData[4] == TIMER_TASK_TYPE_SUNSET) || (MenuData[4] == TIMER_TASK_TYPE_REPEATING_EVENT))
 					{
-						//Minutes
-						if(MenuData[7] == 0)
+						if(SubmenuLevel == 1)
 						{
-							MenuData[7] = 59;
+							//Hours
+							if(MenuData[6] == 0)
+							{
+								MenuData[6] = 12;
+							}
+							else
+							{
+								MenuData[6] --;
+							}
+							ElementToHighlight = 1<<4;
 						}
-						else
+						else if(SubmenuLevel == 2)
 						{
-							MenuData[7] --;
+							//Minutes
+							if(MenuData[7] == 0)
+							{
+								MenuData[7] = 59;
+							}
+							else
+							{
+								MenuData[7] --;
+							}
+							ElementToHighlight = 1<<5;
 						}
-						ElementToHighlight = 1<<5;
-					}
-					else if(SubmenuLevel == 3)
-					{
-						//AM/PM
-						if(MenuData[6] > 12)
-						{
-							MenuData[6] -= 12;
-						}
-						else
-						{
-							MenuData[6] += 12;
-						}
-						ElementToHighlight = 1<<6;
 					}
 					break;
 
 				case 19:
 					MenuData[5] = MenuData[5] ^ (1<<(SubmenuLevel-1));
+					ElementToHighlight = 1 << (7 + SubmenuLevel - 1);
 					break;
 			}
 			break;
@@ -1143,19 +1413,27 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 			if((SubmenuLevel == 0) || ((SubmenuLevel == 1) && ((MenuCaller == 18) || (MenuCaller == 19))) )
 			{
 				//TODO: Add code here to update the event in RAM if it is changed.
+
+				CurrentEvent.EventOutputState	= (uint8_t) MenuData[3];
+				CurrentEvent.EventType			= (uint8_t)MenuData[4];
+				CurrentEvent.EventTime[0]		= (uint8_t)MenuData[5];
+				CurrentEvent.EventTime[1]		= (uint8_t)MenuData[6];
+				CurrentEvent.EventTime[2]		= (uint8_t)MenuData[7];
+				TimerSetEvent(MenuData[0]-1, MenuData[1]-1, &CurrentEvent);
+
 				PreviousMenuItem = 20;
 				CurrentMenuItem = MenuData[2];
 				_MenuItem_TL (PreviousMenuItem, PreviousMenuItem);
 				ElementToHighlight = 0;
 			}
-			else if( (MenuCaller == 18) && (MenuData[4] == TIMER_TASK_TYPE_TIME_EVENT) )
+			else if( (MenuCaller == 18) && (MenuData[4] != TIMER_TASK_TYPE_STEADY_EVENT) && (MenuData[4] != TIMER_TASK_EVENT_TYPE_NONE))
 			{
 				//Time input
 				SubmenuLevel--;
 				MenuData[2] = (MenuData[2] & 0x00FF) | (SubmenuLevel << 8);
 				ElementToHighlight = 1 << (4 + SubmenuLevel - 1);
 			}
-			else if( (MenuCaller == 19) && (MenuData[4] == TIMER_TASK_TYPE_TIME_EVENT) )
+			else if( (MenuCaller == 19) && ((MenuData[4] == TIMER_TASK_TYPE_TIME_EVENT) || (MenuData[4] == TIMER_TASK_TYPE_SUNRISE) || (MenuData[4] == TIMER_TASK_TYPE_SUNSET)) )
 			{
 				//Day of week
 				SubmenuLevel--;
@@ -1240,6 +1518,7 @@ static void SetOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenuIte
 }
 
 //TODO: Clear out the time and DOW data when not used.
+//TODO: Name this function something not dumb
 /**Write the event data to the display
  *
  * 	ElementToHighlight:	Which element(s) to highlight. This is a bitmapped field.
@@ -1252,6 +1531,13 @@ static void SetOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenuIte
  * 							[4]  : First time field (hours)
  * 							[5]  : Second time field (minutes)
  * 							[6]  : Third time field (AM/PM)
+ * 							[7]  : DOW, Sunday
+ * 							[8]  : DOW, Monday
+ * 							[9]  : DOW, Tuesday
+ * 							[10] : DOW, Wednesday
+ * 							[11] : DOW, Thursday
+ * 							[12] : DOW, Friday
+ * 							[12] : DOW, Saturday
  *
  * 							NOTE: The day of the week bits are not selectable in the ElementToHighlight field.
  * 							TODO: Should i allow the DOW bits to be set on the input?
@@ -1271,6 +1557,11 @@ static void WriteSetTimeData(uint16_t ElementToHighlight)
 	StringOptions.CharacterSpacing = 0;
 	StringOptions.Brightness = 0x0F;
 	StringOptions.FontOptions = OLED_FONT_NORMAL;
+
+	//StringOptions.XStart = 100;
+	//StringOptions.YStart = 0;
+	//OLED_WriteMF_UInt2(ElementToHighlight, 0, &StringOptions);
+
 
 	//Print output number
 	if( ((ElementToHighlight >> 0) & 0x01) == 0x01)
@@ -1337,190 +1628,18 @@ static void WriteSetTimeData(uint16_t ElementToHighlight)
 	{
 		case TIMER_TASK_TYPE_TIME_EVENT:
 			OLED_WriteMFString2("Timer", &StringOptions);
-			StringOptions.YStart = MenuItemList[18].Y_Start;
-
-			//Display hours
-			if( ((ElementToHighlight >> 4) & 0x01) == 0x01)
-			{
-				StringOptions.FontOptions = OLED_FONT_INVERSE;
-			}
-			else
-			{
-				StringOptions.FontOptions = OLED_FONT_NORMAL;
-			}
-			StringOptions.EndPadding = 2;
-			if(MenuData[6] > 12)
-			{
-				OLED_WriteMF_UInt2(MenuData[6]-12, 2, &StringOptions);
-			}
-			else if(MenuData[6] == 0)
-			{
-				OLED_WriteMF_UInt2(12, 2, &StringOptions);
-			}
-			else
-			{
-				OLED_WriteMF_UInt2(MenuData[6], 2, &StringOptions);
-			}
-
-			StringOptions.StartPadding = 0;
-			StringOptions.EndPadding = 0;
-			StringOptions.FontOptions = OLED_FONT_NORMAL;
-
-			StringOptions.XStart = MenuItemList[17].X_Start + SecondColumnDataOffset + 20;
-			OLED_WriteMFString2(":", &StringOptions);
-
-			StringOptions.StartPadding = 2;
-			StringOptions.EndPadding = 1;
-
-			//Display min
-			if( ((ElementToHighlight >> 5) & 0x01) == 0x01)
-			{
-				StringOptions.FontOptions = OLED_FONT_INVERSE;
-			}
-			else
-			{
-				StringOptions.FontOptions = OLED_FONT_NORMAL;
-			}
-			StringOptions.XStart = MenuItemList[17].X_Start + SecondColumnDataOffset + 28;
-			OLED_WriteMF_UInt2(MenuData[7], 2, &StringOptions);
-
-			//Find AM/PM
-			if( ((ElementToHighlight >> 6) & 0x01) == 0x01)
-			{
-				StringOptions.FontOptions = OLED_FONT_INVERSE;
-			}
-			else
-			{
-				StringOptions.FontOptions = OLED_FONT_NORMAL;
-			}
-			StringOptions.XStart = MenuItemList[17].X_Start + SecondColumnDataOffset + 52;
-			StringOptions.EndPadding = 2;
-			if(MenuData[6] > 11)
-			{
-				OLED_WriteMFString2("PM", &StringOptions);
-			}
-			else
-			{
-				OLED_WriteMFString2("AM", &StringOptions);
-			}
-			StringOptions.EndPadding = 1;
-
-
-			//DOW
-			ElementToHighlight |= MenuData[5] << 7;
-
-
-			StringOptions.FontOptions = OLED_FONT_INVERSE;
-			StringOptions.YStart = MenuItemList[19].Y_Start;
-			StringOptions.XStart = MenuItemList[17].X_Start + SecondColumnDataOffset;
-
-			//StringOptions.CharSize = MF_ASCII_SIZE_5X7;
-			StringOptions.StartPadding = 1;
-
-			if( ((ElementToHighlight >> 7) & 0x01) == 0x01)
-			{
-				StringOptions.FontOptions = OLED_FONT_INVERSE;
-			}
-			else
-			{
-				StringOptions.FontOptions = OLED_FONT_NORMAL;
-			}
-			OLED_WriteMFString2("Su", &StringOptions);
-			//StringOptions.XStart = 2;
-
-			if( ((ElementToHighlight >> 8) & 0x01) == 0x01)
-			{
-				StringOptions.FontOptions = OLED_FONT_INVERSE;
-			}
-			else
-			{
-				StringOptions.FontOptions = OLED_FONT_NORMAL;
-			}
-			StringOptions.XStart += 12+8;
-			OLED_WriteMFString2("M", &StringOptions);
-			//StringOptions.XStart = 2;
-
-			if( ((ElementToHighlight >> 9) & 0x01) == 0x01)
-			{
-				StringOptions.FontOptions = OLED_FONT_INVERSE;
-			}
-			else
-			{
-				StringOptions.FontOptions = OLED_FONT_NORMAL;
-			}
-			StringOptions.XStart += 12;
-			OLED_WriteMFString2("T", &StringOptions);
-			//StringOptions.XStart = 2;
-
-			if( ((ElementToHighlight >> 10) & 0x01) == 0x01)
-			{
-				StringOptions.FontOptions = OLED_FONT_INVERSE;
-			}
-			else
-			{
-				StringOptions.FontOptions = OLED_FONT_NORMAL;
-			}
-			StringOptions.XStart += 12;
-			OLED_WriteMFString2("W", &StringOptions);
-			//StringOptions.XStart = 2;
-
-			if( ((ElementToHighlight >> 11) & 0x01) == 0x01)
-			{
-				StringOptions.FontOptions = OLED_FONT_INVERSE;
-			}
-			else
-			{
-				StringOptions.FontOptions = OLED_FONT_NORMAL;
-			}
-			StringOptions.XStart += 12;
-			OLED_WriteMFString2("Th", &StringOptions);
-			//StringOptions.XStart = 2;
-
-			if( ((ElementToHighlight >> 12) & 0x01) == 0x01)
-			{
-				StringOptions.FontOptions = OLED_FONT_INVERSE;
-			}
-			else
-			{
-				StringOptions.FontOptions = OLED_FONT_NORMAL;
-			}
-			StringOptions.XStart += 12+8;
-			OLED_WriteMFString2("F", &StringOptions);
-			//StringOptions.XStart = 2;
-
-			if( ((ElementToHighlight >> 13) & 0x01) == 0x01)
-			{
-				StringOptions.FontOptions = OLED_FONT_INVERSE;
-			}
-			else
-			{
-				StringOptions.FontOptions = OLED_FONT_NORMAL;
-			}
-			StringOptions.XStart += 12;
-			OLED_WriteMFString2("S", &StringOptions);
-			StringOptions.XStart = 2;
-			StringOptions.FontOptions = OLED_FONT_NORMAL;
-
-
-
-
-
-
-
-
-
-
-
-
-
 			break;
 
 		case TIMER_TASK_TYPE_REPEATING_EVENT:
 			OLED_WriteMFString2("Repeat", &StringOptions);
 			break;
 
-		case TIMER_TASK_TYPE_SUN_EVENT:
-			OLED_WriteMFString2("Sun", &StringOptions);
+		case TIMER_TASK_TYPE_SUNRISE:
+			OLED_WriteMFString2("Sunrise", &StringOptions);
+			break;
+
+		case TIMER_TASK_TYPE_SUNSET:
+			OLED_WriteMFString2("Sunset", &StringOptions);
 			break;
 
 		case TIMER_TASK_TYPE_STEADY_EVENT:
@@ -1531,6 +1650,263 @@ static void WriteSetTimeData(uint16_t ElementToHighlight)
 			OLED_WriteMFString2("None", &StringOptions);
 			break;
 	}
+
+
+	//Time
+	if(MenuData[4] == TIMER_TASK_TYPE_TIME_EVENT)
+	{
+		StringOptions.YStart = MenuItemList[18].Y_Start;
+
+		//Display hours
+		if( ((ElementToHighlight >> 4) & 0x01) == 0x01)
+		{
+			StringOptions.FontOptions = OLED_FONT_INVERSE;
+		}
+		else
+		{
+			StringOptions.FontOptions = OLED_FONT_NORMAL;
+		}
+		StringOptions.EndPadding = 2;
+		if(MenuData[6] > 12)
+		{
+			OLED_WriteMF_UInt2(MenuData[6]-12, 2, &StringOptions);
+		}
+		else if(MenuData[6] == 0)
+		{
+			OLED_WriteMF_UInt2(12, 2, &StringOptions);
+		}
+		else
+		{
+			OLED_WriteMF_UInt2(MenuData[6], 2, &StringOptions);
+		}
+
+		StringOptions.StartPadding = 0;
+		StringOptions.EndPadding = 0;
+		StringOptions.FontOptions = OLED_FONT_NORMAL;
+
+		StringOptions.XStart = MenuItemList[17].X_Start + SecondColumnDataOffset + 20;
+		OLED_WriteMFString2(":", &StringOptions);
+
+		StringOptions.StartPadding = 2;
+		StringOptions.EndPadding = 1;
+
+		//Display min
+		if( ((ElementToHighlight >> 5) & 0x01) == 0x01)
+		{
+			StringOptions.FontOptions = OLED_FONT_INVERSE;
+		}
+		else
+		{
+			StringOptions.FontOptions = OLED_FONT_NORMAL;
+		}
+		StringOptions.XStart = MenuItemList[17].X_Start + SecondColumnDataOffset + 28;
+		OLED_WriteMF_UInt2(MenuData[7], 2, &StringOptions);
+
+		//Find AM/PM
+		if( ((ElementToHighlight >> 6) & 0x01) == 0x01)
+		{
+			StringOptions.FontOptions = OLED_FONT_INVERSE;
+		}
+		else
+		{
+			StringOptions.FontOptions = OLED_FONT_NORMAL;
+		}
+		StringOptions.XStart = MenuItemList[17].X_Start + SecondColumnDataOffset + 52;
+		StringOptions.EndPadding = 2;
+		if(MenuData[6] > 11)
+		{
+			OLED_WriteMFString2("PM", &StringOptions);
+		}
+		else
+		{
+			OLED_WriteMFString2("AM", &StringOptions);
+		}
+		StringOptions.EndPadding = 1;
+	}
+	else if((MenuData[4] == TIMER_TASK_TYPE_REPEATING_EVENT) || (MenuData[4] == TIMER_TASK_TYPE_SUNRISE) || (MenuData[4] == TIMER_TASK_TYPE_SUNSET) )
+	{
+		//TODO: Combine this with the none event?
+		OLED_ClearWindow((MenuItemList[17].X_Start + SecondColumnDataOffset)/4, (MenuItemList[17].X_Start + SecondColumnDataOffset)/4+30, MenuItemList[18].Y_Start-2, MenuItemList[18].Y_Start+10);
+		StringOptions.YStart = MenuItemList[18].Y_Start;
+
+		//Display hours
+		if( ((ElementToHighlight >> 4) & 0x01) == 0x01)
+		{
+			StringOptions.FontOptions = OLED_FONT_INVERSE;
+		}
+		else
+		{
+			StringOptions.FontOptions = OLED_FONT_NORMAL;
+		}
+		StringOptions.EndPadding = 2;
+		OLED_WriteMF_UInt2(MenuData[6], 2, &StringOptions);
+
+
+		StringOptions.StartPadding = 0;
+		StringOptions.EndPadding = 0;
+		StringOptions.FontOptions = OLED_FONT_NORMAL;
+
+		StringOptions.XStart = MenuItemList[17].X_Start + SecondColumnDataOffset + 20;
+		OLED_WriteMFString2(":", &StringOptions);
+
+		StringOptions.StartPadding = 2;
+		StringOptions.EndPadding = 1;
+
+		//Display min
+		if( ((ElementToHighlight >> 5) & 0x01) == 0x01)
+		{
+			StringOptions.FontOptions = OLED_FONT_INVERSE;
+		}
+		else
+		{
+			StringOptions.FontOptions = OLED_FONT_NORMAL;
+		}
+		StringOptions.XStart = MenuItemList[17].X_Start + SecondColumnDataOffset + 28;
+		OLED_WriteMF_UInt2(MenuData[7], 2, &StringOptions);
+
+	}
+	else
+	{
+		//If day of the week is not use, clear the field
+		//TODO: do I want the clear the 'DOW' header as well?
+		OLED_ClearWindow((MenuItemList[17].X_Start + SecondColumnDataOffset)/4, (MenuItemList[17].X_Start + SecondColumnDataOffset)/4+30, MenuItemList[18].Y_Start-2, MenuItemList[18].Y_Start+10);
+	}
+
+
+
+
+	//Day of the week
+	if((MenuData[4] == TIMER_TASK_TYPE_TIME_EVENT) || (MenuData[4] == TIMER_TASK_TYPE_SUNRISE) || (MenuData[4] == TIMER_TASK_TYPE_SUNSET))
+	{
+		//The day of the week field is only used for timer or sun based events
+		StringOptions.YStart = MenuItemList[19].Y_Start;
+		StringOptions.XStart = MenuItemList[19].X_Start + SecondColumnDataOffset;
+		StringOptions.StartPadding = 2;
+		StringOptions.EndPadding = 2;
+
+		//Sunday
+		if( ((ElementToHighlight >> 7) & 0x01) == 0x01)
+		{
+			StringOptions.FontOptions = OLED_FONT_INVERSE;
+		}
+		else if(((MenuData[5]>>0) & 0x01) == 0x01)
+		{
+			StringOptions.FontOptions = OLED_FONT_BOX;
+		}
+		else
+		{
+			StringOptions.FontOptions = OLED_FONT_NORMAL;
+		}
+		OLED_WriteMFString2("Su", &StringOptions);
+
+		//Monday
+		if( ((ElementToHighlight >> 8) & 0x01) == 0x01)
+		{
+			StringOptions.FontOptions = OLED_FONT_INVERSE;
+		}
+		else if(((MenuData[5]>>1) & 0x01) == 0x01)
+		{
+			StringOptions.FontOptions = OLED_FONT_BOX;
+		}
+		else
+		{
+			StringOptions.FontOptions = OLED_FONT_NORMAL;
+		}
+		StringOptions.XStart += 12+8;
+		OLED_WriteMFString2("M", &StringOptions);
+
+		//Tuesday
+		if( ((ElementToHighlight >> 9) & 0x01) == 0x01)
+		{
+			StringOptions.FontOptions = OLED_FONT_INVERSE;
+		}
+		else if(((MenuData[5]>>2) & 0x01) == 0x01)
+		{
+			StringOptions.FontOptions = OLED_FONT_BOX;
+		}
+		else
+		{
+			StringOptions.FontOptions = OLED_FONT_NORMAL;
+		}
+		StringOptions.XStart += 12;
+		OLED_WriteMFString2("T", &StringOptions);
+
+		//Wednesday
+		if( ((ElementToHighlight >> 10) & 0x01) == 0x01)
+		{
+			StringOptions.FontOptions = OLED_FONT_INVERSE;
+		}
+		else if(((MenuData[5]>>3) & 0x01) == 0x01)
+		{
+			StringOptions.FontOptions = OLED_FONT_BOX;
+		}
+		else
+		{
+			StringOptions.FontOptions = OLED_FONT_NORMAL;
+		}
+		StringOptions.XStart += 12;
+		OLED_WriteMFString2("W", &StringOptions);
+
+		//Thursday
+		if( ((ElementToHighlight >> 11) & 0x01) == 0x01)
+		{
+			StringOptions.FontOptions = OLED_FONT_INVERSE;
+		}
+		else if(((MenuData[5]>>4) & 0x01) == 0x01)
+		{
+			StringOptions.FontOptions = OLED_FONT_BOX;
+		}
+		else
+		{
+			StringOptions.FontOptions = OLED_FONT_NORMAL;
+		}
+		StringOptions.XStart += 12;
+		OLED_WriteMFString2("Th", &StringOptions);
+
+		//Friday
+		if( ((ElementToHighlight >> 12) & 0x01) == 0x01)
+		{
+			StringOptions.FontOptions = OLED_FONT_INVERSE;
+		}
+		else if(((MenuData[5]>>5) & 0x01) == 0x01)
+		{
+			StringOptions.FontOptions = OLED_FONT_BOX;
+		}
+		else
+		{
+			StringOptions.FontOptions = OLED_FONT_NORMAL;
+		}
+		StringOptions.XStart += 12+8;
+		OLED_WriteMFString2("F", &StringOptions);
+
+		//Saturday
+		if( ((ElementToHighlight >> 13) & 0x01) == 0x01)
+		{
+			StringOptions.FontOptions = OLED_FONT_INVERSE;
+		}
+		else if(((MenuData[5]>>6) & 0x01) == 0x01)
+		{
+			StringOptions.FontOptions = OLED_FONT_BOX;
+		}
+		else
+		{
+			StringOptions.FontOptions = OLED_FONT_NORMAL;
+		}
+		StringOptions.XStart += 12;
+		OLED_WriteMFString2("S", &StringOptions);
+	}
+	else
+	{
+		//If day of the week is not use, clear the field
+		//TODO: do I want the clear the 'DOW' header as well?
+		OLED_ClearWindow((MenuItemList[17].X_Start + SecondColumnDataOffset)/4, (MenuItemList[17].X_Start + SecondColumnDataOffset)/4+30, MenuItemList[19].Y_Start-2, MenuItemList[19].Y_Start+10);
+	}
+
+
+
+
+
+
 
 	/*
 	//DOW
@@ -1569,6 +1945,68 @@ static void WriteSetTimeData(uint16_t ElementToHighlight)
 
 }
 
+static void EEPROMHandler(uint8_t theButtonPressed, uint8_t theCurrentMenuItem, uint8_t thePreviousMenuItem)
+{
+	uint8_t ret;
+
+	MF_StringOptions StringOptions;
+
+	StringOptions.CharSize = MF_ASCII_SIZE_7X8;
+	StringOptions.StartPadding = 2;
+	StringOptions.EndPadding = 1;
+	StringOptions.TopPadding = 2;
+	StringOptions.BottomPadding = 1;
+	StringOptions.CharacterSpacing = 0;
+	StringOptions.Brightness = 0x0F;
+	StringOptions.FontOptions = OLED_FONT_NORMAL;
+	StringOptions.XStart = 8;
+	StringOptions.YStart = 0;
+
+	if(theButtonPressed == MENU_BUTTON_CENTER)
+	{
+		if(theCurrentMenuItem == 12)
+		{
+			//Load from EEPROM
+			ret = TimerReadEventsFromEEPROM();
+			TimerValidateEventList();
+
+			if(ret == 0x00)
+			{
+				OLED_WriteMFString2("Loaded event list from EEPROM", &StringOptions);
+			}
+			else
+			{
+				OLED_WriteMFString2("Error loading events", &StringOptions);
+			}
+			return;
+		}
+		else if(theCurrentMenuItem == 13)
+		{
+			//Save to EEPROM
+			ret = TimerWriteEventsToEEPROM();
+
+			if(ret == 0x00)
+			{
+				OLED_WriteMFString2("Event list saved to EEPROM", &StringOptions);
+			}
+			else
+			{
+				OLED_WriteMFString2("Error saving events", &StringOptions);
+			}
+			return;
+		}
+	}
+
+
+
+
+	OLED_ClearWindow(0, 64, 0, 11);
+
+
+
+	return;
+}
+
 
 //Update the menu screen
 //TODO: Rename this function later
@@ -1596,28 +2034,24 @@ void _MenuItem_TL (uint8_t Caller, uint8_t Previous)
 		MenuMin = 1;
 		MenuMax = 4;
 		MenuBreadcrumb = _TL_Breadcrumb;
-		//strncpy(MenuBreadcrumb, "\0",1);
 	}
 	else if(Caller > 4 && Caller <= 7 )
 	{
 		MenuMin = 5;
 		MenuMax = 7;
 		MenuBreadcrumb = _TM_Breadcrumb;
-		//strncpy(MenuBreadcrumb, "> Time\0",7);
 	}
 	else if(Caller > 10 && Caller <= 13 )
 	{
 		MenuMin = 11;
 		MenuMax = 13;
 		MenuBreadcrumb = _OM_Breadcrumb;
-		//strncpy(MenuBreadcrumb, "> Time\0",7);
 	}
 	else if(Caller > 13 && Caller <= 19 )
 	{
 		MenuMin = 14;
 		MenuMax = 19;
 		MenuBreadcrumb = _OSM_Breadcrumb;
-		//strncpy(MenuBreadcrumb, "> Time\0",7);
 	}
 	else
 	{
@@ -1826,9 +2260,111 @@ void DrawMenuScreen(void)
 	LineOptions.YEnd = 53;
 	OLED_WriteLine2(&LineOptions);
 
+	LineOptions.XStart = 0;
+	LineOptions.XEnd = 255;
+	LineOptions.YStart = 12;
+	LineOptions.YEnd = 12;
+	OLED_WriteLine2(&LineOptions);
+
+
+	//OLED_ClearWindow(0, 64, 0, 11);
+
+	//StringOptions.XStart = 8;
+	//StringOptions.YStart = 0;
+	//OLED_WriteMFString2("Help:", &StringOptions);
+
 	return;
 }
 
+
+void DrawStatusScreen(void)
+{
+	//char StringToOutput[11];
+
+	MF_StringOptions StringOptions;
+	MF_LineOptions LineOptions;
+
+	LineOptions.LinePattern = 0xFF;
+	LineOptions.LineWeight = 1;
+	LineOptions.LineOptions = 0;
+
+	StringOptions.CharSize = MF_ASCII_SIZE_7X8;
+	StringOptions.StartPadding = 0;
+	StringOptions.EndPadding = 0;
+	StringOptions.TopPadding = 0;
+	StringOptions.BottomPadding = 0;
+	StringOptions.CharacterSpacing = 0;
+	StringOptions.Brightness = 0x0F;
+	StringOptions.FontOptions = OLED_FONT_NORMAL;
+
+	OLED_ClearDisplay();
+
+	StringOptions.XStart = 8;
+	StringOptions.YStart = 55;
+	OLED_WriteMFString2("Status", &StringOptions);
+
+	LineOptions.XStart = 0;
+	LineOptions.XEnd = 255;
+	LineOptions.YStart = 53;
+	LineOptions.YEnd = 53;
+	OLED_WriteLine2(&LineOptions);
+
+	//Write the current time and date:
+	StringOptions.XStart = 8;
+	StringOptions.YStart = 39;
+	OLED_WriteMFString2("Time:", &StringOptions);
+
+	DS3232M_GetTimeString(ScratchString, 0);
+	StringOptions.XStart = 45;
+	OLED_WriteMFString2(ScratchString, &StringOptions);
+
+	DS3232M_GetDateString(ScratchString, 0);
+	StringOptions.XStart = 85;
+	OLED_WriteMFString2(ScratchString, &StringOptions);
+
+	//Write the sunrise time
+	StringOptions.XStart = 8;
+	StringOptions.YStart = 28;
+	OLED_WriteMFString2("Sunrise", &StringOptions);
+
+	GetSunriseTime(&CurrentTime);
+
+	StringOptions.XStart = 64;
+	sprintf(ScratchString, "%02u:%02u AM", CurrentTime.hour, CurrentTime.min);
+	OLED_WriteMFString2(ScratchString, &StringOptions);
+
+	//Write the sunset time
+	StringOptions.XStart = 8;
+	StringOptions.YStart = 17;
+	OLED_WriteMFString2("Sunset", &StringOptions);
+
+	GetSunsetTime(&CurrentTime);
+
+	StringOptions.XStart = 64;
+	sprintf(ScratchString, "%02u:%02u PM", CurrentTime.hour, CurrentTime.min);
+	OLED_WriteMFString2(ScratchString, &StringOptions);
+
+
+
+	//LineOptions.XStart = 0;
+	//LineOptions.XEnd = 255;
+	//LineOptions.YStart = 12;
+	//LineOptions.YEnd = 12;
+	//OLED_WriteLine2(&LineOptions);
+
+
+	//OLED_ClearWindow(0, 64, 0, 11);
+
+	//StringOptions.XStart = 8;
+	//StringOptions.YStart = 0;
+	//OLED_WriteMFString2("Help:", &StringOptions);
+
+	return;
+}
+
+
+
+//Updates the display to reflect the state of the outputs and the mode
 void UpdateOutputs(void)
 {
 	uint8_t OutputState;
@@ -1916,10 +2452,12 @@ void UpdateOutputs(void)
 	switch(OutputState)
 	{
 		case TIMER_STATUS_OFF:
+			//TODO: replace the spaces in this string with padding.
 			OLED_WriteMFString2("Off     ", &StringOptions);
 			break;
 
 		case TIMER_STATUS_ON:
+			//TODO: replace the spaces in this string with padding.
 			OLED_WriteMFString2("Auto    ", &StringOptions);
 			break;
 
@@ -2109,6 +2647,7 @@ void DisplayTask(void *pvParameters)
 					break;
 
 				case OLED_CMD_TIME_IN:
+					UpdateSunriseAndSunset();
 					if( (DisplayStatus == DISPLAY_STATUS_IDLE_DIM) || (DisplayStatus == DISPLAY_STATUS_IDLE_BRIGHT) )
 					{
 						UpdateTimeAndDate();

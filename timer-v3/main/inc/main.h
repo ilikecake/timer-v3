@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
 
 #include "libeeprom.h"
 
@@ -40,6 +41,7 @@
 #include "display_task.h"
 #include "sun.h"
 
+extern uint32_t ISP_Request;
 
 xTaskHandle TaskList[5];
 

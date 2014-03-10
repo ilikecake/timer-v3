@@ -43,6 +43,7 @@
  * Private functions
  ****************************************************************************/
 
+uint32_t ISP_Request;
 
 
 /* Sets up system hardware */
@@ -98,12 +99,20 @@ static void vConsoleTask(void *pvParameters)
  */
 int main(void)
 {
+	Chip_Clock_EnablePeriphClock(SYSCTL_CLOCK_RAM1);
+	if(ISP_Request == 0x12345678)	//stored by interrupt before reset
+	{
+		ReinvokeISP();	//Jump to USB ISP bootloader
+	}
+
+
+
 	App_SetStatus(APP_STATUS_INIT);
 
 	prvSetupHardware();
 
-	Board_LED_Set(2, 1);
 	Board_LED_Set(1, 0);
+	Board_LED_Set(2, 1);
 	Board_LED_Set(3, 0);
 
 	i2c_app_init(I2C0, I2C_DEFAULT_SPEED);
@@ -117,6 +126,9 @@ int main(void)
 		App_SetStatus(APP_STATUS_OSC_STOPPED);
 	}
 
+	SetLatitude(43, 833);
+	SetLongitude(-89, 3833);
+	UpdateSunriseAndSunset();
 	DisplayTaskInit();
 	InitTimerTask();
 
@@ -137,7 +149,7 @@ int main(void)
 
 	//Timer task
 	//This should be the highest priority task
-	xTaskCreate(TimerTask, (signed char *) "vTimer", ( unsigned short )64, NULL, (tskIDLE_PRIORITY + 4UL), &TaskList[3]);
+	xTaskCreate(TimerTask, (signed char *) "vTimer", ( unsigned short )100, NULL, (tskIDLE_PRIORITY + 4UL), &TaskList[3]);
 
 	/* Start the scheduler */
 	vTaskStartScheduler();

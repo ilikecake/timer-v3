@@ -29,5 +29,7 @@ Release/
 
 #Documentation
 *.html
+*.odt
+*.odt#
 
 

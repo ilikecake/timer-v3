@@ -24,23 +24,50 @@
 #define TIMER_EVENT_NUMBER					6			/** The number of events for each timer, starting at one. Setting this to 6 means there are 6 events*/
 
 //Defines the type of events. TODO: rename these variables later...
-#define TIMER_TASK_EVENT_TYPE_NONE			0x00		//
+#define TIMER_TASK_EVENT_TYPE_NONE			0x00		//No event
 #define TIMER_TASK_TYPE_TIME_EVENT			0x01		//Turn the output on or off at a certain time
-#define TIMER_TASK_TYPE_REPEATING_EVENT		0x02		//Turn the output on or off on a certain interval (for this type, only one event can be specified)
-#define TIMER_TASK_TYPE_SUN_EVENT			0x03		//Turn the output on or off based on sunrise/sunset time
-#define TIMER_TASK_TYPE_STEADY_EVENT		0x04		//The output is always on or off (for this type, only one event can be specified)
+#define TIMER_TASK_TYPE_SUNRISE				0x02
+#define TIMER_TASK_TYPE_SUNSET				0x03		//Turn the output on or off based on sunrise/sunset time
+#define TIMER_TASK_TYPE_REPEATING_EVENT		0x04		//Turn the output on or off on a certain interval (for this type, only one event can be specified)
+#define TIMER_TASK_TYPE_STEADY_EVENT		0x05		//The output is always on or off (for this type, only one event can be specified)
+
+//To define a sunrise or sunset event, one of the first two defines must be ored with one of the later defines.
+#define TIMER_SUN_BASED_SUNRISE				0x00		//Signifies the event will occur based on a sunrise
+#define TIMER_SUN_BASED_SUNSET				0x01		//Signifies the event will occur based on a sunset
+#define TIMER_SUN_BASED_NORMAL				0x02		//The actual sunrise or sunset will trigger the event
+#define TIMER_SUN_BASED_OPPOSITE			0X04		//The opposite sunrise or sunset will trigger the event. This means that the sunrise or sunset time that is an equal number of days from the equinox in the other direction will be used. Using this feature will 'invert' the seasons.
+#define TIMER_SUN_BASED_LATER				0x08		//Always pick the later of the two possible sunrise/sunset times. This will trigger the event on the normal or opposite sunrise/sunset, whichever is later.
+#define TIMER_SUN_BASED_EARLIER				0x10		//Always pick the earlier of the two possible sunrise/sunset times. This will trigger the event on the normal or opposite sunrise/sunset, whichever is earlier.
+
+//TODO: make the above sun_based defines ored with the task_type defines. Add a define to allow a random hour/minute use eventTime[1], and [2] to hold hours and minutes to offset. If a random event is desired, make those two values random, and update everytime the event is triggered. Allow both random minutes, random hours, or both.
 
 //A FreeRTOS queue to receive commands for the timer task
 xQueueHandle xTimerCommands;
-
 
 /* EventType:
  *
  * EventTime
  *  For timed events:
- *  	EventTime[0]: Bitmapped DOW for event, defined as 1 << DOW. 0xFF would represent all days of the week
+ *  	EventTime[0]: Bitmapped DOW for event, defined as 1 << DOW. 0xFF would represent all days of the week. Bit position 1 is Sunday.
  * 		EventTime[1]: Hour of the event (in 24 hour format)
  * 		EventTime[2]: Minute of the event
+ *
+ * 	For sun based events
+ * 		EventTime[0]: Bitmapped DOW for event, defined as 1 << DOW. 0xFF would represent all days of the week. Bit position 1 is Sunday.
+ * 		EventTime[1]: The setup bits for the sun based event. See the TIMER_SUN_BASED_ defines for more information.
+ * 		EventTime[2]: The number of hours to delay the event (signed)
+ *
+ * 	For repeating events
+ * 		Event0
+ * 			EventTime[0]: Indicates if the repeating event has been started. Initalized to zero when the event is programed, and set to 1 after the event has occured for the first time.
+ * 			EventTime[1]: Hour to delay
+ * 			EventTime[2]: Minutes to delay
+ * 		Event1
+ *			EventTime[0]: The next value of the output
+ * 			EventTime[1]: The hours of the next output toggle
+ * 			EventTime[2]: The minutes of the next output toggle
+ *
+ *
  *
  * EventOutputState:
  * 	0 - Output off
@@ -61,6 +88,12 @@ uint8_t TimerWriteEventsToEEPROM(void);
 //Read all events from EEPROM and write them to the global event list
 uint8_t TimerReadEventsFromEEPROM(void);
 
+//Validate the event list in RAM
+void TimerValidateEventList(void);
+
+//Call after loading events from EEPROM or when the user updates an event
+//void TimerSetupEventList(void);
+
 //Read a single event from EEPROM into a temporary EventData struct
 uint8_t TimerReadSingleEventFromEEPROM(uint8_t OutputNumber, uint8_t EventNumber, TimerEvent *EventData);
 
@@ -79,7 +112,9 @@ void TimerSetOutput(uint8_t OutputNumber, uint8_t OutputState);
 
 void TimerUpdateOutputs(void);
 
-
+void UpdateSunriseAndSunset(void);		//Call this to update the calculated sunrise and sunset times.
+void GetSunriseTime(TimeAndDate *theTime);
+void GetSunsetTime(TimeAndDate *theTime);
 
 
 #endif /* TIMER_TASK_H_ */

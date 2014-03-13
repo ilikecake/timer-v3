@@ -38,7 +38,8 @@
 
 //Global string for temporary use
 char ScratchString[11];
-TimeAndDate CurrentTime;
+//TimeAndDate CurrentTime;
+struct tm CurrentTime;
 
 
 
@@ -339,11 +340,11 @@ static void SetTimeHandler(uint8_t ButtonPressed)
 		DS3232M_GetTime(&CurrentTime);
 
 		//Save the current time to the menu data
-		MenuData[0] = CurrentTime.hour;
-		MenuData[1] = CurrentTime.min;
-		MenuData[2] = CurrentTime.month;
-		MenuData[3] = CurrentTime.day;
-		MenuData[4] = CurrentTime.year;
+		MenuData[0] = CurrentTime.tm_hour;
+		MenuData[1] = CurrentTime.tm_min;
+		MenuData[2] = CurrentTime.tm_mon+1;
+		MenuData[3] = CurrentTime.tm_mday;
+		MenuData[4] = CurrentTime.tm_year+1900;
 
 
 		MenuData[5] = 0;	//Our position in the time and date string
@@ -599,12 +600,12 @@ static void SetTimeHandler(uint8_t ButtonPressed)
 				{
 					if(MenuData[5] == 6)
 					{
-						CurrentTime.sec = 0;
-						CurrentTime.hour = MenuData[0];
-						CurrentTime.min = MenuData[1];
-						CurrentTime.month = MenuData[2];
-						CurrentTime.day = MenuData[3];
-						CurrentTime.year = MenuData[4];
+						CurrentTime.tm_sec = 0;
+						CurrentTime.tm_hour = MenuData[0];
+						CurrentTime.tm_min = MenuData[1];
+						CurrentTime.tm_mon = MenuData[2]-1;
+						CurrentTime.tm_mday = MenuData[3];
+						CurrentTime.tm_year = MenuData[4]-1900;		//TODO: Make sure this is not < 0
 						DS3232M_SetTime(&CurrentTime);
 					}
 					_GoToIdle(0,8,0);
@@ -2330,7 +2331,7 @@ void DrawStatusScreen(void)
 	GetSunriseTime(&CurrentTime);
 
 	StringOptions.XStart = 64;
-	sprintf(ScratchString, "%02u:%02u AM", CurrentTime.hour, CurrentTime.min);
+	sprintf(ScratchString, "%02u:%02u AM", CurrentTime.tm_hour, CurrentTime.tm_min);
 	OLED_WriteMFString2(ScratchString, &StringOptions);
 
 	//Write the sunset time
@@ -2341,7 +2342,7 @@ void DrawStatusScreen(void)
 	GetSunsetTime(&CurrentTime);
 
 	StringOptions.XStart = 64;
-	sprintf(ScratchString, "%02u:%02u PM", CurrentTime.hour, CurrentTime.min);
+	sprintf(ScratchString, "%02u:%02u PM", CurrentTime.tm_hour, CurrentTime.tm_min);
 	OLED_WriteMFString2(ScratchString, &StringOptions);
 
 

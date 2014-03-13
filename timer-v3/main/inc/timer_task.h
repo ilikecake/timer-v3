@@ -113,8 +113,8 @@ void TimerSetOutput(uint8_t OutputNumber, uint8_t OutputState);
 void TimerUpdateOutputs(void);
 
 void UpdateSunriseAndSunset(void);		//Call this to update the calculated sunrise and sunset times.
-void GetSunriseTime(TimeAndDate *theTime);
-void GetSunsetTime(TimeAndDate *theTime);
+void GetSunriseTime(struct tm *theTime);
+void GetSunsetTime(struct tm *theTime);
 
 
 #endif /* TIMER_TASK_H_ */

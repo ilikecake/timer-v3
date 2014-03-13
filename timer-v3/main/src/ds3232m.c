@@ -170,7 +170,8 @@ uint8_t DS3232M_ReadBytes(uint8_t AddressToRead, uint8_t* DataToRead, uint8_t By
 uint8_t DS3232M_Init( void )
 {
 	uint8_t SendData[2];
-	TimeAndDate AlarmTime;
+	struct tm AlarmTime;
+	//TimeAndDate AlarmTime;
 
 	//Set up pins for 32kHz, int, and reset
 	// - RTC-INT:	P1.28	(Should be pulled up, a low on this pin indicates an interrupt)
@@ -216,13 +217,13 @@ uint8_t DS3232M_Init( void )
 
 	DS3232M_DisableAlarm(1);
 
-	AlarmTime.day = 0;
-	AlarmTime.dow = 0;
-	AlarmTime.hour = 0;
-	AlarmTime.min = 0;
-	AlarmTime.month = 0;
-	AlarmTime.sec = 0;
-	AlarmTime.year = 0;
+	AlarmTime.tm_mday = 0;
+	AlarmTime.tm_wday = 0;
+	AlarmTime.tm_hour = 0;
+	AlarmTime.tm_min = 0;
+	AlarmTime.tm_mon = 0;
+	AlarmTime.tm_sec = 0;
+	AlarmTime.tm_year = 0;
 	DS3232M_SetAlarm(2, 0x0E, &AlarmTime);
 	DS3232M_EnableAlarm(2);
 
@@ -266,7 +267,7 @@ void DS3232M_ClearOSCFlag(void)
  *
  * Note: it is assumed that the time is entered in local time (including DST, if applicable)
  */
-void DS3232M_SetTime(TimeAndDate *TheTime)
+void DS3232M_SetTime(struct tm * TheTime)
 {
 	uint8_t SendData[8];
 	uint16_t YearMSD;
@@ -278,18 +279,19 @@ void DS3232M_SetTime(TimeAndDate *TheTime)
 	DS3232M_DisableAlarm(2);
 
 	//DOW is set automatically based on the date entered.
-	TheTime->dow = GetDOW(TheTime->year, (uint16_t)(TheTime->month), (uint16_t)(TheTime->day));
+	mktime(TheTime);	//Fill the day of the year and day of the week values
+	//TheTime->dow = GetDOW(TheTime->year, (uint16_t)(TheTime->month), (uint16_t)(TheTime->day));
 
 	SendData[0] = DS3232M_REG_SEC;
-	SendData[1] = ((TheTime->sec % 10) | ((TheTime->sec / 10) << 4));
-	SendData[2] = ((TheTime->min % 10) | ((TheTime->min / 10) << 4));
-	SendData[3] = ((((TheTime->hour % 10) | ((TheTime->hour / 10) << 4))) & 0x3F);				//Note: this sets the RTC in 24 hour mode
-	SendData[4] = TheTime->dow;
-	SendData[5] = ((TheTime->day % 10) | ((TheTime->day / 10) << 4));
-	SendData[6] = (((TheTime->month % 10) | ((TheTime->month / 10) << 4))) & 0x7F;				//NOTE: This clears the century bit. The two most significant digits of the year are saved in SRAM. When the date is read, the century bit is checked and the century is updated if required.
+	SendData[1] = ((TheTime->tm_sec % 10) | ((TheTime->tm_sec / 10) << 4));
+	SendData[2] = ((TheTime->tm_min % 10) | ((TheTime->tm_min / 10) << 4));
+	SendData[3] = ((((TheTime->tm_hour % 10) | ((TheTime->tm_hour / 10) << 4))) & 0x3F);				//Note: this sets the RTC in 24 hour mode
+	SendData[4] = TheTime->tm_wday;
+	SendData[5] = ((TheTime->tm_mday % 10) | ((TheTime->tm_mday / 10) << 4));
+	SendData[6] = ((((TheTime->tm_mon+1) % 10) | (((TheTime->tm_mon+1) / 10) << 4))) & 0x7F;				//NOTE: This clears the century bit. The two most significant digits of the year are saved in SRAM. When the date is read, the century bit is checked and the century is updated if required.
 
-	YearMSD = TheTime->year/100;
-	YearLSD = TheTime->year - (YearMSD*100);
+	YearMSD = TheTime->tm_year/100;
+	YearLSD = TheTime->tm_year - (YearMSD*100);
 
 	SendData[7] = ((YearLSD % 10) | ((YearLSD / 10) << 4));
 
@@ -324,7 +326,8 @@ void DS3232M_SetTime(TimeAndDate *TheTime)
 	return;
 }
 
-void DS3232M_GetTime(TimeAndDate *TheTime)
+//void DS3232M_GetTime(TimeAndDate *TheTime)
+void DS3232M_GetTime(struct tm * timeptr)
 {
 	uint8_t RecieveData[7];
 	//uint8_t SendData;
@@ -340,32 +343,46 @@ void DS3232M_GetTime(TimeAndDate *TheTime)
 	//Chip_I2C_MasterTransfer(DEFAULT_I2C, &DS3232M_I2C);
 
 	//Convert registers in BCD into the time struct
-	TheTime->sec = ((RecieveData[0] & 0x0F) + ((RecieveData[0] & 0x70) >> 4)*10 );
-	TheTime->min = ((RecieveData[1] & 0x0F) + ((RecieveData[1] & 0x70) >> 4)*10 );
+	//TheTime->sec = ((RecieveData[0] & 0x0F) + ((RecieveData[0] & 0x70) >> 4)*10 );
+	//TheTime->min = ((RecieveData[1] & 0x0F) + ((RecieveData[1] & 0x70) >> 4)*10 );
+	timeptr->tm_sec = ((RecieveData[0] & 0x0F) + ((RecieveData[0] & 0x70) >> 4)*10 );
+	timeptr->tm_min = ((RecieveData[1] & 0x0F) + ((RecieveData[1] & 0x70) >> 4)*10 );
 
 	//Handle hours in 12 or 24 hour mode. The struct will always take 24 hour format
 	if( (RecieveData[2] & 0x40) == 0x04)		//12 hour mode
 	{
 		if((RecieveData[2] & 0x20) == 0x20)		//PM
 		{
-			TheTime->hour = 12 + (RecieveData[2] & 0x0F) + ((RecieveData[2] & 0x10) >> 4)*10;
+			//TheTime->hour = 12 + (RecieveData[2] & 0x0F) + ((RecieveData[2] & 0x10) >> 4)*10;
+			timeptr->tm_hour = 12 + (RecieveData[2] & 0x0F) + ((RecieveData[2] & 0x10) >> 4)*10;
 		}
 		else
 		{
-			TheTime->hour = (RecieveData[2] & 0x0F) + ((RecieveData[2] & 0x10) >> 4)*10;
+			//TheTime->hour = (RecieveData[2] & 0x0F) + ((RecieveData[2] & 0x10) >> 4)*10;
+			timeptr->tm_hour = (RecieveData[2] & 0x0F) + ((RecieveData[2] & 0x10) >> 4)*10;
 		}
 	}
 	else	//24 Hour Mode
 	{
-		TheTime->hour = (RecieveData[2] & 0x0F) + ((RecieveData[2] & 0x30) >> 4)*10;
+		//TheTime->hour = (RecieveData[2] & 0x0F) + ((RecieveData[2] & 0x30) >> 4)*10;
+		timeptr->tm_hour = (RecieveData[2] & 0x0F) + ((RecieveData[2] & 0x30) >> 4)*10;
 	}
 
-	TheTime->dow = (RecieveData[3] & 0x07);
-	TheTime->day = ((RecieveData[4] & 0x0F) + ((RecieveData[4] & 0x30) >> 4)*10);
-	TheTime->month = ((RecieveData[5] & 0x0F) + ((RecieveData[5] & 0x10) >> 4)*10);
+	//TheTime->dow = (RecieveData[3] & 0x07);
+	timeptr->tm_wday = (RecieveData[3] & 0x07);
+
+	//TheTime->day = ((RecieveData[4] & 0x0F) + ((RecieveData[4] & 0x30) >> 4)*10);
+	timeptr->tm_mday = ((RecieveData[4] & 0x0F) + ((RecieveData[4] & 0x30) >> 4)*10);
+
+	//TheTime->month = ((RecieveData[5] & 0x0F) + ((RecieveData[5] & 0x10) >> 4)*10);
+	timeptr->tm_mon = ((RecieveData[5] & 0x0F) + ((RecieveData[5] & 0x10) >> 4)*10) - 1;
 
 	//Assemble the year
-	TheTime->year = ((RecieveData[6] & 0x0F) + ((RecieveData[6] & 0xF0) >> 4)*10);	//The two LSD of the year
+	//We switch to the tm struct from the standard C library. For this struct we change the meaning of the year register to the years since 1900 to match the standard definition
+	//The YEAR_MSB_ADDRESS is now the number of centuries since 1900, for 2014, the value should be 1
+
+	//TheTime->year = ((RecieveData[6] & 0x0F) + ((RecieveData[6] & 0xF0) >> 4)*10);	//The two LSD of the year
+	timeptr->tm_year = ((RecieveData[6] & 0x0F) + ((RecieveData[6] & 0xF0) >> 4)*10);
 
 	//If the century bit is one, the year most significant digits are incremented by 1. The century bit is then set back to zero.
 	DS3232M_ReadReg(YEAR_MSB_SRAM_ADDRESS, &RecieveData[1]);
@@ -381,12 +398,15 @@ void DS3232M_GetTime(TimeAndDate *TheTime)
 		//ClearCenturyBit();
 	}
 
-	TheTime->year += (100*RecieveData[1]);
+	//TheTime->year += (100*RecieveData[1]);
+	timeptr->tm_year += (100*RecieveData[1]);
 
 	//Handle DST if required
 
 	DS3232M_ReadReg(USE_DST_ADDRESS, &RecieveData[0]);		//Read the DST config bits into array 0.
-	RecieveData[1] = IsDSTDate(TheTime);
+	RecieveData[1] = IsDSTDate(timeptr);
+
+	timeptr->tm_isdst = IsDSTDate(timeptr);
 
 	/**NOTE: This will not work if this attempts to correct the hours and causes the hours to overflow.
 	 *       The most general form of this function would require the function to check hours, days, months, and years.
@@ -401,22 +421,26 @@ void DS3232M_GetTime(TimeAndDate *TheTime)
 			if(RecieveData[1] == 0x01)
 			{
 				//It is now DST time and we have not added an hour
-				TheTime->hour += 1;										//Add one to the hours struct
+				timeptr->tm_hour += 1;
+				//TheTime->hour += 1;										//Add one to the hours struct
 				DS3232M_WriteReg(USE_DST_ADDRESS, 0x03);				//indicate that we have applied DST
 
 			}
 			else
 			{
 				//It is no longer DST, but DST is still applied;
-				TheTime->hour -= 1;										//SUbtract one from the hours struct
+				//TheTime->hour -= 1;										//SUbtract one from the hours struct
+				timeptr->tm_hour -= 1;
 				DS3232M_WriteReg(USE_DST_ADDRESS, 0x01);				//indicate that we have removed DST
 
 			}
-			RecieveData[2] = ((((TheTime->hour % 10) | ((TheTime->hour / 10) << 4))) & 0x3F);	//Put the hours into BCD format.
+			//RecieveData[2] = ((((TheTime->hour % 10) | ((TheTime->hour / 10) << 4))) & 0x3F);	//Put the hours into BCD format.
+			RecieveData[2] = ((((timeptr->tm_hour % 10) | ((timeptr->tm_hour / 10) << 4))) & 0x3F);	//Put the hours into BCD format.
 			DS3232M_WriteReg(DS3232M_REG_HOUR, RecieveData[2]);									//Write hours back to the device
 		}
 	}
 
+	//mktime(&timeptr);	//Fill the day of the year and day of the week values
 	//TheTime->DST_Bit = RecieveData[0];
 
 	return;
@@ -425,7 +449,7 @@ void DS3232M_GetTime(TimeAndDate *TheTime)
 //AlarmMasks format: <DY/DT(1=day, 0=date)> <AxM4> <AxM3> <AxM2> <A1M1>
 //Note: A2M1 does not exist (no seconds register)
 //TODO: look at DOW register in this function
-void DS3232M_SetAlarm(uint8_t AlarmNumber, uint8_t AlarmMasks, TimeAndDate *AlarmTime)
+void DS3232M_SetAlarm(uint8_t AlarmNumber, uint8_t AlarmMasks, struct tm *AlarmTime)
 {
 	//uint8_t RecieveData;
 	uint8_t SendData[5];
@@ -436,37 +460,37 @@ void DS3232M_SetAlarm(uint8_t AlarmNumber, uint8_t AlarmMasks, TimeAndDate *Alar
 	if(AlarmNumber == 1)
 	{
 		SendData[0] = DS3232M_REG_A1_SEC;
-		SendData[1] = (((AlarmMasks & 0x01) << 7) | (AlarmTime->sec % 10) | ((AlarmTime->sec / 10) << 4));
-		SendData[2] = (((AlarmMasks & 0x02) << 6) | (AlarmTime->min % 10) | ((AlarmTime->min / 10) << 4));
-		SendData[3] = ((((AlarmMasks & 0x04) << 5) | (AlarmTime->hour % 10) | ((AlarmTime->hour / 10) << 4)) & 0xBF);
+		SendData[1] = (((AlarmMasks & 0x01) << 7) | (AlarmTime->tm_sec % 10) | ((AlarmTime->tm_sec / 10) << 4));
+		SendData[2] = (((AlarmMasks & 0x02) << 6) | (AlarmTime->tm_min % 10) | ((AlarmTime->tm_min / 10) << 4));
+		SendData[3] = ((((AlarmMasks & 0x04) << 5) | (AlarmTime->tm_hour % 10) | ((AlarmTime->tm_hour / 10) << 4)) & 0xBF);
 
 		if((AlarmMasks & 0x10) == 0x10)
 		{
 			//Alarm on day of week
-			SendData[4] = (((AlarmMasks & 0x08) << 4) | ((AlarmMasks & 0x10) << 2) | (AlarmTime->dow));
+			SendData[4] = (((AlarmMasks & 0x08) << 4) | ((AlarmMasks & 0x10) << 2) | (AlarmTime->tm_wday));
 		}
 		else
 		{
 			//Alarm on date
-			SendData[4] = (((AlarmMasks & 0x08) << 4) | ((AlarmMasks & 0x10) << 2) | (AlarmTime->day % 10) | ((AlarmTime->day / 10) << 4));
+			SendData[4] = (((AlarmMasks & 0x08) << 4) | ((AlarmMasks & 0x10) << 2) | (AlarmTime->tm_mday % 10) | ((AlarmTime->tm_mday / 10) << 4));
 		}
 		DS3232M_WriteBytes(SendData, 5);
 	}
 	else
 	{
 		SendData[0] = DS3232M_REG_A2_MIN;
-		SendData[1] = (((AlarmMasks & 0x02) << 6) | (AlarmTime->min % 10) | ((AlarmTime->min / 10) << 4));
-		SendData[2] = ((((AlarmMasks & 0x04) << 5) | (AlarmTime->hour % 10) | ((AlarmTime->hour / 10) << 4)) & 0xBF);
+		SendData[1] = (((AlarmMasks & 0x02) << 6) | (AlarmTime->tm_min % 10) | ((AlarmTime->tm_min / 10) << 4));
+		SendData[2] = ((((AlarmMasks & 0x04) << 5) | (AlarmTime->tm_hour % 10) | ((AlarmTime->tm_hour / 10) << 4)) & 0xBF);
 
 		if((AlarmMasks & 0x10) == 0x10)
 		{
 			//Alarm on day of week
-			SendData[3] = (((AlarmMasks & 0x08) << 4) | ((AlarmMasks & 0x10) << 2) | (AlarmTime->dow));
+			SendData[3] = (((AlarmMasks & 0x08) << 4) | ((AlarmMasks & 0x10) << 2) | (AlarmTime->tm_wday));
 		}
 		else
 		{
 			//Alarm on date
-			SendData[3] = (((AlarmMasks & 0x08) << 4) | ((AlarmMasks & 0x10) << 2) | (AlarmTime->day % 10) | ((AlarmTime->day / 10) << 4));
+			SendData[3] = (((AlarmMasks & 0x08) << 4) | ((AlarmMasks & 0x10) << 2) | (AlarmTime->tm_mday % 10) | ((AlarmTime->tm_mday / 10) << 4));
 		}
 		DS3232M_WriteBytes(SendData, 4);
 	}
@@ -509,13 +533,13 @@ void DS3232M_ClearAlarmFlag(uint8_t AlarmNumber)
 	return;
 }
 
-void DS3232M_GetAlarmTime(uint8_t AlarmNumber, uint8_t *AlarmMasks, TimeAndDate *AlarmTime)
+void DS3232M_GetAlarmTime(uint8_t AlarmNumber, uint8_t *AlarmMasks, struct tm *AlarmTime)//TimeAndDate *AlarmTime)
 {
 	uint8_t RecieveData[4];
 
 	//These will always be zero
-	AlarmTime->month = 0;
-	AlarmTime->year = 0;
+	AlarmTime->tm_mon = 0;
+	AlarmTime->tm_year = 0;
 
 	if(AlarmNumber == 1)
 	{
@@ -536,43 +560,43 @@ void DS3232M_GetAlarmTime(uint8_t AlarmNumber, uint8_t *AlarmMasks, TimeAndDate 
 
 	if(AlarmNumber == 1)
 	{
-		AlarmTime->sec = ((RecieveData[0] & 0x0F) + ((RecieveData[0] & 0x70) >> 4)*10 );
+		AlarmTime->tm_sec = ((RecieveData[0] & 0x0F) + ((RecieveData[0] & 0x70) >> 4)*10 );
 	}
 	else
 	{
-		AlarmTime->sec = 0;
+		AlarmTime->tm_sec = 0;
 	}
 
-	AlarmTime->min = ((RecieveData[1] & 0x0F) + ((RecieveData[1] & 0x70) >> 4)*10 );
+	AlarmTime->tm_min = ((RecieveData[1] & 0x0F) + ((RecieveData[1] & 0x70) >> 4)*10 );
 
 	//Handle hours in 12 or 24 hour mode. We will always return the hours in 24 hour format.
 	if( (RecieveData[2] & 0x40) == 0x04)		//12 hour mode
 	{
 		if((RecieveData[2] & 0x20) == 0x20)		//PM
 		{
-			AlarmTime->hour = 12 + (RecieveData[2] & 0x0F) + ((RecieveData[2] & 0x10) >> 4)*10;
+			AlarmTime->tm_hour = 12 + (RecieveData[2] & 0x0F) + ((RecieveData[2] & 0x10) >> 4)*10;
 		}
 		else	//AM
 		{
-			AlarmTime->hour = (RecieveData[2] & 0x0F) + ((RecieveData[2] & 0x10) >> 4)*10;
+			AlarmTime->tm_hour = (RecieveData[2] & 0x0F) + ((RecieveData[2] & 0x10) >> 4)*10;
 		}
 	}
 	else	//24 Hour Mode
 	{
-		AlarmTime->hour = (RecieveData[2] & 0x0F) + ((RecieveData[2] & 0x30) >> 4)*10;
+		AlarmTime->tm_hour = (RecieveData[2] & 0x0F) + ((RecieveData[2] & 0x30) >> 4)*10;
 	}
 
 	if((RecieveData[3] & 0x40) == 0x40)
 	{
 		//Alarm on day of the week
-		AlarmTime->dow = (RecieveData[3] & 0x07);
-		AlarmTime->day = 0;
+		AlarmTime->tm_wday = (RecieveData[3] & 0x07);
+		AlarmTime->tm_mday = 0;
 	}
 	else
 	{
 		//Alarm on date of the month
-		AlarmTime->day = ((RecieveData[3] & 0x0F) + ((RecieveData[3] & 0x30) >> 4)*10);
-		AlarmTime->dow = 0;
+		AlarmTime->tm_mday = ((RecieveData[3] & 0x0F) + ((RecieveData[3] & 0x30) >> 4)*10);
+		AlarmTime->tm_wday = 0;
 	}
 
 	*AlarmMasks = ((RecieveData[0] & 0x80) >> 7) | ((RecieveData[1] & 0x80) >> 6) | ((RecieveData[2] & 0x80) >> 5) | ((RecieveData[3] & 0x80) >> 4) | ((RecieveData[3] & 0x40) >> 2);
@@ -607,11 +631,16 @@ void DS3232M_GetTemp(int8_t *TempLHS, uint8_t *TempRHS)
 void DS3232M_GetTimeString(char *TimeString, uint8_t StringOptions)
 {
 	uint8_t i;
-	TimeAndDate CurrentTime;
+	struct tm CurrentTime;
 
 	DS3232M_GetTime(&CurrentTime);
 
-	TimeString[5] = ' ';
+	strftime(TimeString, 8, "%I:%M %p", &CurrentTime);
+	TimeString[8] = '\0';
+
+
+
+	/*TimeString[5] = ' ';
 	TimeString[8] = '\0';
 
 	//Determine AM/PM
@@ -659,7 +688,7 @@ void DS3232M_GetTimeString(char *TimeString, uint8_t StringOptions)
 				TimeString[i] = TimeString[i+1];
 			}
 		}
-	}
+	}*/
 
 	return;
 }
@@ -667,11 +696,15 @@ void DS3232M_GetTimeString(char *TimeString, uint8_t StringOptions)
 //Date string should be 10 characters plus the terminating character
 void DS3232M_GetDateString(char *DateString, uint8_t StringOptions)
 {
-	TimeAndDate CurrentTime;
+	struct tm CurrentTime;
+	//TimeAndDate CurrentTime;
 	uint16_t TempVar;
 
 	DS3232M_GetTime(&CurrentTime);
 
+	strftime(DateString, 10, "%m/%d/%Y", &CurrentTime);
+	DateString[10] = '\0';
+/*
 	DateString[2] = '/';
 	DateString[5] = '/';
 
@@ -701,7 +734,7 @@ void DS3232M_GetDateString(char *DateString, uint8_t StringOptions)
 	TempVar = CurrentTime.year - (TempVar*100);
 	DateString[8] = (char)((TempVar/10)+48);
 	DateString[9] = (char)((TempVar%10)+48);
-
+*/
 	return;
 }
 
@@ -726,7 +759,8 @@ uint8_t GetDOW(uint16_t Year, uint16_t Month, uint16_t Day)
  */
 void SetDST(uint8_t DST_Bit)
 {
-	TimeAndDate TheTime;
+	//TimeAndDate TheTime;
+	struct tm TheTime;
 
 	DS3232M_GetTime(&TheTime);
 
@@ -759,7 +793,7 @@ uint8_t GetDST(void)
 }
 
 //There should be an easier way to do this...
-void GetDSTStartAndEnd(TimeAndDate *TheTime, uint8_t* DSTStartDay, uint8_t* DSTEndDay)
+/*void GetDSTStartAndEnd(TimeAndDate *TheTime, uint8_t* DSTStartDay, uint8_t* DSTEndDay)
 {
 	uint8_t TempDOW;
 
@@ -785,16 +819,32 @@ void GetDSTStartAndEnd(TimeAndDate *TheTime, uint8_t* DSTStartDay, uint8_t* DSTE
 		*DSTEndDay = (8 - TempDOW);
 	}
 	return;
-}
+}*/
 
-uint8_t IsDSTDate(TimeAndDate *TheTime)
+//uint8_t IsDSTDate(TimeAndDate *TheTime)
+uint8_t IsDSTDate(struct tm * timeptr)
 {
 	uint32_t SecFromStartOfMonth;
 	uint32_t DST_SecFromStartOfMonth;
 	uint8_t StartOfDSTDay;
 	uint8_t EndOfDSTDay;
 
-	if(TheTime->month == 3)
+	time_t StartOfDST;
+	time_t EndOfDST;
+	time_t NowTime;
+
+	NowTime = mktime(timeptr);
+	GetDSTStartAndEnd2(timeptr->tm_year, &StartOfDST, &EndOfDST);
+
+	if((NowTime > StartOfDST) && (NowTime < EndOfDST))
+	{
+		return 1;
+	}
+	return 0;
+
+
+	//if(TheTime->month == 3)
+	/*if(timeptr->tm_mon == 2)		//Note: tm_mon starts at 0 so tm_mon = 2 is march
 	{
 		GetDSTStartAndEnd(TheTime, &StartOfDSTDay, &EndOfDSTDay);
 		DST_SecFromStartOfMonth = 7200 + (StartOfDSTDay-1)*86400;
@@ -831,7 +881,7 @@ uint8_t IsDSTDate(TimeAndDate *TheTime)
 	else
 	{
 		return 0x00;
-	}
+	}*/
 }
 
 void SetUTOffset (int8_t Offset)
@@ -870,7 +920,7 @@ uint8_t DaysInTheMonth(uint8_t month, uint16_t year)
 	}
 }
 
-uint8_t TimeAndDateCompare(TimeAndDate TimeAndDate1, TimeAndDate TimeAndDate2, uint8_t CompareList)
+/*uint8_t TimeAndDateCompare(TimeAndDate TimeAndDate1, TimeAndDate TimeAndDate2, uint8_t CompareList)
 {
 	if(TimeAndDate1.year > TimeAndDate2.year)
 	{
@@ -939,9 +989,57 @@ uint8_t TimeAndDateCompare(TimeAndDate TimeAndDate1, TimeAndDate TimeAndDate2, u
 			}
 		}
 	}
+}*/
+
+//year should be the number of years since 1900
+void GetDSTStartAndEnd2(uint16_t year, time_t* DST_Start, time_t* DST_End)
+{
+	struct tm timevalue;
+
+	//Set the time for 3/1/year 2:00:00
+	timevalue.tm_hour	= 2;
+	timevalue.tm_mday	= 1;
+	timevalue.tm_min	= 0;
+	timevalue.tm_sec	= 0;
+	timevalue.tm_mon	= 2;		//March
+	timevalue.tm_year	= year;
+
+	//We call this function here to fill in the tm_wday value
+	*DST_Start = mktime(&timevalue);
+
+	if(timevalue.tm_wday == 0)
+	{
+		timevalue.tm_mday = 8;
+	}
+	else
+	{
+		timevalue.tm_mday = 15-timevalue.tm_wday;
+	}
+	*DST_Start = mktime(&timevalue);
+
+	//Set the time for 11/1/year 2:00:00
+	timevalue.tm_hour	= 2;
+	timevalue.tm_mday	= 1;
+	timevalue.tm_min	= 0;
+	timevalue.tm_sec	= 0;
+	timevalue.tm_mon	= 10;		//November
+	timevalue.tm_year	= year;
+
+	//We call this function here to fill in the tm_wday value
+	*DST_End = mktime(&timevalue);
+
+	if(timevalue.tm_wday == 0)
+	{
+		timevalue.tm_mday = 1;
+	}
+	else
+	{
+		timevalue.tm_mday = 8-timevalue.tm_wday;
+	}
+	*DST_End = mktime(&timevalue);
+
+	return;
 }
-
-
 
 
 /** @} */

@@ -222,8 +222,12 @@ static int _F3_Handler (void)
 //Timer functions
 static int _F4_Handler (void)
 {
-	TimeAndDate CurrentTime;
-	TimeAndDate CurrentTime2;
+	struct tm timevalue;
+	time_t Time1;
+	time_t Time2;
+
+	//TimeAndDate CurrentTime;
+	//TimeAndDate CurrentTime2;
 	uint8_t temp;
 	uint8_t temp2;
 	int8_t i;
@@ -284,11 +288,13 @@ static int _F4_Handler (void)
 					printf("Set Alarm\r\n");
 
 					//Set the alarm for 1 min from now and enable
-					DS3232M_GetTime(&CurrentTime);
-					printf("Current Time: %02u:%02u:%02u %02u/%02u/%04u \r\n", CurrentTime.hour, CurrentTime.min, CurrentTime.sec, CurrentTime.month, CurrentTime.day, CurrentTime.year);
-					CurrentTime.min += 1;
-					printf("Alarm Time: %02u:%02u:%02u %02u/%02u/%04u \r\n", CurrentTime.hour, CurrentTime.min, CurrentTime.sec, CurrentTime.month, CurrentTime.day, CurrentTime.year);
-					DS3232M_SetAlarm(argAsInt(1), 0x00, &CurrentTime);
+					DS3232M_GetTime(&timevalue);
+					printf("Current Time: %02u:%02u:%02u %02u/%02u/%04u \r\n", timevalue.tm_hour, timevalue.tm_min, timevalue.tm_sec, timevalue.tm_mon + 1, timevalue.tm_mday, timevalue.tm_year+1900);
+
+					timevalue.tm_min += 1;
+					//CurrentTime.min += 1;
+					printf("Alarm Time: %02u:%02u:%02u %02u/%02u/%04u \r\n", timevalue.tm_hour, timevalue.tm_min, timevalue.tm_sec, timevalue.tm_mon + 1, timevalue.tm_mday, timevalue.tm_year+1900);
+					DS3232M_SetAlarm(argAsInt(1), 0x00, &timevalue);
 					DS3232M_EnableAlarm(argAsInt(1));
 					printf("Alarm %u set\r\n", argAsInt(1));
 					break;
@@ -302,8 +308,8 @@ static int _F4_Handler (void)
 				case 5:
 				case 6:
 					printf("Get Alarm %u\r\n", argAsInt(1)-4);
-					DS3232M_GetAlarmTime(argAsInt(1)-4, &temp, &CurrentTime);
-					printf("Alarm set to: %02u:%02u:%02u %02u/%02u/%04u \r\n", CurrentTime.hour, CurrentTime.min, CurrentTime.sec, CurrentTime.month, CurrentTime.day, CurrentTime.year);
+					DS3232M_GetAlarmTime(argAsInt(1)-4, &temp, &timevalue);
+					printf("Alarm set to: %02u:%02u:%02u %02u/%02u/%04u \r\n", timevalue.tm_hour, timevalue.tm_min, timevalue.tm_sec, timevalue.tm_mon + 1, timevalue.tm_mday, timevalue.tm_year+1900);
 					printf("Alarm Mask: 0x%02X\r\n", temp);
 					break;
 
@@ -351,25 +357,35 @@ static int _F4_Handler (void)
 					break;
 
 				case 16:
-					CurrentTime.year = 2010;
+					//CurrentTime.year = 2010;
 
 					for(i=0;i < 10;i++)
 					{
-						GetDSTStartAndEnd(&CurrentTime, &temp, &temp2);
-						printf("In %u, DST start on march %u and ends on Nov %u\r\n", CurrentTime.year, temp, temp2);
-						CurrentTime.year++;
+						GetDSTStartAndEnd2(110+i, &Time1, &Time2);
+
+						//GetDSTStartAndEnd(&CurrentTime, &temp, &temp2);
+						printf("In %u, DST start on march %u and ends on Nov %u\r\n", 2010-1900+i, Time1, Time2);
+						//CurrentTime.year++;
 					}
 					break;
 
 				case 17:
-					CurrentTime.day		= 9;
-					CurrentTime.month	= 3;
-					CurrentTime.year	= 2014;
-					CurrentTime.hour	= 1;
-					CurrentTime.min		= 58;
-					CurrentTime.sec		= 00;
+					timevalue.tm_mday = 14;
+					timevalue.tm_mon = 9-1;
+					timevalue.tm_year = 82;
+					timevalue.tm_hour = 1;
+					timevalue.tm_min = 59;
+					timevalue.tm_sec = 00;
+
+
+					//CurrentTime.day		= 9;
+					//CurrentTime.month	= 3;
+					//CurrentTime.year	= 2014;
+					//CurrentTime.hour	= 1;
+					//CurrentTime.min		= 58;
+					//CurrentTime.sec		= 00;
 					//CurrentTime.DST_Bit = 0x01;		//Use DST
-					DS3232M_SetTime(&CurrentTime);
+					DS3232M_SetTime(&timevalue);
 
 					break;
 
@@ -388,18 +404,18 @@ static int _F4_Handler (void)
 				case 22:
 					for(temp = 1; temp<13; temp++)
 					{
-						CurrentTime.day		= 1;
-						CurrentTime.year	= 2014;
-						CurrentTime.hour	= 1;
-						CurrentTime.min		= 1;
-						CurrentTime.sec		= 1;
-						CurrentTime.month	= temp;
+						//CurrentTime.day		= 1;
+						//CurrentTime.year	= 2014;
+						//CurrentTime.hour	= 1;
+						//CurrentTime.min		= 1;
+						//CurrentTime.sec		= 1;
+						//CurrentTime.month	= temp;
 
-						printf("%02u/%02u/%02u, %02u:%02u:%02u ", CurrentTime.day, CurrentTime.month, CurrentTime.year, CurrentTime.hour, CurrentTime.min, CurrentTime.sec);
+						//printf("%02u/%02u/%02u, %02u:%02u:%02u ", CurrentTime.day, CurrentTime.month, CurrentTime.year, CurrentTime.hour, CurrentTime.min, CurrentTime.sec);
 
-						GetSunriseAndSunsetTime(&CurrentTime, &CurrentTime2);
-						printf("%02u:%02u ", CurrentTime.hour-6, CurrentTime.min);
-						printf("%02u:%02u\r\n", CurrentTime2.hour-6, CurrentTime2.min);
+						//GetSunriseAndSunsetTime(&CurrentTime, &CurrentTime2);
+						//printf("%02u:%02u ", CurrentTime.hour-6, CurrentTime.min);
+						//printf("%02u:%02u\r\n", CurrentTime2.hour-6, CurrentTime2.min);
 					}
 
 
@@ -418,28 +434,32 @@ static int _F4_Handler (void)
 			printf("Set Alarm\r\n");
 
 			//Set the alarm for 1 min from now and enable
-			DS3232M_GetTime(&CurrentTime);
-			printf("Current Time: %02u:%02u:%02u %02u/%02u/%04u \r\n", CurrentTime.hour, CurrentTime.min, CurrentTime.sec, CurrentTime.month, CurrentTime.day, CurrentTime.year);
-			CurrentTime.min += 1;
-			printf("Alarm Time: %02u:%02u:%02u %02u/%02u/%04u \r\n", CurrentTime.hour, CurrentTime.min, CurrentTime.sec, CurrentTime.month, CurrentTime.day, CurrentTime.year);
-			DS3232M_SetAlarm(argAsInt(1), argAsInt(2), &CurrentTime);
+			DS3232M_GetTime(&timevalue);
+			printf("Current Time: %02u:%02u:%02u %02u/%02u/%04u \r\n", timevalue.tm_hour, timevalue.tm_min, timevalue.tm_sec, timevalue.tm_mon + 1, timevalue.tm_mday, timevalue.tm_year+1900);
+
+			//DS3232M_GetTime(&CurrentTime);
+			//printf("Current Time: %02u:%02u:%02u %02u/%02u/%04u \r\n", CurrentTime.hour, CurrentTime.min, CurrentTime.sec, CurrentTime.month, CurrentTime.day, CurrentTime.year);
+			timevalue.tm_min += 1;
+
+			//CurrentTime.min += 1;
+			printf("Alarm Time: %02u:%02u:%02u %02u/%02u/%04u \r\n", timevalue.tm_hour, timevalue.tm_min, timevalue.tm_sec, timevalue.tm_mon + 1, timevalue.tm_mday, timevalue.tm_year+1900);
+			DS3232M_SetAlarm(argAsInt(1), argAsInt(2), &timevalue);
 			DS3232M_EnableAlarm(argAsInt(1));
 			printf("Alarm %u set\r\n", argAsInt(1));
 			break;
 
 		case 6:
 			//Set the time
-			CurrentTime.day		= argAsInt(4);
-			CurrentTime.month	= argAsInt(5);
-			CurrentTime.year	= argAsInt(6);
-			CurrentTime.hour	= argAsInt(1);
-			CurrentTime.min		= argAsInt(2);
-			CurrentTime.sec		= argAsInt(3);
-			//CurrentTime.DST_Bit = 0x01;		//Use DST
-			DS3232M_SetTime(&CurrentTime);
-			printf("Time set to: %02u:%02u:%02u %02u/%02u/%04u ", CurrentTime.hour, CurrentTime.min, CurrentTime.sec, CurrentTime.month, CurrentTime.day, CurrentTime.year);
+			timevalue.tm_mday	= argAsInt(4);
+			timevalue.tm_mon	= argAsInt(5)-1;
+			timevalue.tm_year	= argAsInt(6)-1900;		//TODO: Make sure this value is not negaitve
+			timevalue.tm_hour	= argAsInt(1);
+			timevalue.tm_min	= argAsInt(2);
+			timevalue.tm_sec	= argAsInt(3);
+			DS3232M_SetTime(&timevalue);
+			printf("Time set to: %02u:%02u:%02u %02u/%02u/%04u ", timevalue.tm_hour, timevalue.tm_min, timevalue.tm_sec, timevalue.tm_mon + 1, timevalue.tm_mday, timevalue.tm_year+1900);
 #ifdef INCLUDE_DOW_STRINGS
-			printf("%s\r\n", DOW[CurrentTime.dow]);
+			printf("%s\r\n", DOW[timevalue.tm_wday]);
 #else
 			printf("DOW: %u\r\n", CurrentTime.dow);
 #endif
@@ -447,13 +467,18 @@ static int _F4_Handler (void)
 
 		default:
 			//This is what happens if no arguments are entered
-			DS3232M_GetTime(&CurrentTime);
+			DS3232M_GetTime(&timevalue);
+								printf("Current Time: %02u:%02u:%02u %02u/%02u/%04u \r\n", timevalue.tm_hour, timevalue.tm_min, timevalue.tm_sec, (timevalue.tm_mon + 1), timevalue.tm_mday, timevalue.tm_year+1900);
+
+
+
+			//DS3232M_GetTime(&CurrentTime);
 			printf("Current Time:\r\n");
-			printf("%02u:%02u:%02u %02u/%02u/%04u ", CurrentTime.hour, CurrentTime.min, CurrentTime.sec, CurrentTime.month, CurrentTime.day, CurrentTime.year);
+			printf("%02u:%02u:%02u %02u/%02u/%04u ", timevalue.tm_hour, timevalue.tm_min, timevalue.tm_sec, (timevalue.tm_mon + 1), timevalue.tm_mday, timevalue.tm_year+1900);
 #ifdef INCLUDE_DOW_STRINGS
-			printf("%s\r\n", DOW[CurrentTime.dow]);
+			//printf("%s\r\n", DOW[CurrentTime.dow]);
 #else
-			printf("DOW: %u\r\n", CurrentTime.dow);
+			//printf("DOW: %u\r\n", CurrentTime.dow);
 #endif
 
 			i =  GetUTOffset();
@@ -493,7 +518,7 @@ static int _F4_Handler (void)
 
 
 
-			blarg2.tm_hour		= (int)CurrentTime.hour;		//hours
+			/*blarg2.tm_hour		= (int)CurrentTime.hour;		//hours
 			blarg2.tm_isdst		= 0;
 			blarg2.tm_mday		= (int)CurrentTime.day;			//day
 			blarg2.tm_min		= (int)CurrentTime.min;			//minutes
@@ -522,7 +547,7 @@ static int _F4_Handler (void)
 			//CurrentTime.year	= 2014;
 			//GetSunriseAndSunsetTime(43.0667, -89.4, &CurrentTime, &CurrentTime);
 
-			//printf("JD: %u\r\n", ConvertToJD(&CurrentTime));
+			//printf("JD: %u\r\n", ConvertToJD(&CurrentTime));*/
 
 
 	}
@@ -943,7 +968,9 @@ static int _F8_Handler (void)
 	uint8_t cmd;
 	cmd = argAsInt(1);
 	TimerEvent NewTimerEvent;
-	TimeAndDate CurrentTime;
+
+	struct tm CurrentTime;
+	//TimeAndDate CurrentTime;
 
 
 	DS3232M_GetTime(&CurrentTime);
@@ -960,12 +987,12 @@ static int _F8_Handler (void)
 		case 2:
 			NewTimerEvent.EventType = TIMER_TASK_TYPE_TIME_EVENT;
 			NewTimerEvent.EventTime[0] = 0xFF;	//Trigger on all days of week
-			NewTimerEvent.EventTime[1] = CurrentTime.hour;
-			NewTimerEvent.EventTime[2] = CurrentTime.min+1;
+			NewTimerEvent.EventTime[1] = CurrentTime.tm_hour;
+			NewTimerEvent.EventTime[2] = CurrentTime.tm_min+1;
 			NewTimerEvent.EventOutputState = 1;
 			TimerSetEvent(1, 1, &NewTimerEvent);
 
-			NewTimerEvent.EventTime[2] = CurrentTime.min+2;
+			NewTimerEvent.EventTime[2] = CurrentTime.tm_min+2;
 			NewTimerEvent.EventOutputState = 0;
 			TimerSetEvent(1, 2, &NewTimerEvent);
 

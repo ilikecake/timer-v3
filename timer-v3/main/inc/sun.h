@@ -13,8 +13,8 @@
 void SetLatitude(int16_t LHS, uint16_t RHS);
 void SetLongitude(int16_t LHS, uint16_t RHS);
 
-uint32_t ConvertToJD(TimeAndDate* TheTime);
+//uint32_t ConvertToJD(TimeAndDate* TheTime);
 
-void GetSunriseAndSunsetTime(TimeAndDate* SunriseTime, TimeAndDate* SunsetTime);
+void GetSunriseAndSunsetTime(struct tm* SunriseTime, struct tm* SunsetTime);
 
 #endif /* SUN_H_ */

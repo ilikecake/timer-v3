@@ -76,7 +76,8 @@ void SetLongitude(int16_t LHS, uint16_t RHS)
 //Sunrise time should have the day, month, and year filled.
 //TODO: See if I can minimize the number of variables needed here
 //NOTE: This function returns the sunrise and sunset time in UT, the local offset from UT must be applied elsewhere
-void GetSunriseAndSunsetTime(TimeAndDate* SunriseTime, TimeAndDate* SunsetTime)
+//void GetSunriseAndSunsetTime(TimeAndDate* SunriseTime, TimeAndDate* SunsetTime)
+void GetSunriseAndSunsetTime(struct tm* SunriseTime, struct tm* SunsetTime)
 {
 	uint16_t N1;
 	uint16_t N2;
@@ -96,15 +97,21 @@ void GetSunriseAndSunsetTime(TimeAndDate* SunriseTime, TimeAndDate* SunsetTime)
 	double H;
 	double bT;
 	double UT;
+
+	uint16_t WorkingMonth;
+	uint16_t WorkingYear;
+
+	WorkingMonth = SunriseTime->tm_mon+1;
+	WorkingYear = SunriseTime->tm_year+1900;
 	//double LT;
 
 	//printf("Lat: %f\r\n", Latitude);
 	//printf("Long: %f\r\n", Longitude);
 
-	N1 = ((275*SunriseTime->month)/9);
-	N2 = (SunriseTime->month+9)/12;
-	N3 = 1 + ((SunriseTime->year - 4*(SunriseTime->year/4) + 2) / 3);
-	N = N1 - (N2*N3) + SunriseTime->day - 30;
+	N1 = ((275*(WorkingMonth))/9);
+	N2 = (WorkingMonth+9)/12;
+	N3 = 1 + ((WorkingYear - 4*(WorkingYear/4) + 2) / 3);
+	N = N1 - (N2*N3) + SunriseTime->tm_mday - 30;
 
 	lngHour = Longitude / 15;
 
@@ -165,9 +172,9 @@ void GetSunriseAndSunsetTime(TimeAndDate* SunriseTime, TimeAndDate* SunsetTime)
 	//printf("LT: %f\r\n", LT);
 	//printf("UT1: %f\r\n", UT);
 
-	SunriseTime->hour = (uint8_t)(floor(UT));
-	SunriseTime->min = (uint8_t)((UT-floor(UT))*60);
-	SunriseTime->sec = 0;		//We could probably get this from the calculation, but it should not be needed.
+	SunriseTime->tm_hour = (uint8_t)(floor(UT));
+	SunriseTime->tm_min = (uint8_t)((UT-floor(UT))*60);
+	SunriseTime->tm_sec = 0;		//We could probably get this from the calculation, but it should not be needed.
 
 	//Calculation for sunset
 	t = N + ((18-lngHour)/24);
@@ -227,16 +234,16 @@ void GetSunriseAndSunsetTime(TimeAndDate* SunriseTime, TimeAndDate* SunsetTime)
 
 	//printf("UT2: %f\r\n", UT);
 
-	SunsetTime->day		= SunriseTime->day;
-	SunsetTime->month	= SunriseTime->month;
-	SunsetTime->year	= SunriseTime->year;
-	SunsetTime->hour	= (uint8_t)(floor(UT));
-	SunsetTime->min		= (uint8_t)((UT-floor(UT))*60);
-	SunsetTime->sec		= 0;		//We could probably get this from the calculation, but it should not be needed.
+	SunsetTime->tm_mday		= SunriseTime->tm_mday;
+	SunsetTime->tm_mon	= SunriseTime->tm_mon;
+	SunsetTime->tm_year	= SunriseTime->tm_year;
+	SunsetTime->tm_hour	= (uint8_t)(floor(UT));
+	SunsetTime->tm_min		= (uint8_t)((UT-floor(UT))*60);
+	SunsetTime->tm_sec		= 0;		//We could probably get this from the calculation, but it should not be needed.
 	return;
 }
 
-uint32_t ConvertToJD(TimeAndDate* TheTime)
+/*uint32_t ConvertToJD(TimeAndDate* TheTime)
 {
 	uint32_t JD;
 	uint32_t a;
@@ -249,4 +256,4 @@ uint32_t ConvertToJD(TimeAndDate* TheTime)
 
 	JD = (uint32_t)(TheTime->day) + (((153*m)+2)/5) + 365*y + (y/4) - (y/100) + (y/400) - 32045;
 	return JD;
-}
+}*/

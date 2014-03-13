@@ -145,7 +145,7 @@ int main(void)
 	xTaskCreate(vConsoleTask, (signed char *) "vConsole", ( unsigned short )400, NULL, (tskIDLE_PRIORITY + 1UL), &TaskList[1]);
 
 	/* OLED Display Task */
-	xTaskCreate(DisplayTask, (signed char *) "vDisplay", ( unsigned short )200, NULL, (tskIDLE_PRIORITY + 2UL), &TaskList[2]);
+	xTaskCreate(DisplayTask, (signed char *) "vDisplay", ( unsigned short )250, NULL, (tskIDLE_PRIORITY + 2UL), &TaskList[2]);
 
 	//Timer task
 	//This should be the highest priority task

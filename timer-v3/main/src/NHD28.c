@@ -1862,7 +1862,7 @@ void OLED_WriteLine2(MF_LineOptions *TheLine)
 {
 	uint8_t i;
 	uint8_t j;
-	uint8_t k;
+	//uint8_t k;
 	uint8_t OLED_PixelBuffer[4];
 	uint8_t PixelBrightness = 0x0F;		//TODO: make this an input later...
 

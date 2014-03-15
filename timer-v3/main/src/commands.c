@@ -200,9 +200,9 @@ static int _F2_Handler (void)
 		printf("Task Name\tStack Usage\r\n");
 		printf("----------------------------\r\n");
 		printf("vTaskLed1\t%u/64\r\n", 64-uxTaskGetStackHighWaterMark(TaskList[0]));
-		printf("vConsole\t%u/400\r\n", 400-uxTaskGetStackHighWaterMark(TaskList[1]));
+		printf("vConsole\t%u/300\r\n", 300-uxTaskGetStackHighWaterMark(TaskList[1]));
 		printf("vOLEDTask\t%u/200\r\n", 200-uxTaskGetStackHighWaterMark(TaskList[2]));
-		printf("vTimer\t\t%u/100\r\n", 100-uxTaskGetStackHighWaterMark(TaskList[3]));
+		printf("vTimer\t\t%u/150\r\n", 150-uxTaskGetStackHighWaterMark(TaskList[3]));
 		printf("----------------------------\r\n");
 		printf("Free Heap Space: %u\r\n", xPortGetFreeHeapSize());
 
@@ -223,6 +223,7 @@ static int _F3_Handler (void)
 static int _F4_Handler (void)
 {
 	struct tm timevalue;
+	struct tm TempTime;
 	time_t Time1;
 	time_t Time2;
 
@@ -231,10 +232,14 @@ static int _F4_Handler (void)
 	uint8_t temp;
 	uint8_t temp2;
 	int8_t i;
+	int8_t k;
+	int32_t diff;
 
-	time_t blarg3;
+	TimerEvent EventData;
 
-	struct tm blarg2;
+	//time_t blarg3;
+
+	//struct tm blarg2;
 
 	char TimeString[25];
 
@@ -361,7 +366,7 @@ static int _F4_Handler (void)
 
 					for(i=0;i < 10;i++)
 					{
-						GetDSTStartAndEnd2(110+i, &Time1, &Time2);
+						GetDSTStartAndEnd(110+i, &Time1, &Time2);
 
 						//GetDSTStartAndEnd(&CurrentTime, &temp, &temp2);
 						printf("In %u, DST start on march %u and ends on Nov %u\r\n", 2010-1900+i, Time1, Time2);
@@ -423,6 +428,57 @@ static int _F4_Handler (void)
 
 
 					//SetDST(0x01);
+					break;
+
+				case 23:
+
+
+
+					DS3232M_GetTime(&timevalue);
+					Time1 = mktime(&timevalue);
+					printf("Current Time: %02u:%02u:%02u %02u/%02u/%04u: dow: %u, ut: %u \r\n", timevalue.tm_hour, timevalue.tm_min, timevalue.tm_sec, timevalue.tm_mon + 1, timevalue.tm_mday, timevalue.tm_year+1900, timevalue.tm_wday, Time1);
+					diff = 0xFFFFFFF;
+					k = -1;
+
+					for(i=0;i<6;i++)
+					{
+						TimerGetEvent(0, i, &EventData);
+						if(EventData.EventType == TIMER_TASK_TYPE_TIME_EVENT)
+						{
+							TempTime = timevalue;
+
+							TempTime.tm_min	= EventData.EventTime[2];
+							TempTime.tm_hour	= EventData.EventTime[1];
+							Time2 = mktime(&TempTime);
+
+							//Find the last day the event was triggered
+							while(((1 << TempTime.tm_wday)&(EventData.EventTime[0])) == 0)
+							{
+								//Subtract one day from the time and check again
+								Time2 -= 86400;
+								TempTime = *localtime(&Time2);
+								//printf("wday: %u\r\n", TempTime.tm_wday);
+								//NOTE: the function will hang here if the event does not have any days of the week defined
+							}
+
+							printf("Last event Time: %02u:%02u:%02u %02u/%02u/%04u: dow: %u, ut: %u \r\n", TempTime.tm_hour, TempTime.tm_min, TempTime.tm_sec, TempTime.tm_mon + 1, TempTime.tm_mday, TempTime.tm_year+1900, TempTime.tm_wday, Time2);
+
+
+							if(Time1 > Time2)
+							{
+								//The event happened in the past
+								if( (Time1-Time2) < diff)
+								{
+									k = i;
+									diff = (Time1-Time2);
+								}
+							}
+						}
+					}
+
+					printf("last event: %u", k);
+
+
 					break;
 
 

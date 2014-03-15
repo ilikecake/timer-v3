@@ -69,44 +69,24 @@ extern char* DOW[7];
 
 #endif
 
-//TODO: This should probably go somewhere else...
-//TODO: Is there a standard struct I can use for this?
-//typedef struct TimeAndDate
-//{
-//        uint16_t year;		/** The full year (ex: include all digits, like 1982, 2014, etc...) */
-//        uint8_t month;
-//        uint8_t day;
-//        uint8_t hour;
-//        uint8_t min;
-//        uint8_t sec;
-//        //uint8_t DST_Bit;	/**Set to 1 when calling SetTime to indicate that DST corrections should be used. */
-//        //int8_t UTOffset;	/**When calling the SetTime function, this will be set as the offset from UT to local time. This value should not include DST corrections. */
-//        uint8_t dow;		/**This will be set by the GetTime function to the day of the week (0 = Sunday, 1 = Monday, etc...) This value is ignored by the SetTime function. */
-//} TimeAndDate;
-
-//TODO: Abstract the TWI send function?
-//TODO: Add a register modify function
-
 //Hardware specific function headers
 uint8_t DS3232M_ReadReg(uint8_t Reg, uint8_t* Data);
 uint8_t DS3232M_WriteReg(uint8_t Reg, uint8_t Data);
 uint8_t DS3232M_ModifyReg(uint8_t Reg, uint8_t Value, uint8_t Bitmask);
 uint8_t DS3232M_WriteBytes(uint8_t* DataToWrite, uint8_t BytesToWrite);
 uint8_t DS3232M_ReadBytes(uint8_t AddressToRead, uint8_t* DataToRead, uint8_t BytesToRead);
-
-uint8_t DS3232M_Init( void );																//Working
-
+uint8_t DS3232M_Init( void );
 
 //Non-hardware specific function headers
 
 /** Resets all registers on the DS3232M to their defaults states */
-void DS3232M_Reset(void);																	//Done
+void DS3232M_Reset(void);
 
 /** Gets the two status registers from the DS3232M
  *   *status:	A pointer to the status register
  *   *control:	A pointer to the control register
  */
-void DS3232M_GetStatus(uint8_t *status, uint8_t *control);									//Done
+void DS3232M_GetStatus(uint8_t *status, uint8_t *control);
 
 /**Returns the Oscillator stop flag from the DS3232M.
  * This flag is 1 if the oscillator has stopped at some point in the past.
@@ -114,47 +94,42 @@ void DS3232M_GetStatus(uint8_t *status, uint8_t *control);									//Done
  *
  * returns: The oscillator stop flag. 1 = oscillator has stopped, 0 = oscillator has not stopped
  */
-uint8_t DS3232M_GetOSCFlag(void);															//Done
+uint8_t DS3232M_GetOSCFlag(void);
 
 /**Clears the oscillator stop flag on the DS3232M.
  * This flag should be cleared when writing the time to the register.
  */
-void DS3232M_ClearOSCFlag(void);															//Done
+void DS3232M_ClearOSCFlag(void);
 
-
-void DS3232M_SetTime(struct tm * TheTime);												//Done
+void DS3232M_SetTime(struct tm * TheTime);
 
 void DS3232M_GetTime(struct tm * timeptr);
-
-//void DS3232M_GetTime(TimeAndDate *TheTime);													//Done
 
 //TODO: Combine the time and date string functions
 //TODO: Remove these functions?
 void DS3232M_GetTimeString(char *TimeString, uint8_t StringOptions);
 void DS3232M_GetDateString(char *TimeString, uint8_t StringOptions);
 
-void DS3232M_SetAlarm(uint8_t AlarmNumber, uint8_t AlarmMasks, struct tm *AlarmTime);		//Done
-void DS3232M_EnableAlarm(uint8_t AlarmNumber);												//Done
-void DS3232M_DisableAlarm(uint8_t AlarmNumber);												//Done
-//returns the alarm time for the chosen alarm number
-void DS3232M_GetAlarmTime(uint8_t AlarmNumber, uint8_t *AlarmMasks, struct tm *AlarmTime);//Done
-void DS3232M_ClearAlarmFlag(uint8_t AlarmNumber);											//Done
-//Returns a bitmask indicating which (if any) alarms are active
-uint8_t DS3232M_AlarmsActive(void);															//Done
+void DS3232M_SetAlarm(uint8_t AlarmNumber, uint8_t AlarmMasks, struct tm *AlarmTime);
+void DS3232M_EnableAlarm(uint8_t AlarmNumber);
+void DS3232M_DisableAlarm(uint8_t AlarmNumber);
 
-void DS3232M_32KhzStart(uint8_t BatEnable);													//Done
-void DS3232M_32KhzStop(void);																//Done
+//returns the alarm time for the chosen alarm number
+void DS3232M_GetAlarmTime(uint8_t AlarmNumber, uint8_t *AlarmMasks, struct tm *AlarmTime);
+
+void DS3232M_ClearAlarmFlag(uint8_t AlarmNumber);
+
+//Returns a bitmask indicating which (if any) alarms are active
+uint8_t DS3232M_AlarmsActive(void);
+
+void DS3232M_32KhzStart(uint8_t BatEnable);
+void DS3232M_32KhzStop(void);
 
 void DS3232M_SetIntMode(uint8_t IntMode);													//not implemented
 
-void DS3232M_GetTemp(int8_t *TempLHS, uint8_t *TempRHS);									//Not tested
+void DS3232M_GetTemp(int8_t *TempLHS, uint8_t *TempRHS);
 
 uint8_t GetDOW(uint16_t Year, uint16_t Month, uint16_t Day);
-
-//void WriteSRAM(uint8_t* DataToWrite, uint8_t BytesToWrite);	//TODO: Combine this with readreg
-//void ReadSRAM(uint8_t AddressToRead, uint8_t* DataToRead, uint8_t BytesToRead);	//TODO: Combine this with readreg
-
-//void ClearCenturyBit(void);
 
 //Functions to deal with time zones
 void SetUTOffset (int8_t Offset);
@@ -164,24 +139,12 @@ int8_t GetUTOffset(void);
 void SetDST(uint8_t DST_Bit);
 uint8_t GetDST(void);
 
-//void SetDSTActive(uint8_t DST_Bit);
-//uint8_t GetDSTActive(void);
-
-//This function only uses the year from the TimeAndDate struct.
-//void GetDSTStartAndEnd(TimeAndDate *TheTime, uint8_t* DSTStartDay, uint8_t* DSTEndDay);
-
-void GetDSTStartAndEnd2(uint16_t year, time_t* DST_Start, time_t* DST_End);
+void GetDSTStartAndEnd(uint16_t year, time_t* DST_Start, time_t* DST_End);
 
 //Returns 1 if TheTime is a DST date, 0 otherwise.
-//uint8_t IsDSTDate(TimeAndDate *TheTime);
 uint8_t IsDSTDate(struct tm * timeptr);
 
-//void ModifyHour(int8_t AmmountToAdd);	//TODO: This is not be needed anymore i think
-
 uint8_t DaysInTheMonth(uint8_t month, uint16_t year);
-
-//Compare two TimeAndDate structs. Returns 1 if TimeAndDate1 is greater (further in the future), returns 2 if TimerAndDate2 is greater (furture in the future), returns 0 if the times are the same.
-//uint8_t TimeAndDateCompare(TimeAndDate TimeAndDate1, TimeAndDate TimeAndDate2, uint8_t CompareList);
 
 #endif
 

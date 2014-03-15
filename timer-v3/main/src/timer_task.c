@@ -16,8 +16,12 @@ TimerEvent TimerEventList[TIMER_OUTPUT_NUMBER][TIMER_EVENT_NUMBER];
 
 //TimeAndDate CurrentTime;	//A general time struct to be used in any function that needs it. This struct mus be initialized before it is used.
 
+//TODO: Handle the user entering two event for the same output with the same time
+
 struct tm SunriseTime;
 struct tm SunsetTime;
+struct tm AltSunriseTime;
+struct tm AltSunsetTime;
 struct tm CurrentTime;
 
 //TODO: make some indication of the most recent event for each output. This can be used to determine if an event was skipped...
@@ -34,7 +38,7 @@ void StartTimer(void);
 void StopTimer(void);
 
 
-uint8_t TimerFindMostRecentEvent(uint8_t OutputNumber);
+
 
 
 
@@ -62,18 +66,13 @@ void TimerSetStatus(uint8_t NewTimerStatus);
 void UpdateSunriseAndSunset(void)
 {
 	int8_t UT_Offset;
+	time_t TimeVal;
 
 	UT_Offset = GetUTOffset();
 
-	//Add code to convert to local time
-
 	//We set the sunrise time to the current time because the GetSunriseAndSunset function uses the date from this struct to determine the real sunrise and sunset time
 	DS3232M_GetTime(&SunriseTime);
-
-	//if((SunriseTime.hour == 1) && (SunriseTime.min == 0))
-	//{
 	GetSunriseAndSunsetTime(&SunriseTime, &SunsetTime);
-
 
 	//Correct sunrise and sunset time to local time
 	SunriseTime.tm_hour = SunriseTime.tm_hour + 24 + UT_Offset;
@@ -88,8 +87,25 @@ void UpdateSunriseAndSunset(void)
 		SunsetTime.tm_hour -= 24;
 	}
 
+	DS3232M_GetTime(&AltSunriseTime);
+	TimeVal = mktime(&AltSunriseTime);
+	TimeVal += 15724800;						//Note: This value is adding 182 days to the current time. This is not exactly correct, but it should be close enough.
+	AltSunriseTime = *localtime(&TimeVal);
+	GetSunriseAndSunsetTime(&AltSunriseTime, &AltSunsetTime);
 
-	//}
+	//Correct sunrise and sunset time to local time
+	AltSunriseTime.tm_hour = AltSunriseTime.tm_hour + 24 + UT_Offset;
+	if(AltSunriseTime.tm_hour > 23)
+	{
+		AltSunriseTime.tm_hour -= 24;
+	}
+
+	AltSunsetTime.tm_hour = AltSunsetTime.tm_hour + 24 + UT_Offset;
+	if(AltSunsetTime.tm_hour > 23)
+	{
+		AltSunsetTime.tm_hour -= 24;
+	}
+
 	return;
 }
 
@@ -369,7 +385,7 @@ void TimerValidateEventList(void)
 
 uint8_t InitTimerTask(void)
 {
-	int8_t i, j;
+	//int8_t i, j;
 	//TODO: Code to read timer events from EEPROM goes here...
 	//TODO: Check if timer tasks are not set?
 
@@ -479,22 +495,82 @@ void StopTimer(void)
 //Reorder the events. The sun based events will
 //void TimerReorderEvents(void);
 
-/** Update all the outputs based on the current time */
-void TimerUpdateOutputs(void)
+//call this to update time based or sun based events
+//TODO: Handle time based events with no days of the week set
+void TimerUpdateOutput(uint8_t OutputNumber)
 {
-	//TimeAndDate CurrentTime;
-	uint8_t j;
-	uint8_t i;
+	time_t CurrentTimeVal;
+	time_t TempTimeVal;
+	int32_t diff;
+	struct tm TempTime;
+	int8_t i;
+	int8_t k;
 
 	if(TimerStatus == TIMER_STATUS_ON)
 	{
 		DS3232M_GetTime(&CurrentTime);
 
-		//Change day of week to bitmapped variable
-		CurrentTime.tm_wday = (1<<CurrentTime.tm_wday);
+		CurrentTimeVal = mktime(&CurrentTime);
+		diff = 0xFFFFFFF;
+		k = -1;
+
+		for(i=0; i<TIMER_EVENT_NUMBER; i++)
+		{
+			if((TimerEventList[OutputNumber][i].EventType == TIMER_TASK_TYPE_TIME_EVENT) && (TimerEventList[OutputNumber][i].EventTime[0] != 0))
+			{
+				//Find the last time this event should be triggered
+				TempTime = CurrentTime;
+				TempTime.tm_min	= TimerEventList[OutputNumber][i].EventTime[2];
+				TempTime.tm_hour	= TimerEventList[OutputNumber][i].EventTime[1];
+				TempTimeVal = mktime(&TempTime);
+
+				//Find the last day the event was triggered
+				while(((1 << TempTime.tm_wday)&(TimerEventList[OutputNumber][i].EventTime[0])) == 0)
+				{
+					//Subtract one day from the time and check again
+					TempTimeVal -= 86400;
+					TempTime = *localtime(&TempTimeVal);
+					//NOTE: the function will hang here if the event does not have any days of the week defined (EventTime[0] = 0)
+				}
+
+				if(CurrentTimeVal >= TempTimeVal)
+				{
+					//The event happened in the past
+					if( (CurrentTimeVal-TempTimeVal) < diff)
+					{
+						k = i;
+						diff = (CurrentTimeVal-TempTimeVal);
+					}
+				}
+			}
+		}
+
+		if(k == -1) return;
+		if(diff == 0xFFFFFFF) return;
+
+		//k now points to the most recent event, and diff is the elapsed seconds from that event until now.
+		if(TimerEventList[OutputNumber][k].EventOutputState != (OutputStatus >> OutputNumber) )
+		{
+			TimerSetOutput(OutputNumber, TimerEventList[OutputNumber][k].EventOutputState);
+		}
+	}
+
+	return;
+}
+
+
+
+/** Update all the outputs based on the current time */
+void TimerUpdateOutputs(void)
+{
+	uint8_t j;
+
+	if(TimerStatus == TIMER_STATUS_ON)
+	{
+		DS3232M_GetTime(&CurrentTime);
 
 		//Count through the outputs
-		for(j=0; j<4; j++)
+		for(j=0; j<TIMER_OUTPUT_NUMBER; j++)
 		{
 			switch(TimerEventList[j][0].EventType)
 			{
@@ -518,8 +594,6 @@ void TimerUpdateOutputs(void)
 				break;
 
 			case TIMER_TASK_TYPE_STEADY_EVENT:		//Good
-				//printf("Steady Event: Output %u state %u\r\n", j, TimerEventList[j][0].EventOutputState);
-
 				if( (OutputStatus & (1<<(j))) != TimerEventList[j][0].EventOutputState)
 				{
 					TimerSetOutput(j, TimerEventList[j][0].EventOutputState);
@@ -527,16 +601,7 @@ void TimerUpdateOutputs(void)
 				break;
 
 			case TIMER_TASK_TYPE_TIME_EVENT:
-				//printf("Timed event\r\n");
-				for(i=0; i<6; i++)
-				{
-					if( ((TimerEventList[j][i].EventTime[0] & CurrentTime.tm_wday) == CurrentTime.tm_wday)  && (TimerEventList[j][i].EventTime[1] == CurrentTime.tm_hour) && (TimerEventList[j][i].EventTime[2] == CurrentTime.tm_min) )
-					{
-						//Time matches, set the output to the new state
-						//printf("Match %u output to %u\r\n", i, TimerEventList[j][i].EventOutputState);
-						TimerSetOutput(j, TimerEventList[j][i].EventOutputState);
-					}
-				}
+				TimerUpdateOutput(j);
 				break;
 
 			case TIMER_TASK_TYPE_SUNRISE:
@@ -546,9 +611,7 @@ void TimerUpdateOutputs(void)
 				break;
 			}
 		}
-
 	}
-
 	return;
 }
 
@@ -629,56 +692,3 @@ void GetSunsetTime(struct tm *theTime)
 	theTime->tm_sec		= SunsetTime.tm_sec;
 	return;
 }
-
-uint8_t TimerFindMostRecentEvent(uint8_t OutputNumber)
-{
-	struct tm EventTime;
-	//TimeAndDate EventTime;
-	uint8_t i;
-	uint8_t EventNumber;
-
-	EventNumber = 0xFF;
-
-	//TODO: make sure OutputNumber is valid
-
-	DS3232M_GetTime(&CurrentTime);
-
-	//We only compare the hour and min
-	/*EventTime.day	= CurrentTime.day;
-	EventTime.month	= CurrentTime.month;
-	EventTime.year	= CurrentTime.year;
-	EventTime.sec	= CurrentTime.sec;
-
-	for(i=0;i<TIMER_EVENT_NUMBER;i++)
-	{
-		if(TimerEventList[OutputNumber][i].EventType == TIMER_TASK_TYPE_TIME_EVENT)
-		{
-			EventTime.hour = TimerEventList[OutputNumber][i].EventTime[1];
-			EventTime.min = TimerEventList[OutputNumber][i].EventTime[2];
-		}
-
-		//Check to see if the event is supposed to happen today
-		if((TimerEventList[OutputNumber][i].EventTime[0] & (1<< CurrentTime.dow)) != 0)
-		{
-			if(TimeAndDateCompare(CurrentTime, EventTime, 0) != 2)
-			{
-				EventNumber = i;
-
-
-
-
-			}
-		}
-
-
-
-
-		TimerEventList[OutputNumber][TIMER_EVENT_NUMBER];
-	}*/
-
-return 0;
-
-
-
-}
-

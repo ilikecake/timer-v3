@@ -110,6 +110,7 @@ void TimerTask(void *pvParameter);
 
 void TimerSetOutput(uint8_t OutputNumber, uint8_t OutputState);
 
+void TimerUpdateOutput(uint8_t OutputNumber);
 void TimerUpdateOutputs(void);
 
 void UpdateSunriseAndSunset(void);		//Call this to update the calculated sunrise and sunset times.

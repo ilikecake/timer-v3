@@ -142,14 +142,14 @@ int main(void)
 	xTaskCreate(vLEDTask1, (signed char *) "vTaskLed1", configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 2UL), &TaskList[0]);
 
 	/* LED2 toggle thread */
-	xTaskCreate(vConsoleTask, (signed char *) "vConsole", ( unsigned short )400, NULL, (tskIDLE_PRIORITY + 1UL), &TaskList[1]);
+	xTaskCreate(vConsoleTask, (signed char *) "vConsole", ( unsigned short )300, NULL, (tskIDLE_PRIORITY + 1UL), &TaskList[1]);
 
 	/* OLED Display Task */
 	xTaskCreate(DisplayTask, (signed char *) "vDisplay", ( unsigned short )250, NULL, (tskIDLE_PRIORITY + 2UL), &TaskList[2]);
 
 	//Timer task
 	//This should be the highest priority task
-	xTaskCreate(TimerTask, (signed char *) "vTimer", ( unsigned short )100, NULL, (tskIDLE_PRIORITY + 4UL), &TaskList[3]);
+	xTaskCreate(TimerTask, (signed char *) "vTimer", ( unsigned short )150, NULL, (tskIDLE_PRIORITY + 4UL), &TaskList[3]);
 
 	/* Start the scheduler */
 	vTaskStartScheduler();

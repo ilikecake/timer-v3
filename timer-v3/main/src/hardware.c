@@ -134,15 +134,6 @@ void App_Button_Init(void)
 
 void App_EnableButtons(void)
 {
-
-
-
-	//Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_1_PININT_INDEX));
-	//Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_2_PININT_INDEX));
-	//Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_3_PININT_INDEX));
-	//Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_4_PININT_INDEX));
-	//Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_5_PININT_INDEX));
-
 	Chip_PININT_ClearIntStatus(LPC_PININT, ((1 << BUTTON_1_PININT_INDEX)|(1<<BUTTON_2_PININT_INDEX)|(1<<BUTTON_3_PININT_INDEX)|(1<<BUTTON_4_PININT_INDEX)|(1<<BUTTON_5_PININT_INDEX)) );
 
 	NVIC_ClearPendingIRQ(BUTTON_1_NVIC_NAME);
@@ -178,37 +169,29 @@ void App_DisableButtons(void)
 	return;
 }
 
-void App_HandleButtonPress(uint8_t ButtonNumber)
+/**Called in the interrupt to handle a button press
+ *   To debounce the buttons, the button interrupt is set to trigger on a high-to-low interrupt. When the interrupt triggers, the button number
+ *   that triggered the interrupt is saved into the global 'ButtonWaiting' variable. The button interrupts are disabled and the debounce timer
+ *   is started. When the debounce timer interrupts (based on the DEBOUNCE_TIME global define) the state of the button is polled again. If the
+ *   button is still low, the device treats the button press as legitimate and passes the button press to the RTOS. If the button interrupts
+ *   are then reenabled and the device starts to wait for another button press.
+ */
+void App_HandleButtonPress(void)
 {
 	if(App_GetStatus() != APP_STATUS_INIT)
 	{
-		//TODO: remove the ButtonNumber call from this function, the ButtonWaiting global can be read to determine which button to service.
-
-		//Disable buttons for debouncing
-		//App_DisableButtons();
-		//DEBOUNCE_TIMER->TCR = 0x01;
-
 		DisplayCommand CommandToSend;
 
-		if( ((ButtonNumber == BUTTON_1_PININT_INDEX) &&  (Chip_GPIO_GetPinState(LPC_GPIO, BUTTON_1_PORT, BUTTON_1_PIN) == false)) ||
-			((ButtonNumber == BUTTON_2_PININT_INDEX) &&  (Chip_GPIO_GetPinState(LPC_GPIO, BUTTON_2_PORT, BUTTON_2_PIN) == false)) ||
-			((ButtonNumber == BUTTON_3_PININT_INDEX) &&  (Chip_GPIO_GetPinState(LPC_GPIO, BUTTON_3_PORT, BUTTON_3_PIN) == false)) ||
-			((ButtonNumber == BUTTON_4_PININT_INDEX) &&  (Chip_GPIO_GetPinState(LPC_GPIO, BUTTON_4_PORT, BUTTON_4_PIN) == false)) ||
-			((ButtonNumber == BUTTON_5_PININT_INDEX) &&  (Chip_GPIO_GetPinState(LPC_GPIO, BUTTON_5_PORT, BUTTON_5_PIN) == false)))
+		if( ((ButtonWaiting == BUTTON_1_PININT_INDEX) &&  (Chip_GPIO_GetPinState(LPC_GPIO, BUTTON_1_PORT, BUTTON_1_PIN) == false)) ||
+			((ButtonWaiting == BUTTON_2_PININT_INDEX) &&  (Chip_GPIO_GetPinState(LPC_GPIO, BUTTON_2_PORT, BUTTON_2_PIN) == false)) ||
+			((ButtonWaiting == BUTTON_3_PININT_INDEX) &&  (Chip_GPIO_GetPinState(LPC_GPIO, BUTTON_3_PORT, BUTTON_3_PIN) == false)) ||
+			((ButtonWaiting == BUTTON_4_PININT_INDEX) &&  (Chip_GPIO_GetPinState(LPC_GPIO, BUTTON_4_PORT, BUTTON_4_PIN) == false)) ||
+			((ButtonWaiting == BUTTON_5_PININT_INDEX) &&  (Chip_GPIO_GetPinState(LPC_GPIO, BUTTON_5_PORT, BUTTON_5_PIN) == false)))
 		{
-
 			CommandToSend.CommandName = OLED_CMD_BUTTON_IN;
-			CommandToSend.CommandData[0] = ButtonNumber;
+			CommandToSend.CommandData[0] = ButtonWaiting;
 			xQueueSendFromISR(xDisplayCommands, (void *)&CommandToSend, NULL);
-
 		}
-
-
-
-
-
-		//xQueueSendFromISR(xButtonPress, (void *)&ButtonNumber, NULL);
-
 	}
 	else
 	{
@@ -222,9 +205,7 @@ void BUTTON_1_IRQ_HANDLER(void)
 	DEBOUNCE_TIMER->PR = BUTTON_1_DEBOUNCE_TIME;
 	App_DisableButtons();
 	ButtonWaiting = BUTTON_1_PININT_INDEX;
-
 	DEBOUNCE_TIMER->TCR = 0x01;
-	//App_HandleButtonPress(BUTTON_1_PININT_INDEX);
 	Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_1_PININT_INDEX));
 	return;
 }
@@ -234,9 +215,7 @@ void BUTTON_2_IRQ_HANDLER(void)
 	DEBOUNCE_TIMER->PR = BUTTON_2_DEBOUNCE_TIME;
 	App_DisableButtons();
 	ButtonWaiting = BUTTON_2_PININT_INDEX;
-
 	DEBOUNCE_TIMER->TCR = 0x01;
-	//App_HandleButtonPress(BUTTON_2_PININT_INDEX);
 	Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_2_PININT_INDEX));
 	return;
 }
@@ -246,9 +225,7 @@ void BUTTON_3_IRQ_HANDLER(void)
 	DEBOUNCE_TIMER->PR = BUTTON_3_DEBOUNCE_TIME;
 	App_DisableButtons();
 	ButtonWaiting = BUTTON_3_PININT_INDEX;
-
 	DEBOUNCE_TIMER->TCR = 0x01;
-	//App_HandleButtonPress(BUTTON_3_PININT_INDEX);
 	Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_3_PININT_INDEX));
 	return;
 }
@@ -258,9 +235,7 @@ void BUTTON_4_IRQ_HANDLER(void)		//Center Button
 	DEBOUNCE_TIMER->PR = BUTTON_4_DEBOUNCE_TIME;
 	App_DisableButtons();
 	ButtonWaiting = BUTTON_4_PININT_INDEX;
-
 	DEBOUNCE_TIMER->TCR = 0x01;
-	//App_HandleButtonPress(BUTTON_4_PININT_INDEX);
 	Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_4_PININT_INDEX));
 	return;
 }
@@ -270,9 +245,7 @@ void BUTTON_5_IRQ_HANDLER(void)
 	DEBOUNCE_TIMER->PR = BUTTON_5_DEBOUNCE_TIME;
 	App_DisableButtons();
 	ButtonWaiting = BUTTON_5_PININT_INDEX;
-
 	DEBOUNCE_TIMER->TCR = 0x01;
-	//App_HandleButtonPress(BUTTON_5_PININT_INDEX);
 	Chip_PININT_ClearIntStatus(LPC_PININT, PININTCH(BUTTON_5_PININT_INDEX));
 	return;
 }
@@ -330,7 +303,7 @@ void BUZZ_TIMER_IRQ_HANDLER(void)
 void DEBOUNCE_TIMER_IRQ_HANDLER(void)
 {
 	//Reenable buttons
-	App_HandleButtonPress(ButtonWaiting);
+	App_HandleButtonPress();
 	ButtonWaiting = 0;
 
 	DEBOUNCE_TIMER->TCR = 0x00;

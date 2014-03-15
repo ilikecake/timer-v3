@@ -28,7 +28,7 @@ uint8_t App_GetStatus(void);
 
 //TODO: Add a function to enable and disable the interrupts
 void App_Button_Init(void);
-void App_HandleButtonPress(uint8_t ButtonNumber);
+void App_HandleButtonPress(void);
 
 void App_EnableButtons(void);
 void App_DisableButtons(void);

@@ -2449,7 +2449,7 @@ void UpdateOutputs(void)
 
 
 	OutputState = TimerGetTimerState();
-
+	StringOptions.FontOptions = OLED_FONT_NORMAL;
 	switch(OutputState)
 	{
 		case TIMER_STATUS_OFF:

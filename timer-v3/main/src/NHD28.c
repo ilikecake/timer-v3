@@ -129,7 +129,7 @@ void OLED_Init(void)
 
 void OLED_SetStatus(uint8_t StatusMask, uint8_t StatusValue)
 {
-	OLED_StatusReg &= ((~StatusMask) | StatusValue);	//Set the desired bits to zero
+	OLED_StatusReg &= ((~StatusMask) | StatusValue);		//Set the desired bits to zero
 	OLED_StatusReg |= (StatusMask & StatusValue);			//Set the desired bits to one
 	return;
 }
@@ -1657,6 +1657,23 @@ void OLED_DisplayRotation(uint8_t Rotation)
 	}
 	DataToSend[1] = 0x11;
 	OLED_SendCommand(OLED_SET_REMAP, DataToSend, 2);
+
+	return;
+}
+
+void OLED_FlipRotation(void)
+{
+	uint8_t OLED_Stat;
+
+	OLED_Stat = OLED_GetStatus();
+	if((OLED_Stat & OLED_STATUS_ORENTATION_MASK) == OLED_STATUS_ORENTATION_DOWN)
+	{
+		OLED_DisplayRotation(OLED_STATUS_ORENTATION_UP);
+	}
+	else
+	{
+		OLED_DisplayRotation(OLED_STATUS_ORENTATION_DOWN);
+	}
 
 	return;
 }

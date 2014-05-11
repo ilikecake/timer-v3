@@ -185,6 +185,8 @@ uint8_t MF_GetWACharWidth(char CharToGet);
 void OLED_WriteMFString_Q(uint8_t CharSize, char *StringToWrite, uint8_t ColumnToStart, uint8_t RowToStart);
 
 void OLED_DisplayRotation(uint8_t Rotation);
+void OLED_FlipRotation(void);
+
 void OLED_DisplayContrast(uint8_t Contrast);
 
 void OLED_WriteLine(uint8_t X_start, uint8_t Y_start, uint8_t X_end, uint8_t Y_end, uint8_t weight, uint8_t prop);

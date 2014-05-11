@@ -206,6 +206,8 @@ static int _F2_Handler (void)
 		printf("----------------------------\r\n");
 		printf("Free Heap Space: %u\r\n", xPortGetFreeHeapSize());
 
+		printf("Compile Time: %s, %s\r\n", __DATE__, __TIME__);
+
 	}
 
 	return 0;

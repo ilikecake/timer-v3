@@ -28,6 +28,12 @@ struct tm CurrentTime;
 uint8_t OutputStatus;
 uint8_t TimerStatus;
 
+
+char *EventNames[12] = {"None", "Steady", "Repeat", "Timer", "Sunrise", "Sunset", "Sunrise1", "Sunset1", "Sunrise2", "Sunset2", "Sunrise3", "Sunset3" };
+
+
+
+
 //A function to start the timer
 //Any initialization code that must happen when the timer start should be put here
 void StartTimer(void);
@@ -62,48 +68,68 @@ void TimerUpdateRepeatingEvent(uint8_t OutputNumber);
 //TODO: Add somthing to write the new value to EEPROM.
 void TimerSetStatus(uint8_t NewTimerStatus);
 
-//This function should only be called once per day or when the timer is started
-void UpdateSunriseAndSunset(void)
+/**Update the sunrise and sunset times stored in memory. This function updates the sunrise and sunset times based off the current time from the RTC.
+ * This function should be called when the timer is starts, when a new time is set, and at least once per day before any sunrise or sunset events will occur.
+ *
+ * 		ForceUpdate:	The function will only update the time if the hours and minutes match the values defined in the
+ * 						TIMER_SUN_UPDATE_HOUR and TIMER_SUN_UPDATE_MIN defines. Set the value to 1 to override this check.
+ */
+void UpdateSunriseAndSunset(uint8_t ForceUpdate)
 {
-	int8_t UT_Offset;
+	int8_t Offset;
 	time_t TimeVal;
 
-	UT_Offset = GetUTOffset();
+	DS3232M_GetTime(&CurrentTime);
 
-	//We set the sunrise time to the current time because the GetSunriseAndSunset function uses the date from this struct to determine the real sunrise and sunset time
-	DS3232M_GetTime(&SunriseTime);
-	GetSunriseAndSunsetTime(&SunriseTime, &SunsetTime);
-
-	//Correct sunrise and sunset time to local time
-	SunriseTime.tm_hour = SunriseTime.tm_hour + 24 + UT_Offset;
-	if(SunriseTime.tm_hour > 23)
+	if( ((CurrentTime.tm_hour == TIMER_SUN_UPDATE_HOUR) && (CurrentTime.tm_min ==TIMER_SUN_UPDATE_MIN)) || (ForceUpdate == 1) )
 	{
-		SunriseTime.tm_hour -= 24;
-	}
+		Offset = GetUTOffset();
 
-	SunsetTime.tm_hour = SunsetTime.tm_hour + 24 + UT_Offset;
-	if(SunsetTime.tm_hour > 23)
-	{
-		SunsetTime.tm_hour -= 24;
-	}
+		//We set the sunrise time to the current time because the GetSunriseAndSunset function uses the date from this struct to determine the real sunrise and sunset time
+		SunriseTime = CurrentTime;
+		GetSunriseAndSunsetTime(&SunriseTime, &SunsetTime);
 
-	DS3232M_GetTime(&AltSunriseTime);
-	TimeVal = mktime(&AltSunriseTime);
-	TimeVal += 15724800;						//Note: This value is adding 182 days to the current time. This is not exactly correct, but it should be close enough.
-	AltSunriseTime = *localtime(&TimeVal);
-	GetSunriseAndSunsetTime(&AltSunriseTime, &AltSunsetTime);
+		//Correct sunrise and sunset time to local time
+		SunriseTime.tm_hour = SunriseTime.tm_hour + 24 + Offset;
+		if(SunriseTime.tm_hour > 23)
+		{
+			SunriseTime.tm_hour -= 24;
+		}
 
-	//Correct sunrise and sunset time to local time
-	AltSunriseTime.tm_hour = AltSunriseTime.tm_hour + 24 + UT_Offset;
-	if(AltSunriseTime.tm_hour > 23)
-	{
-		AltSunriseTime.tm_hour -= 24;
-	}
+		SunsetTime.tm_hour = SunsetTime.tm_hour + 24 + Offset;
+		if(SunsetTime.tm_hour > 23)
+		{
+			SunsetTime.tm_hour -= 24;
+		}
 
-	AltSunsetTime.tm_hour = AltSunsetTime.tm_hour + 24 + UT_Offset;
-	if(AltSunsetTime.tm_hour > 23)
-	{
-		AltSunsetTime.tm_hour -= 24;
+		DS3232M_GetTime(&AltSunriseTime);
+		TimeVal = mktime(&AltSunriseTime);
+		TimeVal += 15724800;						//Note: This value is adding 182 days to the current time. This is not exactly correct, but it should be close enough.
+		AltSunriseTime = *localtime(&TimeVal);
+		GetSunriseAndSunsetTime(&AltSunriseTime, &AltSunsetTime);
+
+		//Correct sunrise and sunset time to local time
+		AltSunriseTime.tm_hour = AltSunriseTime.tm_hour + 24 + Offset;
+		if(AltSunriseTime.tm_hour > 23)
+		{
+			AltSunriseTime.tm_hour -= 24;
+		}
+
+		AltSunsetTime.tm_hour = AltSunsetTime.tm_hour + 24 + Offset;
+		if(AltSunsetTime.tm_hour > 23)
+		{
+			AltSunsetTime.tm_hour -= 24;
+		}
+
+		Offset = GetDST();
+		if((Offset & 0x01) == 0x01)
+		{
+			//DST is in effect, add one to the hours of each time
+			SunriseTime.tm_hour += 1;
+			SunsetTime.tm_hour += 1;
+			AltSunriseTime.tm_hour += 1;
+			AltSunsetTime.tm_hour+= 1;
+		}
 	}
 
 	return;
@@ -148,7 +174,7 @@ void TimerSetEvent(uint8_t OutputNumber, uint8_t EventNumber, TimerEvent *EventD
 		TimerEventList[OutputNumber][EventNumber].EventTime[2] = EventData->EventTime[2];
 		TimerEventList[OutputNumber][EventNumber].EventOutputState = EventData->EventOutputState;
 
-		if(EventData->EventType == TIMER_TASK_TYPE_REPEATING_EVENT)
+		if(EventData->EventType == TIMER_EVENT_TYPE_REPEATING)
 		{
 			//The repeating event must be event zero
 			if(EventNumber != 0) return;
@@ -292,7 +318,7 @@ void TimerValidateEventList(void)
 	{
 		for(j=0;j<TIMER_EVENT_NUMBER;j++)
 		{
-			if( TimerEventList[i][j].EventType > TIMER_TASK_TYPE_STEADY_EVENT)
+			if( TIMER_IS_VALID_EVENT(TimerEventList[i][j].EventType) == 0 )
 			//if( (*TimerEventList[i][j].EventTime != TIMER_TASK_TYPE_TIME_EVENT) || (*TimerEventList[i][j].EventTime != TIMER_TASK_TYPE_REPEATING_EVENT) || (*TimerEventList[i][j].EventTime != TIMER_TASK_TYPE_SUNRISE) || (*TimerEventList[i][j].EventTime != TIMER_TASK_TYPE_SUNSET) || (*TimerEventList[i][j].EventTime != TIMER_TASK_TYPE_STEADY_EVENT) )
 			{
 				//Clear data from the event
@@ -301,13 +327,13 @@ void TimerValidateEventList(void)
 				if(j == 0)
 				{
 					//If this is the first event for a specific output, set the output to off.
-					TimerEventList[i][j].EventType = TIMER_TASK_TYPE_STEADY_EVENT;
+					TimerEventList[i][j].EventType = TIMER_EVENT_TYPE_STEADY;
 					TimerEventList[i][j].EventOutputState = 0;
 				}
 				else
 				{
 					//otherwise set the event type to none
-					TimerEventList[i][j].EventType = TIMER_TASK_EVENT_TYPE_NONE;
+					TimerEventList[i][j].EventType = TIMER_EVENT_TYPE_NONE;
 					TimerEventList[i][j].EventOutputState = 0;
 				}
 			}
@@ -462,6 +488,7 @@ void TimerTask(void *pvParameter)
 
 void StartTimer(void)
 {
+	UpdateSunriseAndSunset(1);
 	TimerSetStatus(TIMER_STATUS_ON);
 	TimerUpdateOutputs();
 	return;
@@ -479,7 +506,7 @@ void StopTimer(void)
 
 	for(i=0;i<TIMER_OUTPUT_NUMBER;i++)
 	{
-		if(TimerEventList[i][0].EventType == TIMER_TASK_TYPE_REPEATING_EVENT)
+		if(TimerEventList[i][0].EventType == TIMER_EVENT_TYPE_REPEATING)
 		{
 			//Reinitialize the repeating event
 			TimerSetEvent(i, 0, &TimerEventList[i][0]);
@@ -514,18 +541,138 @@ void TimerUpdateOutput(uint8_t OutputNumber)
 		diff = 0xFFFFFFF;
 		k = -1;
 
+
+
 		for(i=0; i<TIMER_EVENT_NUMBER; i++)
 		{
-			if((TimerEventList[OutputNumber][i].EventType == TIMER_TASK_TYPE_TIME_EVENT) && (TimerEventList[OutputNumber][i].EventTime[0] != 0))
+			if((TimerEventList[OutputNumber][i].EventType >= TIMER_EVENT_FIRST_TIMED) && (TimerEventList[OutputNumber][i].EventType <= TIMER_EVENT_LAST_TIMED))
+			{
+				//If the DOW variable is zero, somthing bad happened
+				//if(TimerEventList[OutputNumber][i].EventTime[0] == 0) App_Die(1);
+
+
+				TempTime = CurrentTime;
+
+				switch(TimerEventList[OutputNumber][i].EventType)
+				{
+					case TIMER_EVENT_TYPE_TIMED:
+						//Find the last time this event should be triggered
+						//TempTime = CurrentTime;
+						TempTime.tm_min		= TimerEventList[OutputNumber][i].EventTime[2];
+						TempTime.tm_hour	= TimerEventList[OutputNumber][i].EventTime[1];
+						//TempTimeVal = mktime(&TempTime);
+						break;
+
+					case TIMER_EVENT_TYPE_SUNRISE:
+						TempTime.tm_min		= SunriseTime.tm_min;
+						TempTime.tm_hour	= SunriseTime.tm_hour;
+						break;
+
+					case TIMER_EVENT_TYPE_SUNSET:
+						TempTime.tm_min		= SunsetTime.tm_min;
+						TempTime.tm_hour	= SunsetTime.tm_hour;
+						break;
+
+					case TIMER_EVENT_TYPE_SUNRISE_OPPOSITE:
+						TempTime.tm_min		= AltSunriseTime.tm_min;
+						TempTime.tm_hour	= AltSunriseTime.tm_hour;
+						break;
+
+					case TIMER_EVENT_TYPE_SUNSET_OPPOSITE:
+						TempTime.tm_min		= AltSunsetTime.tm_min;
+						TempTime.tm_hour	= AltSunsetTime.tm_hour;
+						break;
+
+					case TIMER_EVENT_TYPE_SUNRISE_SUMMER:
+					case TIMER_EVENT_TYPE_SUNRISE_WINTER:
+					case TIMER_EVENT_TYPE_SUNSET_SUMMER:
+					case TIMER_EVENT_TYPE_SUNSET_WINTER:
+						if((CurrentTime.tm_yday >= 79) && (CurrentTime.tm_yday <= 265))
+						{
+							//Summer
+							if(TimerEventList[OutputNumber][i].EventType == TIMER_EVENT_TYPE_SUNRISE_SUMMER)
+							{
+								TempTime.tm_min		= SunriseTime.tm_min;
+								TempTime.tm_hour	= SunriseTime.tm_hour;
+							}
+							else if(TimerEventList[OutputNumber][i].EventType == TIMER_EVENT_TYPE_SUNSET_SUMMER)
+							{
+								TempTime.tm_min		= SunsetTime.tm_min;
+								TempTime.tm_hour	= SunsetTime.tm_hour;
+							}
+							else if(TimerEventList[OutputNumber][i].EventType == TIMER_EVENT_TYPE_SUNRISE_WINTER)
+							{
+								TempTime.tm_min		= AltSunriseTime.tm_min;
+								TempTime.tm_hour	= AltSunriseTime.tm_hour;
+							}
+							else if(TimerEventList[OutputNumber][i].EventType == TIMER_EVENT_TYPE_SUNSET_WINTER)
+							{
+								TempTime.tm_min		= AltSunsetTime.tm_min;
+								TempTime.tm_hour	= AltSunsetTime.tm_hour;
+							}
+
+						}
+						else
+						{
+							//Winter
+							if(TimerEventList[OutputNumber][i].EventType == TIMER_EVENT_TYPE_SUNRISE_SUMMER)
+							{
+								TempTime.tm_min		= AltSunriseTime.tm_min;
+								TempTime.tm_hour	= AltSunriseTime.tm_hour;
+
+							}
+							else if(TimerEventList[OutputNumber][i].EventType == TIMER_EVENT_TYPE_SUNSET_SUMMER)
+							{
+								TempTime.tm_min		= AltSunsetTime.tm_min;
+								TempTime.tm_hour	= AltSunsetTime.tm_hour;
+							}
+							else if(TimerEventList[OutputNumber][i].EventType == TIMER_EVENT_TYPE_SUNRISE_WINTER)
+							{
+								TempTime.tm_min		= SunriseTime.tm_min;
+								TempTime.tm_hour	= SunriseTime.tm_hour;
+							}
+							else if(TimerEventList[OutputNumber][i].EventType == TIMER_EVENT_TYPE_SUNSET_WINTER)
+							{
+								TempTime.tm_min		= SunsetTime.tm_min;
+								TempTime.tm_hour	= SunsetTime.tm_hour;
+							}
+						}
+						break;
+
+				}
+
+				//Note: TempTime and TempTimeVal are the time that the event happens.
+				//		1 day increments are subtracted from these times until a day on which the event is supposed to occur is found.
+				//		at the end of this function, these variables should represent the most recent time each event was triggered.
+				TempTimeVal = mktime(&TempTime);
+
+
+				//if((TimerEventList[OutputNumber][i].EventType == TIMER_TASK_TYPE_TIME_EVENT) )
+				/*if(TimerEventList[OutputNumber][i].EventType == TIMER_EVENT_TYPE_TIMED)
 			{
 				//Find the last time this event should be triggered
 				TempTime = CurrentTime;
-				TempTime.tm_min	= TimerEventList[OutputNumber][i].EventTime[2];
+				TempTime.tm_min		= TimerEventList[OutputNumber][i].EventTime[2];
 				TempTime.tm_hour	= TimerEventList[OutputNumber][i].EventTime[1];
 				TempTimeVal = mktime(&TempTime);
+			}
+			else if(TimerEventList[OutputNumber][i].EventType >= TIMER_EVENT_TYPE_SUNRISE)
+			{
+				//Find the last time this event should be triggered
+				TempTime = CurrentTime;
+				TempTime.tm_min		= TimerEventList[OutputNumber][i].EventTime[2];
+				TempTime.tm_hour	= TimerEventList[OutputNumber][i].EventTime[1];
+				TempTimeVal = mktime(&TempTime);
+			}*/
 
-				//Find the last day the event was triggered
-				while(((1 << TempTime.tm_wday)&(TimerEventList[OutputNumber][i].EventTime[0])) == 0)
+
+				//If the event happens in the future
+				//if(TempTimeVal > CurrentTimeVal)
+
+
+				//Count back days until the most recent time in the past when this event occured is found. The wile loop continues as long as the event happens in the future (this should only occur once),
+				//and the day of the week of the event does not match a day of the week when the event is supposed to occur, this could occur up to 7 times.
+				while( (((1 << TempTime.tm_wday)&(TimerEventList[OutputNumber][i].EventTime[0])) == 0) || (TempTimeVal > CurrentTimeVal))
 				{
 					//Subtract one day from the time and check again
 					TempTimeVal -= 86400;
@@ -533,20 +680,25 @@ void TimerUpdateOutput(uint8_t OutputNumber)
 					//NOTE: the function will hang here if the event does not have any days of the week defined (EventTime[0] = 0)
 				}
 
-				if(CurrentTimeVal >= TempTimeVal)
-				{
+				//if(CurrentTimeVal >= TempTimeVal)	//TODO: Figure out what happens when CurrentTimeVal = TempTimeVal
+				//{
 					//The event happened in the past
 					if( (CurrentTimeVal-TempTimeVal) < diff)
 					{
 						k = i;
 						diff = (CurrentTimeVal-TempTimeVal);
 					}
-				}
+				//}
+
+				//If either of these occur, something bad happened
+				if(k == -1) 			App_Die(1);
+				if(diff == 0xFFFFFFF)	App_Die(2);
+
 			}
 		}
 
-		if(k == -1) return;
-		if(diff == 0xFFFFFFF) return;
+
+
 
 		//k now points to the most recent event, and diff is the elapsed seconds from that event until now.
 		if(TimerEventList[OutputNumber][k].EventOutputState != (OutputStatus >> OutputNumber) )
@@ -574,7 +726,7 @@ void TimerUpdateOutputs(void)
 		{
 			switch(TimerEventList[j][0].EventType)
 			{
-			case TIMER_TASK_TYPE_REPEATING_EVENT:		//Good
+			case TIMER_EVENT_TYPE_REPEATING:		//Good
 				if(TimerEventList[j][0].EventTime[0] == 0)
 				{
 					//This is the fist time the repeating event has been triggered
@@ -593,22 +745,32 @@ void TimerUpdateOutputs(void)
 				TimerUpdateRepeatingEvent(j);
 				break;
 
-			case TIMER_TASK_TYPE_STEADY_EVENT:		//Good
+			case TIMER_EVENT_TYPE_STEADY:		//Good
 				if( (OutputStatus & (1<<(j))) != TimerEventList[j][0].EventOutputState)
 				{
 					TimerSetOutput(j, TimerEventList[j][0].EventOutputState);
 				}
 				break;
 
-			case TIMER_TASK_TYPE_TIME_EVENT:
+			case TIMER_EVENT_TYPE_TIMED:
+			case TIMER_EVENT_TYPE_SUNRISE:
+			case TIMER_EVENT_TYPE_SUNSET:
+			case TIMER_EVENT_TYPE_SUNRISE_OPPOSITE:
+			case TIMER_EVENT_TYPE_SUNSET_OPPOSITE:
+			case TIMER_EVENT_TYPE_SUNRISE_SUMMER:
+			case TIMER_EVENT_TYPE_SUNSET_SUMMER:
+			case TIMER_EVENT_TYPE_SUNRISE_WINTER:
+			case TIMER_EVENT_TYPE_SUNSET_WINTER:
 				TimerUpdateOutput(j);
 				break;
 
-			case TIMER_TASK_TYPE_SUNRISE:
-			case TIMER_TASK_TYPE_SUNSET:
+
+
+			//case TIMER_EVENT_TYPE_SUNRISE:
+			//case TIMER_EVENT_TYPE_SUNSET:
 				//printf("Sun based event\r\n");
 				//I need to get a sunrise/sunset table or calculator here....
-				break;
+				//break;
 			}
 		}
 	}
@@ -642,7 +804,7 @@ void TimerSetStatus(uint8_t NewTimerStatus)
 void TimerUpdateRepeatingEvent(uint8_t OutputNumber)
 {
 	//Make sure we are looking at a repeating event
-	if(TimerEventList[OutputNumber][0].EventType != TIMER_TASK_TYPE_REPEATING_EVENT) return;
+	if(TimerEventList[OutputNumber][0].EventType != TIMER_EVENT_TYPE_REPEATING) return;
 
 	DS3232M_GetTime(&CurrentTime);
 
@@ -690,5 +852,27 @@ void GetSunsetTime(struct tm *theTime)
 	theTime->tm_hour	= SunsetTime.tm_hour;
 	theTime->tm_min		= SunsetTime.tm_min;
 	theTime->tm_sec		= SunsetTime.tm_sec;
+	return;
+}
+
+void GetAltSunriseTime(struct tm *theTime)
+{
+	theTime->tm_mday	= AltSunriseTime.tm_mday;
+	theTime->tm_mon		= AltSunriseTime.tm_mon;
+	theTime->tm_year	= AltSunriseTime.tm_year;
+	theTime->tm_hour	= AltSunriseTime.tm_hour;
+	theTime->tm_min		= AltSunriseTime.tm_min;
+	theTime->tm_sec		= AltSunriseTime.tm_sec;
+	return;
+}
+
+void GetAltSunsetTime(struct tm *theTime)
+{
+	theTime->tm_mday	= AltSunsetTime.tm_mday;
+	theTime->tm_mon		= AltSunsetTime.tm_mon;
+	theTime->tm_year	= AltSunsetTime.tm_year;
+	theTime->tm_hour	= AltSunsetTime.tm_hour;
+	theTime->tm_min		= AltSunsetTime.tm_min;
+	theTime->tm_sec		= AltSunsetTime.tm_sec;
 	return;
 }

@@ -101,6 +101,7 @@ void GetSunriseAndSunsetTime(struct tm* SunriseTime, struct tm* SunsetTime)
 	uint16_t WorkingMonth;
 	uint16_t WorkingYear;
 
+	//Convert the month and year definitions from the C standard to what the function expects.
 	WorkingMonth = SunriseTime->tm_mon+1;
 	WorkingYear = SunriseTime->tm_year+1900;
 	//double LT;

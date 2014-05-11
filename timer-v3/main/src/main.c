@@ -128,7 +128,7 @@ int main(void)
 
 	SetLatitude(43, 833);
 	SetLongitude(-89, 3833);
-	UpdateSunriseAndSunset();
+	UpdateSunriseAndSunset(1);
 	DisplayTaskInit();
 	InitTimerTask();
 

@@ -41,6 +41,17 @@
 #include "display_task.h"
 #include "sun.h"
 
+
+//#define ERROR_CODE_1			1
+//#define ERROR_CODE_2			2
+//#define ERROR_CODE_3			3
+//#define ERROR_CODE_4			4
+//#define ERROR_CODE_5			5
+//#define ERROR_CODE_6			6
+//#define ERROR_CODE_7			7
+
+
+
 extern uint32_t ISP_Request;
 
 xTaskHandle TaskList[5];

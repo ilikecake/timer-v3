@@ -443,7 +443,7 @@ static int _F4_Handler (void)
 					for(i=0;i<6;i++)
 					{
 						TimerGetEvent(0, i, &EventData);
-						if(EventData.EventType == TIMER_TASK_TYPE_TIME_EVENT)
+						if(EventData.EventType == TIMER_EVENT_TYPE_TIMED)
 						{
 							TempTime = timevalue;
 
@@ -665,6 +665,7 @@ static int _F5_Handler (void)
 
 		case 7:
 			 OLED_DisplayRotation(val);
+			 break;
 
 
 		case 8:
@@ -678,6 +679,7 @@ static int _F5_Handler (void)
 
 
 			OLED_WriteColumn(Stuff, 6, 0x0F);
+			break;
 
 		case 9:
 			OLED_ClearDisplay();
@@ -820,6 +822,10 @@ static int _F5_Handler (void)
 			OLED_WriteLine2(&LineOptions);*/
 
 			break;
+
+		//case 11:
+		//	App_Die(6);
+		//	break;
 
 
 	}
@@ -1041,7 +1047,7 @@ static int _F8_Handler (void)
 			break;
 
 		case 2:
-			NewTimerEvent.EventType = TIMER_TASK_TYPE_TIME_EVENT;
+			NewTimerEvent.EventType = TIMER_EVENT_TYPE_TIMED;
 			NewTimerEvent.EventTime[0] = 0xFF;	//Trigger on all days of week
 			NewTimerEvent.EventTime[1] = CurrentTime.tm_hour;
 			NewTimerEvent.EventTime[2] = CurrentTime.tm_min+1;

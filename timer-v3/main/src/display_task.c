@@ -920,7 +920,7 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 	switch(theButtonPressed)
 	{
 		case MENU_BUTTON_RIGHT:
-			if( (MenuCaller == 18) && (MenuData[4] == TIMER_TASK_TYPE_TIME_EVENT) )
+			if( (MenuCaller == 18) && (MenuData[4] == TIMER_EVENT_TYPE_TIMED) )
 			{
 				//Time input
 				if(SubmenuLevel == 3)
@@ -934,7 +934,7 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 				MenuData[2] = (MenuData[2] & 0x00FF) | (SubmenuLevel << 8);
 				ElementToHighlight = 1 << (4 + SubmenuLevel - 1);
 			}
-			else if( (MenuCaller == 18) && ((MenuData[4] == TIMER_TASK_TYPE_SUNRISE) || (MenuData[4] == TIMER_TASK_TYPE_SUNSET) || (MenuData[4] == TIMER_TASK_TYPE_REPEATING_EVENT)) )
+			else if( (MenuCaller == 18) && ((MenuData[4] == TIMER_EVENT_TYPE_SUNRISE) || (MenuData[4] == TIMER_EVENT_TYPE_SUNSET) || (MenuData[4] == TIMER_EVENT_TYPE_REPEATING)) )
 			{
 				//Time input
 				if(SubmenuLevel == 2)
@@ -948,7 +948,7 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 				MenuData[2] = (MenuData[2] & 0x00FF) | (SubmenuLevel << 8);
 				ElementToHighlight = 1 << (4 + SubmenuLevel - 1);
 			}
-			else if( (MenuCaller == 19) && ((MenuData[4] == TIMER_TASK_TYPE_TIME_EVENT) || (MenuData[4] == TIMER_TASK_TYPE_SUNRISE) || (MenuData[4] == TIMER_TASK_TYPE_SUNSET)) )
+			else if( (MenuCaller == 19) && ((MenuData[4] == TIMER_EVENT_TYPE_TIMED) || (MenuData[4] == TIMER_EVENT_TYPE_SUNRISE) || (MenuData[4] == TIMER_EVENT_TYPE_SUNSET)) )
 			{
 				//Day of week
 				if(SubmenuLevel == 7)
@@ -992,7 +992,7 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 
 					//If the event type is none, repeating, or steady, only get the first event for this output
 					TimerGetEvent(MenuData[0]-1, 0, &CurrentEvent);
-					if( (CurrentEvent .EventType == TIMER_TASK_EVENT_TYPE_NONE) || (CurrentEvent .EventType == TIMER_TASK_TYPE_REPEATING_EVENT) || (CurrentEvent .EventType == TIMER_TASK_TYPE_STEADY_EVENT) )
+					if( (CurrentEvent .EventType == TIMER_EVENT_TYPE_NONE) || (CurrentEvent .EventType == TIMER_EVENT_TYPE_REPEATING) || (CurrentEvent .EventType == TIMER_EVENT_TYPE_STEADY) )
 					{
 						MenuData[1] = 1;
 					}
@@ -1002,7 +1002,7 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 						for(i=0;i<MenuData[1];i++)
 						{
 							TimerGetEvent(MenuData[0]-1, i, &CurrentEvent);
-							if((CurrentEvent.EventType != TIMER_TASK_TYPE_SUNRISE) || (CurrentEvent.EventType != TIMER_TASK_TYPE_SUNSET) || (CurrentEvent.EventType != TIMER_TASK_TYPE_TIME_EVENT))
+							if((CurrentEvent.EventType != TIMER_EVENT_TYPE_SUNRISE) || (CurrentEvent.EventType != TIMER_EVENT_TYPE_SUNSET) || (CurrentEvent.EventType != TIMER_EVENT_TYPE_TIMED))
 							{
 								MenuData[1] = i+1;
 								break;
@@ -1024,7 +1024,7 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 					//Only change events if the event is timed or sun based
 					//Also, if the current event is none, do not let the user advance to the next event.
 					TimerGetEvent(MenuData[0]-1, 0, &CurrentEvent);
-					if(((CurrentEvent.EventType == TIMER_TASK_TYPE_TIME_EVENT) || (CurrentEvent.EventType == TIMER_TASK_TYPE_SUNRISE) || (CurrentEvent.EventType == TIMER_TASK_TYPE_SUNSET)) && (MenuData[4] != TIMER_TASK_EVENT_TYPE_NONE))
+					if(((CurrentEvent.EventType == TIMER_EVENT_TYPE_TIMED) || (CurrentEvent.EventType == TIMER_EVENT_TYPE_SUNRISE) || (CurrentEvent.EventType == TIMER_EVENT_TYPE_SUNSET)) && (MenuData[4] != TIMER_EVENT_TYPE_NONE))
 					{
 						if(MenuData[1] < TIMER_EVENT_NUMBER)
 						{
@@ -1065,9 +1065,9 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 					//If this is the first event for a given output, allow the user to select any event type except for none.
 					if(MenuData[1] == 1)
 					{
-						if(MenuData[4] == TIMER_TASK_TYPE_STEADY_EVENT)
+						if(MenuData[4] == TIMER_EVENT_LAST)
 						{
-							MenuData[4] = TIMER_TASK_TYPE_TIME_EVENT;
+							MenuData[4] = TIMER_EVENT_FIRST+1;
 						}
 						else
 						{
@@ -1079,11 +1079,15 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 
 						//If the current output is timed or sun based, only allow the user to select timed or sun based events
 						TimerGetEvent(MenuData[0]-1, 0, &CurrentEvent);
-						if((CurrentEvent.EventType == TIMER_TASK_TYPE_TIME_EVENT) || (CurrentEvent.EventType == TIMER_TASK_TYPE_SUNRISE) || (CurrentEvent.EventType == TIMER_TASK_TYPE_SUNSET))
+						if((CurrentEvent.EventType == TIMER_EVENT_TYPE_TIMED) || (CurrentEvent.EventType == TIMER_EVENT_TYPE_SUNRISE) || (CurrentEvent.EventType == TIMER_EVENT_TYPE_SUNSET))
 						{
-							if(MenuData[4] == TIMER_TASK_TYPE_SUNSET)
+							if(MenuData[4] == TIMER_EVENT_LAST_TIMED)
 							{
-								MenuData[4] = TIMER_TASK_EVENT_TYPE_NONE;
+								MenuData[4] = TIMER_EVENT_TYPE_NONE;
+							}
+							else if(MenuData[4] == TIMER_EVENT_TYPE_NONE)
+							{
+								MenuData[4] = TIMER_EVENT_FIRST_TIMED;
 							}
 							else
 							{
@@ -1092,9 +1096,10 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 						}
 						else
 						{
-							if(MenuData[4] == TIMER_TASK_TYPE_STEADY_EVENT)
+							App_Die(12);
+							if(MenuData[4] == TIMER_EVENT_LAST)
 							{
-								MenuData[4] = TIMER_TASK_EVENT_TYPE_NONE;
+								MenuData[4] = TIMER_EVENT_FIRST;
 							}
 							else
 							{
@@ -1105,18 +1110,26 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 
 					ElementToHighlight = 1<<3;
 					MenuData[5] = 0xFF;
-					MenuData[6] = 0;
+					if(MenuData[4] == TIMER_EVENT_TYPE_TIMED)
+					{
+						MenuData[6] = 12;
+					}
+					else
+					{
+						MenuData[6] = 0;
+					}
+
 					MenuData[7] = 0;
 
 					break;
 
 				case 18:
-					if(MenuData[4] == TIMER_TASK_TYPE_TIME_EVENT)
+					if(MenuData[4] == TIMER_EVENT_TYPE_TIMED)
 					{
 						if(SubmenuLevel == 1)
 						{
 							//Hours
-							if(MenuData[6] == 12)
+							if(MenuData[6] == 24)
 							{
 								MenuData[6] = 1;
 							}
@@ -1153,7 +1166,7 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 							ElementToHighlight = 1<<6;
 						}
 					}
-					else if((MenuData[4] == TIMER_TASK_TYPE_SUNRISE) || (MenuData[4] == TIMER_TASK_TYPE_SUNSET) || (MenuData[4] == TIMER_TASK_TYPE_REPEATING_EVENT))
+					else if((MenuData[4] == TIMER_EVENT_TYPE_SUNRISE) || (MenuData[4] == TIMER_EVENT_TYPE_SUNSET) || (MenuData[4] == TIMER_EVENT_TYPE_REPEATING))
 					{
 						if(SubmenuLevel == 1)
 						{
@@ -1208,7 +1221,7 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 
 					//If the event type is none, repeating, or steady, only get the first event for this output
 					TimerGetEvent(MenuData[0]-1, 0, &CurrentEvent);
-					if( (CurrentEvent .EventType == TIMER_TASK_EVENT_TYPE_NONE) || (CurrentEvent .EventType == TIMER_TASK_TYPE_REPEATING_EVENT) || (CurrentEvent .EventType == TIMER_TASK_TYPE_STEADY_EVENT) )
+					if( (CurrentEvent .EventType == TIMER_EVENT_TYPE_NONE) || (CurrentEvent .EventType == TIMER_EVENT_TYPE_REPEATING) || (CurrentEvent .EventType == TIMER_EVENT_TYPE_STEADY) )
 					{
 						MenuData[1] = 1;
 					}
@@ -1218,7 +1231,7 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 						for(i=0;i<MenuData[1];i++)
 						{
 							TimerGetEvent(MenuData[0]-1, i, &CurrentEvent);
-							if((CurrentEvent.EventType != TIMER_TASK_TYPE_SUNRISE) || (CurrentEvent.EventType != TIMER_TASK_TYPE_SUNSET) || (CurrentEvent.EventType != TIMER_TASK_TYPE_TIME_EVENT))
+							if((CurrentEvent.EventType != TIMER_EVENT_TYPE_SUNRISE) || (CurrentEvent.EventType != TIMER_EVENT_TYPE_SUNSET) || (CurrentEvent.EventType != TIMER_EVENT_TYPE_TIMED))
 							{
 								MenuData[1] = i+1;
 								break;
@@ -1239,13 +1252,13 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 					//Change event number
 					//Only change events if the event is timed or sun based
 					TimerGetEvent(MenuData[0]-1, 0, &CurrentEvent);
-					if((CurrentEvent.EventType == TIMER_TASK_TYPE_TIME_EVENT) || (CurrentEvent.EventType == TIMER_TASK_TYPE_SUNRISE) || (CurrentEvent.EventType != TIMER_TASK_TYPE_SUNSET))
+					if((CurrentEvent.EventType == TIMER_EVENT_TYPE_TIMED) || (CurrentEvent.EventType == TIMER_EVENT_TYPE_SUNRISE) || (CurrentEvent.EventType != TIMER_EVENT_TYPE_SUNSET))
 					{
 						if(MenuData[1] == 1)
 						{
 							//If the user is on event 1, and event six is of type none, do not go to event six.
 							TimerGetEvent(MenuData[0]-1, TIMER_EVENT_NUMBER-1, &CurrentEvent);
-							if(CurrentEvent.EventType != TIMER_TASK_EVENT_TYPE_NONE)
+							if(CurrentEvent.EventType != TIMER_EVENT_TYPE_NONE)
 							{
 								MenuData[1] = TIMER_EVENT_NUMBER;
 							}
@@ -1285,9 +1298,9 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 					//If this is the first event, allow the user to select any event type except for 'none.'
 					if(MenuData[1] == 1)
 					{
-						if(MenuData[4] == TIMER_TASK_TYPE_TIME_EVENT)
+						if(MenuData[4] == TIMER_EVENT_FIRST+1)
 						{
-							MenuData[4] = TIMER_TASK_TYPE_STEADY_EVENT;
+							MenuData[4] = TIMER_EVENT_LAST;
 						}
 						else
 						{
@@ -1299,11 +1312,15 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 					{
 						//If the current output is timed or sun based, only allow the user to select timed or sun based events
 						TimerGetEvent(MenuData[0]-1, 0, &CurrentEvent);
-						if(((CurrentEvent.EventType == TIMER_TASK_TYPE_TIME_EVENT) || (CurrentEvent.EventType == TIMER_TASK_TYPE_SUNRISE)|| (CurrentEvent.EventType != TIMER_TASK_TYPE_SUNSET)) && (MenuData[1] != 1))
+						if(((CurrentEvent.EventType == TIMER_EVENT_TYPE_TIMED) || (CurrentEvent.EventType == TIMER_EVENT_TYPE_SUNRISE)|| (CurrentEvent.EventType != TIMER_EVENT_TYPE_SUNSET)) && (MenuData[1] != 1))
 						{
-							if(MenuData[4] == TIMER_TASK_EVENT_TYPE_NONE)
+							if(MenuData[4] == TIMER_EVENT_TYPE_NONE)
 							{
-								MenuData[4] = TIMER_TASK_TYPE_SUNSET;
+								MenuData[4] = TIMER_EVENT_LAST_TIMED;
+							}
+							else if(MenuData[4] == TIMER_EVENT_FIRST_TIMED)
+							{
+								MenuData[4] = TIMER_EVENT_TYPE_NONE;
 							}
 							else
 							{
@@ -1312,9 +1329,12 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 						}
 						else
 						{
-							if(MenuData[4] == TIMER_TASK_EVENT_TYPE_NONE)
+							//I don't think this case can ever happen
+							App_Die(6);
+
+							if(MenuData[4] == TIMER_EVENT_TYPE_NONE)
 							{
-								MenuData[4] = TIMER_TASK_TYPE_STEADY_EVENT;
+								MenuData[4] = TIMER_EVENT_TYPE_REPEATING;
 							}
 							else
 							{
@@ -1325,12 +1345,20 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 
 					ElementToHighlight = 1<<3;
 					MenuData[5] = 0xFF;
-					MenuData[6] = 0;
+
+					if(MenuData[4] == TIMER_EVENT_TYPE_TIMED)
+					{
+						MenuData[6] = 12;
+					}
+					else
+					{
+						MenuData[6] = 0;
+					}
 					MenuData[7] = 0;
 					break;
 
 				case 18:
-					if(MenuData[4] == TIMER_TASK_TYPE_TIME_EVENT)
+					if(MenuData[4] == TIMER_EVENT_TYPE_TIMED)
 					{
 						if(SubmenuLevel == 1)
 						{
@@ -1372,7 +1400,7 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 							ElementToHighlight = 1<<6;
 						}
 					}
-					else if((MenuData[4] == TIMER_TASK_TYPE_SUNRISE) || (MenuData[4] == TIMER_TASK_TYPE_SUNSET) || (MenuData[4] == TIMER_TASK_TYPE_REPEATING_EVENT))
+					else if((MenuData[4] == TIMER_EVENT_TYPE_SUNRISE) || (MenuData[4] == TIMER_EVENT_TYPE_SUNSET) || (MenuData[4] == TIMER_EVENT_TYPE_REPEATING))
 					{
 						if(SubmenuLevel == 1)
 						{
@@ -1427,14 +1455,14 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 				_MenuItem_TL (PreviousMenuItem, PreviousMenuItem);
 				ElementToHighlight = 0;
 			}
-			else if( (MenuCaller == 18) && (MenuData[4] != TIMER_TASK_TYPE_STEADY_EVENT) && (MenuData[4] != TIMER_TASK_EVENT_TYPE_NONE))
+			else if( (MenuCaller == 18) && (MenuData[4] != TIMER_EVENT_TYPE_STEADY) && (MenuData[4] != TIMER_EVENT_TYPE_NONE))
 			{
 				//Time input
 				SubmenuLevel--;
 				MenuData[2] = (MenuData[2] & 0x00FF) | (SubmenuLevel << 8);
 				ElementToHighlight = 1 << (4 + SubmenuLevel - 1);
 			}
-			else if( (MenuCaller == 19) && ((MenuData[4] == TIMER_TASK_TYPE_TIME_EVENT) || (MenuData[4] == TIMER_TASK_TYPE_SUNRISE) || (MenuData[4] == TIMER_TASK_TYPE_SUNSET)) )
+			else if( (MenuCaller == 19) && ((MenuData[4] == TIMER_EVENT_TYPE_TIMED) || (MenuData[4] == TIMER_EVENT_TYPE_SUNRISE) || (MenuData[4] == TIMER_EVENT_TYPE_SUNSET)) )
 			{
 				//Day of week
 				SubmenuLevel--;
@@ -1518,6 +1546,7 @@ static void SetOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenuIte
 	return;
 }
 
+//TODO: This will have to change when I add more types
 //TODO: Clear out the time and DOW data when not used.
 //TODO: Name this function something not dumb
 /**Write the event data to the display
@@ -1625,36 +1654,43 @@ static void WriteSetTimeData(uint16_t ElementToHighlight)
 	}
 	OLED_ClearWindow(StringOptions.XStart/4, StringOptions.XStart/4+19, StringOptions.YStart-1, StringOptions.YStart+10);
 
-	switch(MenuData[4])		//EventType
+
+
+
+	OLED_WriteMFString2(EventNames[MenuData[4]], &StringOptions);
+
+
+	/*switch(MenuData[4])		//EventType
 	{
-		case TIMER_TASK_TYPE_TIME_EVENT:
+		//TODO: Make these into an array of strings
+		case TIMER_EVENT_TYPE_TIMED:
 			OLED_WriteMFString2("Timer", &StringOptions);
 			break;
 
-		case TIMER_TASK_TYPE_REPEATING_EVENT:
+		case TIMER_EVENT_TYPE_REPEATING:
 			OLED_WriteMFString2("Repeat", &StringOptions);
 			break;
 
-		case TIMER_TASK_TYPE_SUNRISE:
+		case TIMER_EVENT_TYPE_SUNRISE:
 			OLED_WriteMFString2("Sunrise", &StringOptions);
 			break;
 
-		case TIMER_TASK_TYPE_SUNSET:
+		case TIMER_EVENT_TYPE_SUNSET:
 			OLED_WriteMFString2("Sunset", &StringOptions);
 			break;
 
-		case TIMER_TASK_TYPE_STEADY_EVENT:
+		case TIMER_EVENT_TYPE_STEADY:
 			OLED_WriteMFString2("Steady", &StringOptions);
 			break;
 
-		case TIMER_TASK_EVENT_TYPE_NONE:
+		case TIMER_EVENT_TYPE_NONE:
 			OLED_WriteMFString2("None", &StringOptions);
 			break;
-	}
+	}*/
 
 
 	//Time
-	if(MenuData[4] == TIMER_TASK_TYPE_TIME_EVENT)
+	if(MenuData[4] == TIMER_EVENT_TYPE_TIMED)
 	{
 		StringOptions.YStart = MenuItemList[18].Y_Start;
 
@@ -1724,7 +1760,7 @@ static void WriteSetTimeData(uint16_t ElementToHighlight)
 		}
 		StringOptions.EndPadding = 1;
 	}
-	else if((MenuData[4] == TIMER_TASK_TYPE_REPEATING_EVENT) || (MenuData[4] == TIMER_TASK_TYPE_SUNRISE) || (MenuData[4] == TIMER_TASK_TYPE_SUNSET) )
+	else if((MenuData[4] == TIMER_EVENT_TYPE_REPEATING) || (MenuData[4] == TIMER_EVENT_TYPE_SUNRISE) || (MenuData[4] == TIMER_EVENT_TYPE_SUNSET) )
 	{
 		//TODO: Combine this with the none event?
 		OLED_ClearWindow((MenuItemList[17].X_Start + SecondColumnDataOffset)/4, (MenuItemList[17].X_Start + SecondColumnDataOffset)/4+30, MenuItemList[18].Y_Start-2, MenuItemList[18].Y_Start+10);
@@ -1777,7 +1813,7 @@ static void WriteSetTimeData(uint16_t ElementToHighlight)
 
 
 	//Day of the week
-	if((MenuData[4] == TIMER_TASK_TYPE_TIME_EVENT) || (MenuData[4] == TIMER_TASK_TYPE_SUNRISE) || (MenuData[4] == TIMER_TASK_TYPE_SUNSET))
+	if((MenuData[4] == TIMER_EVENT_TYPE_TIMED) || (MenuData[4] == TIMER_EVENT_TYPE_SUNRISE) || (MenuData[4] == TIMER_EVENT_TYPE_SUNSET))
 	{
 		//The day of the week field is only used for timer or sun based events
 		StringOptions.YStart = MenuItemList[19].Y_Start;
@@ -2329,9 +2365,17 @@ void DrawStatusScreen(void)
 	OLED_WriteMFString2("Sunrise", &StringOptions);
 
 	GetSunriseTime(&CurrentTime);
-
 	StringOptions.XStart = 64;
-	sprintf(ScratchString, "%02u:%02u AM", CurrentTime.tm_hour, CurrentTime.tm_min);
+	strftime(ScratchString, 8, "%I:%M %p", &CurrentTime);
+	ScratchString[8] = '\0';
+	//sprintf(ScratchString, "%02u:%02u AM", CurrentTime.tm_hour, CurrentTime.tm_min);
+	OLED_WriteMFString2(ScratchString, &StringOptions);
+
+	GetAltSunriseTime(&CurrentTime);
+	StringOptions.XStart = 150;
+	strftime(ScratchString, 8, "%I:%M %p", &CurrentTime);
+	ScratchString[8] = '\0';
+	//sprintf(ScratchString, "%02u:%02u AM", CurrentTime.tm_hour, CurrentTime.tm_min);
 	OLED_WriteMFString2(ScratchString, &StringOptions);
 
 	//Write the sunset time
@@ -2340,9 +2384,17 @@ void DrawStatusScreen(void)
 	OLED_WriteMFString2("Sunset", &StringOptions);
 
 	GetSunsetTime(&CurrentTime);
-
 	StringOptions.XStart = 64;
-	sprintf(ScratchString, "%02u:%02u PM", CurrentTime.tm_hour, CurrentTime.tm_min);
+	strftime(ScratchString, 8, "%I:%M %p", &CurrentTime);
+	ScratchString[8] = '\0';
+	//sprintf(ScratchString, "%02u:%02u PM", CurrentTime.tm_hour, CurrentTime.tm_min);
+	OLED_WriteMFString2(ScratchString, &StringOptions);
+
+	GetAltSunsetTime(&CurrentTime);
+	StringOptions.XStart = 150;
+	strftime(ScratchString, 8, "%I:%M %p", &CurrentTime);
+	ScratchString[8] = '\0';
+	//sprintf(ScratchString, "%02u:%02u AM", CurrentTime.tm_hour, CurrentTime.tm_min);
 	OLED_WriteMFString2(ScratchString, &StringOptions);
 
 
@@ -2648,7 +2700,7 @@ void DisplayTask(void *pvParameters)
 					break;
 
 				case OLED_CMD_TIME_IN:
-					UpdateSunriseAndSunset();
+					UpdateSunriseAndSunset(0);
 					if( (DisplayStatus == DISPLAY_STATUS_IDLE_DIM) || (DisplayStatus == DISPLAY_STATUS_IDLE_BRIGHT) )
 					{
 						UpdateTimeAndDate();

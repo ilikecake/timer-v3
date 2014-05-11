@@ -318,6 +318,9 @@ void DS3232M_SetTime(struct tm * TheTime)
 	{
 		DS3232M_EnableAlarm(2);
 	}
+
+	UpdateSunriseAndSunset(1);
+
 	return;
 }
 
@@ -592,6 +595,9 @@ void DS3232M_GetTimeString(char *TimeString, uint8_t StringOptions)
 	DS3232M_GetTime(&CurrentTime);
 	strftime(TimeString, 8, "%I:%M %p", &CurrentTime);
 	TimeString[8] = '\0';
+
+	//TODO: Make this part of the StringOptions?
+	if(TimeString[0] == '0') TimeString[0] = ' ';
 	return;
 }
 
@@ -603,6 +609,9 @@ void DS3232M_GetDateString(char *DateString, uint8_t StringOptions)
 	DS3232M_GetTime(&CurrentTime);
 	strftime(DateString, 10, "%m/%d/%Y", &CurrentTime);
 	DateString[10] = '\0';
+
+	//TODO: Make this part of the StringOptions?
+	if(DateString[0] == '0') DateString[0] = ' ';
 	return;
 }
 

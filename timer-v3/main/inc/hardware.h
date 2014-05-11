@@ -39,4 +39,8 @@ void App_Buzzer_Init(void);
 void App_Buzzer_on (void);
 void App_Buzzer_off (void);
 
+
+
+void App_Die(uint8_t ErrorCode);
+
 #endif /* HARDWARE_H_ */

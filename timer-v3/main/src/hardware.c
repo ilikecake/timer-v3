@@ -294,6 +294,69 @@ void App_Buzzer_off (void)
 	return;
 }
 
+void App_Die(uint8_t ErrorCode)
+{
+	char ErrorString[11];
+	uint8_t i;
+	MF_StringOptions StringOptions;
+
+	StringOptions.CharSize = MF_ASCII_SIZE_7X8;
+	StringOptions.StartPadding = 0;
+	StringOptions.EndPadding = 0;
+	StringOptions.TopPadding = 0;
+	StringOptions.BottomPadding = 0;
+	StringOptions.CharacterSpacing = 0;
+	StringOptions.Brightness = 0x0F;
+	StringOptions.FontOptions = OLED_FONT_NORMAL;
+
+	//Turn off all IRQs
+	for(i=0;i<32;i++)
+	{
+		NVIC_DisableIRQ(i);
+	}
+
+	OLED_ClearDisplay();
+
+	//sprintf(ErrorString, "Error: %03u", ErrorCode);
+
+
+
+	strcpy(ErrorString, "ERROR: ");
+	if(ErrorCode > 99)
+	{
+		ErrorString[7] = (char)((ErrorCode/100)+48);
+		ErrorString[8] = (char)(((ErrorCode/10)%10)+48);
+		ErrorString[9] = (char)((ErrorCode%10)+48);
+		ErrorString[10] = '\0';
+	}
+	else if(ErrorCode > 9)
+	{
+		ErrorString[7] = (char)((ErrorCode/10)+48);
+		ErrorString[8] = (char)((ErrorCode%10)+48);
+		ErrorString[9] = '\0';
+	}
+	else
+	{
+		ErrorString[7] = (char)(ErrorCode+48);
+		ErrorString[8] = '\0';
+	}
+	//if(ErrorCode > 100)
+	//{
+	//	ErrorString[] = (char)(ErrorCode/100);
+	//}
+
+
+
+
+	//strcat(ErrorString, (char *)(ErrorCode+48) );
+	//ErrorString = "ASDDFg";
+	StringOptions.XStart = 0;
+	StringOptions.YStart = 20;
+	OLED_WriteMFString2(ErrorString, &StringOptions);
+
+	while(1);
+}
+
 void BUZZ_TIMER_IRQ_HANDLER(void)
 {
 	BUZZ_TIMER->IR = 0xFF;

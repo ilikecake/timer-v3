@@ -68,7 +68,7 @@ static void WriteSetTimeData(uint16_t ElementToHighlight);
 
 
 
-
+static void SetRotationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
 
 
 static void SwitchToSetTime(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
@@ -122,6 +122,17 @@ const char _OSM5_Name[]			= "Time";
 const char _OSM6_Name[]			= "DOW";
 const char _OSM_Breadcrumb[]	= "> Outputs > Setup";
 
+
+
+
+const char _SETUP1_Name[]			= "Flip Display";
+const char _SETUP2_Name[]			= "Idle Timeout";
+const char _SETUP3_Name[]			= "Dimming Timeout";
+const char _SETUP_Breadcrumb[]		= "> Setup";
+
+
+//TODO: the menu breadcrumb and the sublevel breadcrumbs are not aligned.
+
 uint16_t MenuData[8];
 
 const MenuItem MenuItemList[] =
@@ -129,9 +140,9 @@ const MenuItem MenuItemList[] =
 	//handler,			name,			up, 	down, 	left, 	right, 	Center,	X Start,	Y Start}
 	{_GoToIdle, 		NULL, 			0,		0,		0,		0,		0,		0,			0},			//0
 	//Top level menu entries
-	{ NULL,				_M0_Name,		4,		2,		0,		5, 		5,		16,			39},		//1
-	{ NULL,				_M1_Name,		1,		3,		0,		11, 	11,		16,			28},		//2
-	{ NULL,				_M2_Name,		2,		4,		0,		3, 		3,		16,			17},		//3
+	{ NULL,				_M0_Name,		4,		2,		0,		5, 		5,		16,			39},		//1		-Set time menu
+	{ NULL,				_M1_Name,		1,		3,		0,		11, 	11,		16,			28},		//2		-Set outputs menu
+	{ NULL,				_M2_Name,		2,		4,		0,		21, 	21,		16,			17},		//3		-Setup menu
 	{ NULL,				_M3_Name,		3,		1,		0,		4, 		4,		120,		39},		//4
 
 	//Set time menu
@@ -159,13 +170,26 @@ const MenuItem MenuItemList[] =
 
 	{UpdateOutputHandler, NULL,			20,		20,		20,		20,		20,		0,			0},			//20
 
+	{SetRotationHandler,_SETUP1_Name,	23,		22,		3,		21,		21,		16,			39},		//21
+	{NULL,				_SETUP2_Name,	21,		23,		3,		22,		22,		16,			28},		//22
+	{NULL,				_SETUP3_Name,	22,		21,		3,		23,		23,		16,			17},		//23
+
+
 };
 
 
 
 uint8_t MenuLevel;		//1=toplevel, 2=timemenu, ...
 
-
+static void SetRotationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem)
+{
+	if (ButtonPressed == MENU_BUTTON_CENTER)
+	{
+		OLED_ClearDisplay();
+		OLED_FlipRotation();
+		_MenuItem_TL (CurrentMenuItem, 0);
+	}
+}
 
 
 static void TopLevelMenu(uint8_t ButtonPressed)
@@ -2044,7 +2068,6 @@ static void EEPROMHandler(uint8_t theButtonPressed, uint8_t theCurrentMenuItem, 
 	return;
 }
 
-
 //Update the menu screen
 //TODO: Rename this function later
 void _MenuItem_TL (uint8_t Caller, uint8_t Previous)
@@ -2064,6 +2087,7 @@ void _MenuItem_TL (uint8_t Caller, uint8_t Previous)
 	StringOptions.FontOptions = OLED_FONT_NORMAL;
 
 	//Figure out some way of making this global?
+	//TODO: Figure out a better way to do this...
 	uint8_t MenuMin;
 	uint8_t MenuMax;
 	if(Caller > 0 && Caller <= 4 )
@@ -2090,6 +2114,13 @@ void _MenuItem_TL (uint8_t Caller, uint8_t Previous)
 		MenuMax = 19;
 		MenuBreadcrumb = _OSM_Breadcrumb;
 	}
+	else if(Caller > 20 && Caller <= 23 )
+	{
+		MenuMin = 21;
+		MenuMax = 23;
+		MenuBreadcrumb = _SETUP_Breadcrumb;
+	}
+
 	else
 	{
 		return;
@@ -2279,8 +2310,8 @@ void DrawMenuScreen(void)
 	StringOptions.CharSize = MF_ASCII_SIZE_7X8;
 	StringOptions.StartPadding = 0;
 	StringOptions.EndPadding = 0;
-	StringOptions.TopPadding = 0;
-	StringOptions.BottomPadding = 0;
+	StringOptions.TopPadding = 2;
+	StringOptions.BottomPadding = 1;
 	StringOptions.CharacterSpacing = 0;
 	StringOptions.Brightness = 0x0F;
 	StringOptions.FontOptions = OLED_FONT_NORMAL;

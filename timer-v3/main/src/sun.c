@@ -21,10 +21,15 @@
 #define DEG2RAD(x) (3.141592*(x)/180)
 #define RAD2DEG(x) (180*(x)/3.141592)
 
-double Latitude;
-double Longitude;		//Longitude east (for west, use negative numbers)
+//double Latitude;
+//double Longitude;		//Longitude east (for west, use negative numbers)
 
-/**Update the Latitude. Latitude is positive north.
+//int16_t LatitudeLHS;
+//uint16_t LatitudeRHS;
+//int16_t LongitudeLHS;
+//uint16_t LongitudeRHS;
+
+/**Update the Latitude value stored in EEPROM. Latitude is positive north.
  *
  *	LHS:	The integer portion of the latitude (signed)
  * 	RHS: 	The decimal portion of the latitude (unsigned).
@@ -33,22 +38,20 @@ double Longitude;		//Longitude east (for west, use negative numbers)
  */
 void SetLatitude(int16_t LHS, uint16_t RHS)
 {
-	if(RHS > 9999)
+	if( EEPROM_Write(EEPROM_ADDRESS_LAT_LHS_MSB, &LHS, 2 ) !=0)
 	{
-		RHS = 0;
+		//Failed to write to EEPROM
+		App_Die(8);
 	}
-	if(LHS < 0)
+	if( EEPROM_Write(EEPROM_ADDRESS_LAT_RHS_MSB, &RHS, 2 ) !=0)
 	{
-		Latitude = (double)LHS - ((double)RHS)/10000.0;
-	}
-	else
-	{
-		Latitude = (double)LHS + ((double)RHS)/10000.0;
+		//Failed to write to EEPROM
+		App_Die(8);
 	}
 	return;
 }
 
-/**Update the longitude. Longitude is positive east.
+/**Update the longitude value stored in EEPROM. Longitude is positive east.
  *
  * 	LHS: 	The integer portion of the longitude (signed)
  * 	RHS: 	The decimal portion of the longitude (unsigned)
@@ -57,7 +60,25 @@ void SetLatitude(int16_t LHS, uint16_t RHS)
  */
 void SetLongitude(int16_t LHS, uint16_t RHS)
 {
-	if(RHS > 9999)
+	//Save new value in EEPROM
+	if( EEPROM_Write(EEPROM_ADDRESS_LONG_LHS_MSB, &LHS, 2 ) !=0)
+	{
+		//Failed to write to EEPROM
+		App_Die(8);
+	}
+
+	//Save new value in EEPROM
+	if( EEPROM_Write(EEPROM_ADDRESS_LONG_RHS_MSB, &RHS, 2 ) !=0)
+	{
+		//Failed to write to EEPROM
+		App_Die(8);
+	}
+
+
+
+
+
+	/*if(RHS > 9999)
 	{
 		RHS = 0;
 	}
@@ -68,9 +89,49 @@ void SetLongitude(int16_t LHS, uint16_t RHS)
 	else
 	{
 		Longitude = (double)LHS + ((double)RHS)/10000.0;
+	}*/
+	return;
+}
+
+/** Read Latitude from EEPROM */
+void GetLatitude(int16_t *LHS, uint16_t *RHS)
+{
+	if( EEPROM_Read(EEPROM_ADDRESS_LAT_LHS_MSB, LHS, 2 ) !=0)
+	{
+		//Failed to write to EEPROM
+		App_Die(8);
+	}
+
+	//Save new value in EEPROM
+	if( EEPROM_Read(EEPROM_ADDRESS_LAT_RHS_MSB, RHS, 2 ) !=0)
+	{
+		//Failed to write to EEPROM
+		App_Die(8);
 	}
 	return;
 }
+
+/** Read Longitude from EEPROM */
+void GetLongitude(int16_t *LHS, uint16_t *RHS)
+{
+	if( EEPROM_Read(EEPROM_ADDRESS_LONG_LHS_MSB, LHS, 2 ) !=0)
+	{
+		//Failed to write to EEPROM
+		App_Die(8);
+	}
+
+	//Save new value in EEPROM
+	if( EEPROM_Read(EEPROM_ADDRESS_LONG_RHS_MSB, RHS, 2 ) !=0)
+	{
+		//Failed to write to EEPROM
+		App_Die(8);
+	}
+	return;
+}
+
+
+
+
 
 //Calculate the sunrise and sunset time from the date, latitude and longitude
 //Sunrise time should have the day, month, and year filled.
@@ -79,10 +140,15 @@ void SetLongitude(int16_t LHS, uint16_t RHS)
 //void GetSunriseAndSunsetTime(TimeAndDate* SunriseTime, TimeAndDate* SunsetTime)
 void GetSunriseAndSunsetTime(struct tm* SunriseTime, struct tm* SunsetTime)
 {
+	int16_t LHS;
+
 	uint16_t N1;
 	uint16_t N2;
 	uint16_t N3;
 	uint16_t N;
+
+	double Latitude;
+	double Longitude;
 
 	double lngHour;
 	double t;
@@ -100,6 +166,38 @@ void GetSunriseAndSunsetTime(struct tm* SunriseTime, struct tm* SunsetTime)
 
 	uint16_t WorkingMonth;
 	uint16_t WorkingYear;
+
+	//Get latitude and longitude from EEPROM
+	//Use N1 as a temporary variable
+	GetLatitude(&LHS, &N1);
+	if(N1 > 9999)
+	{
+		N1 = 0;
+	}
+	if(LHS < 0)
+	{
+		Latitude = (double)LHS - ((double)N1)/10000.0;
+	}
+	else
+	{
+		Latitude = (double)LHS + ((double)N1)/10000.0;
+	}
+
+	GetLongitude(&LHS, &N1);
+	if(N1 > 9999)
+	{
+		N1 = 0;
+	}
+	if(LHS < 0)
+	{
+		Longitude = (double)LHS - ((double)N1)/10000.0;
+	}
+	else
+	{
+		Longitude = (double)LHS + ((double)N1)/10000.0;
+	}
+
+
 
 	//Convert the month and year definitions from the C standard to what the function expects.
 	WorkingMonth = SunriseTime->tm_mon+1;

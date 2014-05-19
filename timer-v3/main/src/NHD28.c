@@ -120,7 +120,7 @@ void OLED_Init(void)
 
 	OLED_SendCommand(OLED_SLEEP_MODE_OFF, NULL, 0);
 
-	OLED_SetStatus(OLED_STATUS_ORENTATION_MASK, OLED_STATUS_ORENTATION_DOWN);
+	//OLED_SetStatus(OLED_STATUS_ORENTATION_MASK, OLED_STATUS_ORENTATION_DOWN);
 
 	//OLED_WriteMFString(MF_ASCII_SIZE_7X8, InitString, 16, 28);
 
@@ -131,6 +131,12 @@ void OLED_SetStatus(uint8_t StatusMask, uint8_t StatusValue)
 {
 	OLED_StatusReg &= ((~StatusMask) | StatusValue);		//Set the desired bits to zero
 	OLED_StatusReg |= (StatusMask & StatusValue);			//Set the desired bits to one
+
+	if( EEPROM_Write(EEPROM_ADDRESS_DISPLAY_STATUS, &OLED_StatusReg, 1 ) !=0)
+	{	//Failed to write to EEPROM
+		App_Die(8);
+	}
+
 	return;
 }
 

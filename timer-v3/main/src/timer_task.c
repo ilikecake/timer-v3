@@ -274,7 +274,7 @@ uint8_t TimerReadSingleEventFromEEPROM(uint8_t OutputNumber, uint8_t EventNumber
 	uint16_t addr;
 
 	sz = sizeof(*EventData);																	//The size of the TimerEvent struct
-	addr = TIMER_EEPROM_START_ADDRESS + sz*(OutputNumber*TIMER_EVENT_NUMBER + EventNumber);		//The address of the current struct in EEPROM
+	addr = EEPROM_ADDRESS_TIMER_EVENTS + sz*(OutputNumber*TIMER_EVENT_NUMBER + EventNumber);		//The address of the current struct in EEPROM
 
 	if( EEPROM_Read(addr, EventData, sz ) != 0)
 	{
@@ -297,7 +297,7 @@ uint8_t TimerWriteSingleEventToEEPROM(uint8_t OutputNumber, uint8_t EventNumber,
 	uint16_t addr;
 
 	sz = sizeof(*EventData);																	//The size of the TimerEvent struct
-	addr = TIMER_EEPROM_START_ADDRESS + sz*(OutputNumber*TIMER_EVENT_NUMBER + EventNumber);		//The address of the current struct in EEPROM
+	addr = EEPROM_ADDRESS_TIMER_EVENTS + sz*(OutputNumber*TIMER_EVENT_NUMBER + EventNumber);		//The address of the current struct in EEPROM
 
 	if( EEPROM_Write(addr, EventData, sz ) != 0)
 	{
@@ -488,9 +488,17 @@ void TimerTask(void *pvParameter)
 
 void StartTimer(void)
 {
-	UpdateSunriseAndSunset(1);
-	TimerSetStatus(TIMER_STATUS_ON);
-	TimerUpdateOutputs();
+	if(App_GetStatus() != APP_STATUS_OSC_STOPPED)
+	{
+		//Do not allow the user to start the timer if the time is invalid
+		UpdateSunriseAndSunset(1);
+		TimerSetStatus(TIMER_STATUS_ON);
+		TimerUpdateOutputs();
+	}
+	else
+	{
+
+	}
 	return;
 }
 
@@ -798,7 +806,12 @@ void TimerSetOutput(uint8_t OutputNumber, uint8_t OutputState)
 void TimerSetStatus(uint8_t NewTimerStatus)
 {
 	TimerStatus = NewTimerStatus;
-	//Write status ot EEPROM
+
+	if( EEPROM_Write(EEPROM_ADDRESS_TIMER_STATUS, &TimerStatus, 1 ) !=0)
+	{	//Failed to write to EEPROM
+		App_Die(8);
+	}
+	return;
 }
 
 void TimerUpdateRepeatingEvent(uint8_t OutputNumber)

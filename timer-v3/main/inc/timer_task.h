@@ -18,7 +18,7 @@
 #define TIMER_STATUS_ON			0x01
 #define TIMER_STATUS_PAUSED		0x02	//TODO: Pause the timer task for a certain length of time. We will probably want to set the override status here...
 
-#define TIMER_EEPROM_START_ADDRESS			0x00		/** The address to store the first timer events in EEPROM. Subsequent events will be placed sequentially after this event. */
+//#define TIMER_EEPROM_START_ADDRESS			0x00		/** The address to store the first timer events in EEPROM. Subsequent events will be placed sequentially after this event. */
 
 #define TIMER_OUTPUT_NUMBER					4			/** The number of outputs, starting at one. Setting this to 4 means that there are four outputs*/
 #define TIMER_EVENT_NUMBER					6			/** The number of events for each timer, starting at one. Setting this to 6 means there are 6 events*/
@@ -105,6 +105,10 @@ typedef struct __attribute__((packed)){
 	uint8_t EventTime[3];
 	uint8_t EventOutputState;
 } TimerEvent;
+
+
+void StartTimer(void);
+void StopTimer(void);
 
 uint8_t TimerGetOutputState(void);
 uint8_t TimerGetTimerState(void);

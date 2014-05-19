@@ -90,11 +90,6 @@ const char _F9_DESCRIPTION[]	= "List or update events";
 const char _F9_HELPTEXT[]		= "event <cmd> <data...>";
 
 /*
-//Manual calibration of the ADC
-static int _F10_Handler (void);
-const char _F10_NAME[] PROGMEM 			= "cal";
-const char _F10_DESCRIPTION[] PROGMEM 	= "Calibrate the ADC";
-const char _F10_HELPTEXT[] PROGMEM 		= "'cal' has no parameters";
 
 //Get temperatures from the ADC
 static int _F11_Handler (void);
@@ -127,6 +122,7 @@ const CommandListItem AppCommandList[] =
 	{ _F7_NAME, 	2,  2,	_F7_Handler,	_F7_DESCRIPTION,	_F7_HELPTEXT	},		//eeprom
 	{ _F8_NAME,		1,  1,	_F8_Handler,	_F8_DESCRIPTION,	_F8_HELPTEXT	},		//timer
 	{ _F9_NAME,		1,  8,	_F9_Handler,	_F9_DESCRIPTION,	_F9_HELPTEXT	},		//event
+
 	/*
 	{ _F10_NAME,	0,  0,	_F10_Handler,	_F10_DESCRIPTION,	_F10_HELPTEXT	},		//cal
 	{ _F11_NAME,	0,  0,	_F11_Handler,	_F11_DESCRIPTION,	_F11_HELPTEXT	},		//temp
@@ -207,6 +203,30 @@ static int _F2_Handler (void)
 		printf("Free Heap Space: %u\r\n", xPortGetFreeHeapSize());
 
 		printf("Compile Time: %s, %s\r\n", __DATE__, __TIME__);
+
+		printf("EEPROM Settings:\r\n", __DATE__, __TIME__);
+
+		//Read status of the timer
+		if( EEPROM_Read(EEPROM_ADDRESS_TIMER_STATUS, &resp, 1 ) != 0)
+		{
+			App_Die(8);
+		}
+
+		printf("Timer: 0x%02X\r\n", resp);
+
+		//Read status of the display
+		if( EEPROM_Read(EEPROM_ADDRESS_DISPLAY_STATUS, &resp, 1 ) != 0)
+		{
+			App_Die(8);
+		}
+
+		printf("Display: 0x%02X\r\n", resp);
+
+
+
+
+
+
 
 	}
 
@@ -870,6 +890,10 @@ static int _F7_Handler (void)
 	uint8_t val;
 	uint8_t resp;
 	uint32_t ver;
+
+	int16_t LHS;
+	uint16_t RHS;
+
 	//uint8_t i;
 	TimerEvent TestEvent;
 
@@ -1020,6 +1044,17 @@ static int _F7_Handler (void)
 		TimerWriteEventsToEEPROM();
 		break;
 
+	case 14:
+		GetLatitude(&LHS, &RHS);
+		printf("LAT: %d.%04d\r\n", LHS, RHS);
+		//printf("RHS: %d\r\n", RHS);
+
+		GetLongitude(&LHS, &RHS);
+		printf("LONG: %d.%04d\r\n", LHS, RHS);
+		//printf("LHS: %d\r\n", LHS);
+		//printf("RHS: %d\r\n", RHS);
+
+		break;
 
 	}
 

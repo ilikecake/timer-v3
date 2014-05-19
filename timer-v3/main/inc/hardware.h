@@ -16,7 +16,7 @@
 #define APP_STATUS_OSC_STOPPED	0x02
 
 
-
+//TODO: Add a return to defaults function that sets all the EEPROM setup values to their default states.
 
 void App_SSP_Init (void);
 
@@ -37,6 +37,8 @@ void App_DisableButtons(void);
 void App_Buzzer_Init(void);
 void App_Buzzer_on (void);
 void App_Buzzer_off (void);
+
+void App_InitializeFromEEPROM(void);
 
 
 

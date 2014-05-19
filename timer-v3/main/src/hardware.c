@@ -253,12 +253,57 @@ void BUTTON_5_IRQ_HANDLER(void)
 void App_SetStatus(uint8_t Status)
 {
 	ProgramStatus = Status;
+
+	/*if( EEPROM_Write(EEPROM_ADDRESS_HW_STATUS, &Status, 1 ) !=0)
+	{	//Failed to write to EEPROM
+		App_Die(8);
+	}*/
+
 	return;
 }
 
 uint8_t App_GetStatus(void)
 {
 	return ProgramStatus;
+}
+
+/**Initialize the device from EEPROM
+ *
+ *
+ */
+//TODO: Can I combine these EEPROM bits to a single byte?
+void App_InitializeFromEEPROM(void)
+{
+	uint8_t StatusReg;
+
+
+	//Read status of the timer and set up the device
+	if( EEPROM_Read(EEPROM_ADDRESS_TIMER_STATUS, &StatusReg, 1 ) != 0)
+	{
+		App_Die(8);
+	}
+
+
+	if((StatusReg == TIMER_STATUS_ON) && (App_GetStatus() != APP_STATUS_OSC_STOPPED))
+	{
+		//Start the timer if it was running when we shut down last, but do not start the timer if the time is invalid
+		StartTimer();
+	}
+
+
+	//Read status of the OLED
+	if( EEPROM_Read(EEPROM_ADDRESS_DISPLAY_STATUS, &StatusReg, 1 ) != 0)
+	{
+		App_Die(8);
+	}
+
+	OLED_DisplayRotation(StatusReg & OLED_STATUS_ORENTATION_MASK);
+
+
+
+
+
+	return;
 }
 
 void App_Buzzer_Init(void)

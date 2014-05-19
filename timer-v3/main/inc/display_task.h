@@ -21,6 +21,13 @@
 #define OLED_CMD_BUTTON_IN				0x05
 #define OLED_CMD_TIME_IN				0x06
 
+#define TIMEOUT_TYPE_MENU_TO_IDLE		0x01
+#define TIMEOUT_TYPE_IDLE_TO_DIM		0x02
+#define TIMEOUT_TYPE_OVERRIDE			0x03
+
+#define DIMMING_TYPE_BRIGHT				0x01
+#define DIMMING_TYPE_DIM				0x02
+
 //A struct to pass commands to the display task
 typedef struct
 {
@@ -49,6 +56,11 @@ typedef struct {
 
 
 void DisplayTaskInit(void);
+
+//uint8_t GetTimeout(uint8_t TimeoutToGet);
+
+void SetTimeout(uint8_t TimeoutToSet, uint8_t TimeoutVal);
+void SetDimming(uint8_t DimmingType, uint8_t DimmingVal);
 
 void DisplayTask(void *pvParameters);
 

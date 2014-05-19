@@ -17,8 +17,13 @@
 
 
 //Defines for the OLED display task
-#define MENU_TO_IDLE_TIME			30000
-#define IDLE_TO_DIM_TIME			3000
+//TODO: Make these EEPROM variables
+#define MENU_TO_IDLE_TIME			30
+#define IDLE_TO_DIM_TIME			3
+#define OVERRIDE_TIME				30
+
+//#define BRIGHT_DIMMING_VAL			0x7F
+//#define DIM_DIMMING_VAL				0x00
 
 //TODOL Change these to pixels instead of columns
 #define IDLE_TIME_ROW				37
@@ -34,14 +39,23 @@
 #define DISPLAY_STATUS_SET_TIME		0x03
 #define DISPLAY_STATUS_SET_OUTPUT	0x04
 #define DISPLAY_STATUS_STATUS		0x05
+#define DISPLAY_STATUS_MESSAGE		0x06
+#define DISPLAY_STATUS_IN_SUB_MENU	0x07
 
 
 //Global string for temporary use
-char ScratchString[11];
+char ScratchString[15];
 //TimeAndDate CurrentTime;
 struct tm CurrentTime;
 
+//Note: These variables are 8-bit values that represent the timeout vaules in seconds. THey must be multiplied by 1000 for use in the timer functions
+uint8_t MenuToIdleTime;
+uint8_t IdleToDimTime;
+uint8_t OverrideTime;
 
+uint8_t DimmingVaules[6] = {0x00, 0x10, 0x20, 0x40, 0x80, 0xF0};
+uint8_t BrightDimmingValue;// = 4;
+uint8_t DimDimmingValue;// = 0;
 
 //Private functions
 void DrawIdleScreen(void);
@@ -62,14 +76,12 @@ void (*ButtonHandler) (uint8_t);
 static void TopLevelMenu(uint8_t ButtonPressed);
 static void SetTimeHandler(uint8_t ButtonPressed);
 
-
-
 static void WriteSetTimeData(uint16_t ElementToHighlight);
 
-
-
 static void SetRotationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
-
+static void SetTimeoutHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
+static void SetDimmingHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
+static void SetLocationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
 
 static void SwitchToSetTime(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
 static void TimeMenuDisplay(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
@@ -85,7 +97,7 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 
 static void EEPROMHandler(uint8_t theButtonPressed, uint8_t theCurrentMenuItem, uint8_t thePreviousMenuItem);
 
-
+void DisplayShowMessage(char *MessageToDisplay);
 
 //static void SetTimeMenu(uint8_t ButtonPressed);
 
@@ -98,6 +110,7 @@ static void _MenuItem_TL (uint8_t Caller, uint8_t Previous);
 //static void _TimeMenu_1 (uint8_t Caller, uint8_t Previous);
 static void _GoToIdle (uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
 
+//TODO: do i need to define these seperately, or can I define them in the 'MenuItemList' struct directly
 const char _M0_Name[] 			= "Time";
 const char _M1_Name[] 			= "Outputs";
 const char _M2_Name[] 			= "Setup";
@@ -122,58 +135,83 @@ const char _OSM5_Name[]			= "Time";
 const char _OSM6_Name[]			= "DOW";
 const char _OSM_Breadcrumb[]	= "> Outputs > Setup";
 
-
-
-
 const char _SETUP1_Name[]			= "Flip Display";
-const char _SETUP2_Name[]			= "Idle Timeout";
-const char _SETUP3_Name[]			= "Dimming Timeout";
+const char _SETUP2_Name[]			= "Timeouts";
+const char _SETUP3_Name[]			= "Dimming";
+const char _SETUP4_Name[]			= "Location";
 const char _SETUP_Breadcrumb[]		= "> Setup";
 
+const char _TIMING1_Name[]			= "Menu -> Idle:";
+const char _TIMING2_Name[]			= "Idle -> Dim:";
+const char _TIMING3_Name[]			= "Override:";
+const char _TIMING_Breadcrumb[]		= "> Setup > Timeouts";
 
-//TODO: the menu breadcrumb and the sublevel breadcrumbs are not aligned.
+const char _DIMMING1_Name[]			= "Bright Level:";
+const char _DIMMING2_Name[]			= "Dim Level:";
+const char _DIMMING_Breadcrumb[]		= "> Setup > Dimming";
 
+const char _LOCATION1_Name[]			= "Latitude:";
+const char _LOCATION2_Name[]			= "Longitude:";
+const char _LOCATION_Breadcrumb[]		= "> Setup > Location";
+
+
+//TODO: the menu breadcrumb and the sublevel breadcrumbs are not aligned. (fixed I think)
+//TODO: Make the X start and Y start into compiler defines
 uint16_t MenuData[8];
 
 const MenuItem MenuItemList[] =
 {
-	//handler,			name,			up, 	down, 	left, 	right, 	Center,	X Start,	Y Start}
-	{_GoToIdle, 		NULL, 			0,		0,		0,		0,		0,		0,			0},			//0
+	//handler,			name,				up, 	down, 	left, 	right, 	Center,	X Start,	Y Start}
+	{_GoToIdle, 		NULL, 				0,		0,		0,		0,		0,		0,			0},			//0
 	//Top level menu entries
-	{ NULL,				_M0_Name,		4,		2,		0,		5, 		5,		16,			39},		//1		-Set time menu
-	{ NULL,				_M1_Name,		1,		3,		0,		11, 	11,		16,			28},		//2		-Set outputs menu
-	{ NULL,				_M2_Name,		2,		4,		0,		21, 	21,		16,			17},		//3		-Setup menu
-	{ NULL,				_M3_Name,		3,		1,		0,		4, 		4,		120,		39},		//4
+	{ NULL,				_M0_Name,			4,		2,		0,		5, 		5,		16,			39},		//1		-Set time menu
+	{ NULL,				_M1_Name,			1,		3,		0,		11, 	11,		16,			28},		//2		-Set outputs menu
+	{ NULL,				_M2_Name,			2,		4,		0,		21, 	21,		16,			17},		//3		-Setup menu
+	{ NULL,				_M3_Name,			3,		1,		0,		4, 		4,		120,		39},		//4
 
 	//Set time menu
-	{ TimeMenuDisplay,	_TM1_Name,		7,		6,		1,		8, 		8,		16,			39},		//5
-	{ TimeMenuDisplay,	_TM2_Name,		5,		7,		1,		9, 		9,		16,			28},		//6
-	{ TimeMenuDisplay,	_TM3_Name,		6,		5,		1,		10, 	10,		16,			17},		//7
+	{ TimeMenuDisplay,	_TM1_Name,			7,		6,		1,		8, 		8,		16,			39},		//5
+	{ TimeMenuDisplay,	_TM2_Name,			5,		7,		1,		9, 		9,		16,			28},		//6
+	{ TimeMenuDisplay,	_TM3_Name,			6,		5,		1,		10, 	10,		16,			17},		//7
 
 	//
-	{SwitchToSetTime,	NULL,			8,		8,		8,		8,		8,		16,			39},		//8		- Set time
-	{SetDSTHandler,		NULL,			9,		9,		6,		9,		9,		16,			28},		//9		- Set DST
-	{SetUTHandler,		NULL,			10,		10,		7,		10,		10,		16,			17},		//10	- Set Time Zone
+	{SwitchToSetTime,	NULL,				8,		8,		8,		8,		8,		16,			39},		//8		- Set time
+	{SetDSTHandler,		NULL,				9,		9,		6,		9,		9,		16,			28},		//9		- Set DST
+	{SetUTHandler,		NULL,				10,		10,		7,		10,		10,		16,			17},		//10	- Set Time Zone
 
-	//Output Menu
-	{ EEPROMHandler,	_OM1_Name,		13,		12,		2,		14, 	14,		16,			39},		//11	-Setup Outputs
-	{ EEPROMHandler,	_OM2_Name,		11,		13,		2,		12, 	12,		16,			28},		//12	-Load from EEPROM
-	{ EEPROMHandler,	_OM3_Name,		12,		11,		2,		13, 	13,		16,			17},		//13	-Save to EEPROM
+	/** Output Menu */
+	{ EEPROMHandler,	_OM1_Name,			13,		12,		2,		14, 	14,		16,			39},		//11	-Setup Outputs
+	{ EEPROMHandler,	_OM2_Name,			11,		13,		2,		12, 	12,		16,			28},		//12	-Load from EEPROM
+	{ EEPROMHandler,	_OM3_Name,			12,		11,		2,		13, 	13,		16,			17},		//13	-Save to EEPROM
 
 	//Set Output Menu
-	{SetOutputHandler,	_OSM1_Name,		19,		15,		11,		20,		20,		16,			39},		//14
-	{SetOutputHandler,	_OSM2_Name,		14,		16,		11,		20,		20,		16,			28},		//15
-	{SetOutputHandler,	_OSM3_Name,		15,		17,		11,		20,		20,		16,			17},		//16
-	{SetOutputHandler,	_OSM4_Name,		16,		18,		11,		20,		20,		120,		39},		//17
-	{SetOutputHandler,	_OSM5_Name,		17,		19,		11,		20,		20,		120,		28},		//18
-	{SetOutputHandler,	_OSM6_Name,		18,		14,		11,		20,		20,		120,		17},		//19
+	{SetOutputHandler,	_OSM1_Name,			19,		15,		11,		20,		20,		16,			39},		//14
+	{SetOutputHandler,	_OSM2_Name,			14,		16,		11,		20,		20,		16,			28},		//15
+	{SetOutputHandler,	_OSM3_Name,			15,		17,		11,		20,		20,		16,			17},		//16
+	{SetOutputHandler,	_OSM4_Name,			16,		18,		11,		20,		20,		120,		39},		//17
+	{SetOutputHandler,	_OSM5_Name,			17,		19,		11,		20,		20,		120,		28},		//18
+	{SetOutputHandler,	_OSM6_Name,			18,		14,		11,		20,		20,		120,		17},		//19
 
-	{UpdateOutputHandler, NULL,			20,		20,		20,		20,		20,		0,			0},			//20
+	{UpdateOutputHandler, NULL,				20,		20,		20,		20,		20,		0,			0},			//20
 
-	{SetRotationHandler,_SETUP1_Name,	23,		22,		3,		21,		21,		16,			39},		//21
-	{NULL,				_SETUP2_Name,	21,		23,		3,		22,		22,		16,			28},		//22
-	{NULL,				_SETUP3_Name,	22,		21,		3,		23,		23,		16,			17},		//23
+	/** Setup menu */
+	{SetRotationHandler,_SETUP1_Name,		24,		22,		3,		21,		21,		16,			39},		//21	-Flip display
+	{NULL,				_SETUP2_Name,		21,		23,		3,		25,		25,		16,			28},		//22	-Timeouts
+	{NULL,				_SETUP3_Name,		22,		24,		3,		28,		28,		16,			17},		//23	-Dimming
+	{NULL,				_SETUP4_Name,		23,		21,		3,		30,		30,		120,		39},		//24	-Location (Lat and Long)
 
+	/** Setup timeouts menu */
+	{SetTimeoutHandler,	_TIMING1_Name,		27,		26,		22,		25,		25,		16,			39},		//25	-Menu to idle
+	{SetTimeoutHandler,	_TIMING2_Name,		25,		27,		22,		26,		26,		16,			28},		//26	-Idle to dim
+	{SetTimeoutHandler,	_TIMING3_Name,		26,		25,		22,		27,		27,		16,			17},		//27	-Override
+
+	/**Setup dimming menu */
+	{SetDimmingHandler,	_DIMMING1_Name,		29,		29,		23,		28,		28,		16,			39},		//28	-Bright level
+	{SetDimmingHandler,	_DIMMING2_Name,		28,		28,		23,		29,		29,		16,			28},		//29	-Dim level
+
+	/**Set Lat and Long menu */
+	{SetLocationHandler,	_LOCATION1_Name,	31,		31,		24,		30,		30,		16,			39},		//30	-Latitude
+	{SetLocationHandler,	_LOCATION2_Name,	30,		30,		24,		31,		31,		16,			28},		//31	-Longitude
 
 };
 
@@ -191,21 +229,856 @@ static void SetRotationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, u
 	}
 }
 
+static void SetTimeoutHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem)
+{
+	MF_StringOptions StringOptions;		//TODO: Make this global?
+
+	StringOptions.CharSize = MF_ASCII_SIZE_7X8;
+	StringOptions.StartPadding = 2;
+	StringOptions.EndPadding = 1;
+	StringOptions.TopPadding = 2;
+	StringOptions.BottomPadding = 1;
+	StringOptions.CharacterSpacing = 0;
+	StringOptions.Brightness = 0x0F;
+	StringOptions.FontOptions = OLED_FONT_NORMAL;
+
+	if(PreviousMenuItem < 25)
+	{
+		MenuData[0] 							= 0;				//The level of the handler
+		MenuData[TIMEOUT_TYPE_MENU_TO_IDLE]		= MenuToIdleTime;
+		MenuData[TIMEOUT_TYPE_IDLE_TO_DIM]		= IdleToDimTime;
+		MenuData[TIMEOUT_TYPE_OVERRIDE]			= OverrideTime;
+	}
+
+	if(CurrentMenuItem == PreviousMenuItem)
+	{
+		if ((ButtonPressed == MENU_BUTTON_RIGHT) && (MenuData[0] == 0))
+		{
+			MenuData[0] = CurrentMenuItem-24;		//This will set MenuData[0] to the index of the timeout to change (1,2 or 3)
+			DisplayStatus = DISPLAY_STATUS_IN_SUB_MENU;
+		}
+		else if(ButtonPressed == MENU_BUTTON_UP)
+		{
+			if(MenuData[MenuData[0]] < 250)
+			{
+				MenuData[MenuData[0]]++;
+			}
+			else
+			{
+				MenuData[MenuData[0]] = 1;
+			}
+		}
+		else if(ButtonPressed == MENU_BUTTON_DOWN)
+		{
+			if(MenuData[MenuData[0]] > 1)
+			{
+				MenuData[MenuData[0]]--;
+			}
+			else
+			{
+				MenuData[MenuData[0]] = 250;
+			}
+		}
+		else if((ButtonPressed == MENU_BUTTON_LEFT))// && (MenuData[0] != 0))
+		{
+			SetTimeout(MenuData[0], MenuData[MenuData[0]]);
+			DisplayStatus = DISPLAY_STATUS_MENU;
+			MenuData[0] = 0;
+		}
+
+
+	}
+
+	//Menu to idle display
+	StringOptions.XStart = 130;
+	StringOptions.YStart = 39;
+	sprintf(ScratchString, "%u sec", MenuData[1]);
+	if(MenuData[0] == 1)
+	{
+		StringOptions.FontOptions = OLED_FONT_INVERSE;
+	}
+	else
+	{
+		StringOptions.FontOptions = OLED_FONT_NORMAL;
+	}
+	OLED_ClearWindow(StringOptions.XStart/4, (StringOptions.XStart/4) + 16, StringOptions.YStart-StringOptions.BottomPadding, StringOptions.YStart+8+StringOptions.TopPadding);
+	OLED_WriteMFString2(ScratchString, &StringOptions);
+
+	//Idle to dim display
+	StringOptions.YStart = 28;
+	sprintf(ScratchString, "%u sec", MenuData[2]);
+	if(MenuData[0] == 2)
+	{
+		StringOptions.FontOptions = OLED_FONT_INVERSE;
+	}
+	else
+	{
+		StringOptions.FontOptions = OLED_FONT_NORMAL;
+	}
+	OLED_ClearWindow(StringOptions.XStart/4, (StringOptions.XStart/4) + 16, StringOptions.YStart-StringOptions.BottomPadding, StringOptions.YStart+8+StringOptions.TopPadding);
+	OLED_WriteMFString2(ScratchString, &StringOptions);
+
+	//Override timeout display
+	StringOptions.YStart = 17;
+	sprintf(ScratchString, "%u sec", MenuData[3]);
+	if(MenuData[0] == 3)
+	{
+		StringOptions.FontOptions = OLED_FONT_INVERSE;
+	}
+	else
+	{
+		StringOptions.FontOptions = OLED_FONT_NORMAL;
+	}
+	OLED_ClearWindow(StringOptions.XStart/4, (StringOptions.XStart/4) + 16, StringOptions.YStart-StringOptions.BottomPadding, StringOptions.YStart+8+StringOptions.TopPadding);
+	OLED_WriteMFString2(ScratchString, &StringOptions);
+
+	return;
+}
+
+static void SetDimmingHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem)
+{
+	MF_StringOptions StringOptions;		//TODO: Make this global?
+
+		StringOptions.CharSize = MF_ASCII_SIZE_7X8;
+		StringOptions.StartPadding = 2;
+		StringOptions.EndPadding = 1;
+		StringOptions.TopPadding = 2;
+		StringOptions.BottomPadding = 1;
+		StringOptions.CharacterSpacing = 0;
+		StringOptions.Brightness = 0x0F;
+		StringOptions.FontOptions = OLED_FONT_NORMAL;
+
+
+		//uint8_t DimmingVaules[6] = {0x00, 0x10, 0x20, 0x40, 0x80, 0xF0};
+		//uint8_t BrightDimmingValue = 4;
+		//uint8_t DimDimmingValue = 0;
+
+
+		if(PreviousMenuItem < 28)
+		{
+			MenuData[0] = 0;							//The level of the handler
+			MenuData[1]	= BrightDimmingValue;
+			MenuData[2]	= DimDimmingValue;
+		}
+
+		if(CurrentMenuItem == PreviousMenuItem)
+		{
+			if ((ButtonPressed == MENU_BUTTON_RIGHT) && (MenuData[0] == 0))
+			{
+				MenuData[0] = CurrentMenuItem-27;		//This will set MenuData[0] to the index of the diming to change (1 or 2)
+				DisplayStatus = DISPLAY_STATUS_IN_SUB_MENU;
+				OLED_DisplayContrast(DimmingVaules[MenuData[MenuData[0]]]);
+			}
+			else if(ButtonPressed == MENU_BUTTON_UP)
+			{
+				if(MenuData[MenuData[0]] < 5)
+				{
+					MenuData[MenuData[0]]++;
+				}
+				else
+				{
+					MenuData[MenuData[0]] = 0;
+				}
+				OLED_DisplayContrast(DimmingVaules[MenuData[MenuData[0]]]);
+			}
+			else if(ButtonPressed == MENU_BUTTON_DOWN)
+			{
+				if(MenuData[MenuData[0]] > 0)
+				{
+					MenuData[MenuData[0]]--;
+				}
+				else
+				{
+					MenuData[MenuData[0]] = 5;
+				}
+				OLED_DisplayContrast(DimmingVaules[MenuData[MenuData[0]]]);
+			}
+			else if((ButtonPressed == MENU_BUTTON_LEFT))// && (MenuData[0] != 0))
+			{
+				//SetTimeout(MenuData[0], MenuData[MenuData[0]]);
+				SetDimming(MenuData[0], MenuData[MenuData[0]]);
+				DisplayStatus = DISPLAY_STATUS_MENU;
+				MenuData[0] = 0;
+				OLED_DisplayContrast(DimmingVaules[BrightDimmingValue]);
+			}
+
+
+		}
+
+		//bright
+		StringOptions.XStart = 130;
+		StringOptions.YStart = 39;
+		sprintf(ScratchString, "%u", MenuData[1]+1);
+		if(MenuData[0] == 1)
+		{
+			StringOptions.FontOptions = OLED_FONT_INVERSE;
+		}
+		else
+		{
+			StringOptions.FontOptions = OLED_FONT_NORMAL;
+		}
+		OLED_WriteMFString2(ScratchString, &StringOptions);
+
+		//dim
+		StringOptions.YStart = 28;
+		sprintf(ScratchString, "%u", MenuData[2]+1);
+		if(MenuData[0] == 2)
+		{
+			StringOptions.FontOptions = OLED_FONT_INVERSE;
+		}
+		else
+		{
+			StringOptions.FontOptions = OLED_FONT_NORMAL;
+		}
+		OLED_WriteMFString2(ScratchString, &StringOptions);
+
+
+
+	return;
+}
+
+static void SetLocationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem)
+{
+	int16_t LHS;
+	uint16_t RHS;
+
+	MF_StringOptions StringOptions;		//TODO: Make this global?
+	MF_LineOptions LineOptions;
+
+	LineOptions.LinePattern = 0xFF;
+	LineOptions.LineWeight = 1;
+	LineOptions.LineOptions = 0;
+
+
+	StringOptions.CharSize = MF_ASCII_SIZE_7X8;
+	StringOptions.StartPadding = 1;
+	StringOptions.EndPadding = 1;
+	StringOptions.TopPadding = 2;
+	StringOptions.BottomPadding = 1;
+	StringOptions.CharacterSpacing = 1;
+	StringOptions.Brightness = 0x0F;
+	StringOptions.FontOptions = OLED_FONT_NORMAL;
+
+	if(PreviousMenuItem < 30)
+	{
+		MenuData[0] = 0;							//The level of the handler		//TODO: I can tell this from currentmenu
+		MenuData[1] = 0;							//The level of the digit
+
+		GetLatitude(&LHS, &RHS);
+		MenuData[2] = (uint16_t)LHS;
+		MenuData[3] = RHS;
+
+		GetLongitude(&LHS, &RHS);
+		MenuData[4] = (uint16_t)LHS;
+		MenuData[5] = RHS;
+	}
+
+	if(CurrentMenuItem == PreviousMenuItem)
+	{
+		if (ButtonPressed == MENU_BUTTON_RIGHT)
+		{
+			if(MenuData[0] == 0)
+			{
+				DisplayStatus = DISPLAY_STATUS_IN_SUB_MENU;
+			}
+
+			MenuData[0]++;
+			if( ((MenuData[0] > 8) && (CurrentMenuItem == 31)) || ((MenuData[0] > 7) && (CurrentMenuItem == 30)) )
+			{
+				MenuData[0] = 1;
+			}
+		}
+		else if(ButtonPressed == MENU_BUTTON_UP)
+		{
+			switch(MenuData[0])
+			{
+				case 1:		//plus or minus
+					if(CurrentMenuItem == 30)
+					{
+						MenuData[2] = (uint16_t)((int16_t)MenuData[2] * -1);
+					}
+					else
+					{
+						MenuData[4] = (uint16_t)((int16_t)MenuData[4] * -1);
+					}
+					break;
+
+				case 2:
+					if(CurrentMenuItem == 30)		//Tens digit for latitude
+					{
+						LHS = (int16_t)MenuData[2];
+						if(LHS > 80)
+						{
+							LHS -= 80;
+						}
+						else if(LHS < -80)
+						{
+							LHS += 80;
+						}
+						else if(LHS < 0)
+						{
+							LHS -= 10;
+						}
+						else
+						{
+							LHS += 10;
+						}
+						MenuData[2] = (uint16_t)(LHS);
+					}
+					else	//Hundreds digit for longitude
+					{
+						LHS = (int16_t)MenuData[4];
+
+						if(LHS > 300)
+						{
+							LHS -= 300;
+						}
+						else if(LHS >= 260)
+						{
+							LHS -= 200;
+						}
+						else if(LHS < -300)
+						{
+							LHS += 300;
+						}
+						else if(LHS <= -260)
+						{
+							LHS += 200;
+						}
+						else if(LHS < 0)
+						{
+							LHS -= 100;
+						}
+						else
+						{
+							LHS += 100;
+						}
+						MenuData[4] = (uint16_t)(LHS);
+					}
+					break;
+
+				case 3:
+					if(CurrentMenuItem == 30)		//Ones digit for latitude
+					{
+						if((int16_t)MenuData[2] < 0)
+						{
+							MenuData[2] = (uint16_t)((int16_t)MenuData[2] - 1);
+						}
+						else
+						{
+							MenuData[2] = (uint16_t)((int16_t)MenuData[2] + 1);
+						}
+
+						if((((int16_t)MenuData[2]) % 10) == 0)
+						{
+							if((int16_t)MenuData[2] < 0)
+							{
+								MenuData[2] = (uint16_t)((int16_t)MenuData[2] + 10);
+							}
+							else
+							{
+								MenuData[2] = (uint16_t)((int16_t)MenuData[2] - 10);
+							}
+						}
+					}
+					else	//Tens digit for longitude
+					{
+						if((int16_t)MenuData[4] < 0)
+						{
+							MenuData[4] = (uint16_t)((int16_t)MenuData[4] - 10);
+						}
+						else
+						{
+							MenuData[4] = (uint16_t)((int16_t)MenuData[4] + 10);
+						}
+
+						if( (((int16_t)MenuData[4] / 10) % 10) == 0)
+						{
+							if((int16_t)MenuData[4] < 0)
+							{
+								MenuData[4] = (uint16_t)((int16_t)MenuData[4] + 100);
+							}
+							else
+							{
+								MenuData[4] = (uint16_t)((int16_t)MenuData[4] - 100);
+							}
+						}
+					}
+					break;
+
+				case 4:
+					if(CurrentMenuItem == 30)		//first digit after decimal for latitude
+					{
+						MenuData[3] += 1000;
+						if(MenuData[3] > 10000)
+						{
+							MenuData[3] -= 10000;
+						}
+					}
+					else	//Ones digit for longitude
+					{
+						if((int16_t)MenuData[4] < 0)
+						{
+							MenuData[4] = (uint16_t)((int16_t)MenuData[4] - 1);
+						}
+						else
+						{
+							MenuData[4] = (uint16_t)((int16_t)MenuData[4] + 1);
+						}
+
+						if( (((int16_t)MenuData[4]) % 10) == 0)
+						{
+							if((int16_t)MenuData[4] < 0)
+							{
+								MenuData[4] = (uint16_t)((int16_t)MenuData[4] + 10);
+							}
+							else
+							{
+								MenuData[4] = (uint16_t)((int16_t)MenuData[4] - 10);
+							}
+						}
+					}
+					break;
+
+				case 5:
+					if(CurrentMenuItem == 30)
+					{
+						//Second digit after decimal for latitude
+						MenuData[3] += 100;
+						if( ((MenuData[3] / 100) % 10) == 0)
+						{
+							MenuData[3] -= 1000;
+						}
+					}
+					else
+					{
+						//first digit after decimal for longitude
+						MenuData[5] += 1000;
+						if(MenuData[5] > 10000)
+						{
+							MenuData[5] -= 10000;
+						}
+					}
+					break;
+
+				case 6:
+					if(CurrentMenuItem == 30)		//Third digit after decimal for latitude
+					{
+						MenuData[3] += 10;
+						if( ((MenuData[3] / 10) % 10) == 0)
+						{
+							MenuData[3] -= 100;
+						}
+					}
+					else	//Second digit after decimal for longitude
+					{
+						MenuData[5] += 100;
+						if( ((MenuData[5] / 100) % 10) == 0)
+						{
+							MenuData[5] -= 1000;
+						}
+					}
+					break;
+
+				case 7:
+					if(CurrentMenuItem == 30)		//Fourth digit after decimal for latitude
+					{
+						MenuData[3] += 1;
+						if( (MenuData[3] % 10) == 0)
+						{
+							MenuData[3] -= 10;
+						}
+					}
+					else	//Third digit after decimal for longitude
+					{
+						MenuData[5] += 10;
+						if( ((MenuData[5] / 10) % 10) == 0)
+						{
+							MenuData[5] -= 100;
+						}
+					}
+					break;
+
+				case 8:
+					if(CurrentMenuItem == 31)		//Fourth digit after decimal for longitude
+					{
+						MenuData[5] += 1;
+
+						if( (MenuData[5] % 10) == 0)
+						{
+							MenuData[5] -= 10;
+						}
+					}
+					break;
+			}
+		}
+		else if(ButtonPressed == MENU_BUTTON_DOWN)
+		{
+			switch(MenuData[0])
+			{
+				case 1:		//plus or minus
+					if(CurrentMenuItem == 30)
+					{
+						MenuData[2] = (uint16_t)((int16_t)MenuData[2] * -1);
+					}
+					else
+					{
+						MenuData[4] = (uint16_t)((int16_t)MenuData[4] * -1);
+					}
+					break;
+
+				case 2:
+					if(CurrentMenuItem == 30)		//Tens digit for latitude
+					{
+						LHS = (int16_t)MenuData[2];
+						if((LHS > -10) && (LHS < 0))
+						{
+							LHS -= 80;
+						}
+						else if((LHS < 10) && (LHS >= 0))
+						{
+							LHS += 80;
+						}
+						else if(LHS < 0)
+						{
+							LHS += 10;
+						}
+						else
+						{
+							LHS -= 10;
+						}
+						MenuData[2] = (uint16_t)(LHS);
+					}
+					else	//Hundreds digit for longitude
+					{
+						LHS = (int16_t)MenuData[4];
+						if((LHS >= 0) && (LHS < 100))
+						{
+							if((LHS % 100) >= 60)
+							{
+								LHS += 200;
+							}
+							else
+							{
+								LHS += 300;
+							}
+						}
+						else if((LHS > -100) && (LHS < 0))
+						{
+
+							if(((-1*LHS) % 100) >= 60)
+							{
+								LHS -= 200;
+							}
+							else
+							{
+								LHS -= 300;
+							}
+
+
+
+
+							//LHS -= 300;
+						}
+						else if(LHS < 0)
+						{
+							LHS += 100;
+						}
+						else
+						{
+							LHS -= 100;
+						}
+						MenuData[4] = (uint16_t)(LHS);
+					}
+					break;
+
+				case 3:
+					if(CurrentMenuItem == 30)		//Ones digit for latitude
+					{
+						if((int16_t)MenuData[2] > 0)
+						{
+							if(((int16_t)MenuData[2] % 10) == 0)
+							{
+								MenuData[2] = (uint16_t)(((int16_t)MenuData[2])+9);
+							}
+							else
+							{
+								MenuData[2] = (uint16_t)(((int16_t)MenuData[2])-1);
+							}
+						}
+						else
+						{
+							if(((-1*(int16_t)MenuData[2]) % 10) == 0)	//TODO: Do I need to take the absolute value if I am only looking for x%10=0?
+							{
+								MenuData[2] = (uint16_t)(((int16_t)MenuData[2])-9);
+							}
+							else
+							{
+								MenuData[2] = (uint16_t)(((int16_t)MenuData[2])+1);
+							}
+						}
+
+						/************************************************/
+
+
+					}
+					else	//Tens digit for longitude
+					{
+						if((int16_t)MenuData[4] < 0)
+						{
+							MenuData[4] = (uint16_t)((int16_t)MenuData[4] - 10);
+						}
+						else
+						{
+							MenuData[4] = (uint16_t)((int16_t)MenuData[4] + 10);
+						}
+
+						if( (((int16_t)MenuData[4] / 10) % 10) == 0)
+						{
+							if((int16_t)MenuData[4] < 0)
+							{
+								MenuData[4] = (uint16_t)((int16_t)MenuData[4] + 100);
+							}
+							else
+							{
+								MenuData[4] = (uint16_t)((int16_t)MenuData[4] - 100);
+							}
+						}
+					}
+					break;
+
+				case 4:
+					if(CurrentMenuItem == 30)		//first digit after decimal for latitude
+					{
+						MenuData[3] += 1000;
+						if(MenuData[3] > 10000)
+						{
+							MenuData[3] -= 10000;
+						}
+					}
+					else	//Ones digit for longitude
+					{
+						if((int16_t)MenuData[4] < 0)
+						{
+							MenuData[4] = (uint16_t)((int16_t)MenuData[4] - 1);
+						}
+						else
+						{
+							MenuData[4] = (uint16_t)((int16_t)MenuData[4] + 1);
+						}
+
+						if( (((int16_t)MenuData[4]) % 10) == 0)
+						{
+							if((int16_t)MenuData[4] < 0)
+							{
+								MenuData[4] = (uint16_t)((int16_t)MenuData[4] + 10);
+							}
+							else
+							{
+								MenuData[4] = (uint16_t)((int16_t)MenuData[4] - 10);
+							}
+						}
+					}
+					break;
+
+				case 5:
+					if(CurrentMenuItem == 30)
+					{
+						//Second digit after decimal for latitude
+						MenuData[3] += 100;
+						if( ((MenuData[3] / 100) % 10) == 0)
+						{
+							MenuData[3] -= 1000;
+						}
+					}
+					else
+					{
+						//first digit after decimal for longitude
+						MenuData[5] += 1000;
+						if(MenuData[5] > 10000)
+						{
+							MenuData[5] -= 10000;
+						}
+					}
+					break;
+
+				case 6:
+					if(CurrentMenuItem == 30)		//Third digit after decimal for latitude
+					{
+						MenuData[3] += 10;
+						if( ((MenuData[3] / 10) % 10) == 0)
+						{
+							MenuData[3] -= 100;
+						}
+					}
+					else	//Second digit after decimal for longitude
+					{
+						MenuData[5] += 100;
+						if( ((MenuData[5] / 100) % 10) == 0)
+						{
+							MenuData[5] -= 1000;
+						}
+					}
+					break;
+
+				case 7:
+					if(CurrentMenuItem == 30)		//Fourth digit after decimal for latitude
+					{
+						MenuData[3] += 1;
+						if( (MenuData[3] % 10) == 0)
+						{
+							MenuData[3] -= 10;
+						}
+					}
+					else	//Third digit after decimal for longitude
+					{
+						MenuData[5] += 10;
+						if( ((MenuData[5] / 10) % 10) == 0)
+						{
+							MenuData[5] -= 100;
+						}
+					}
+					break;
+
+				case 8:
+					if(CurrentMenuItem == 31)		//Fourth digit after decimal for longitude
+					{
+						MenuData[5] += 1;
+
+						if( (MenuData[5] % 10) == 0)
+						{
+							MenuData[5] -= 10;
+						}
+					}
+					break;
+			}
+
+
+
+
+
+
+			/*if(MenuData[MenuData[0]] > 0)
+			{
+				MenuData[MenuData[0]]--;
+			}
+			else
+			{
+				MenuData[MenuData[0]] = 5;
+			}*/
+			//OLED_DisplayContrast(DimmingVaules[MenuData[MenuData[0]]]);
+		}
+		else if((ButtonPressed == MENU_BUTTON_LEFT))// && (MenuData[0] != 0))
+		{
+			//Exit the submenu if the user is in position 1 and presses left
+			if(MenuData[0] == 1)
+			{
+				DisplayStatus = DISPLAY_STATUS_MENU;
+				MenuData[0] = 0;
+			}
+			else
+			{
+				MenuData[0]--;
+			}
+		}
+	}
+
+	//Latitude
+	StringOptions.XStart = 128;
+	StringOptions.YStart = 39;
+	//StringOptions.EndPadding = 3;
+	sprintf(ScratchString, "%+03d.%04d N", (int16_t)MenuData[2], MenuData[3]);
+	StringOptions.FontOptions = OLED_FONT_NORMAL;
+	OLED_WriteMFString2(ScratchString, &StringOptions);
+
+	if((CurrentMenuItem == 30) && (MenuData[0] != 0))
+	{
+
+		if(MenuData[0] < 4)
+		{
+			LineOptions.XStart = 128 + 8*(MenuData[0]-1);
+		}
+		else
+		{
+			LineOptions.XStart = 128 + 8*(MenuData[0]);
+		}
+
+		LineOptions.XEnd = LineOptions.XStart+8;
+		LineOptions.YStart = 39;
+		LineOptions.YEnd = 39;
+		OLED_WriteLine2(&LineOptions);
+	}
+
+	//Longitude
+
+	StringOptions.XStart = 128;
+	StringOptions.YStart = 28;
+	StringOptions.StartPadding = 1;
+	StringOptions.EndPadding = 1;
+	sprintf(ScratchString, "%+04d.%04d E", (int16_t)MenuData[4], MenuData[5]);
+	StringOptions.FontOptions = OLED_FONT_NORMAL;
+	OLED_WriteMFString2(ScratchString, &StringOptions);
+
+	if((CurrentMenuItem == 31) && (MenuData[0] != 0))
+	{
+		if(MenuData[0] < 5)
+		{
+			LineOptions.XStart = 128 + 8*(MenuData[0]-1);
+		}
+		else
+		{
+			LineOptions.XStart = 128 + 8*(MenuData[0]);
+		}
+
+		LineOptions.XEnd = LineOptions.XStart+8;
+		LineOptions.YStart = 28;
+		LineOptions.YEnd = 28;
+		OLED_WriteLine2(&LineOptions);
+	}
+
+
+
+
+
+	/*if(MenuData[0] == 2)
+	{
+		StringOptions.FontOptions = OLED_FONT_INVERSE;
+	}
+	else
+	{
+		StringOptions.FontOptions = OLED_FONT_NORMAL;
+	}*/
+	//OLED_WriteMFString2(ScratchString, &StringOptions);
+
+
+
+
+
+
+	return;
+}
 
 static void TopLevelMenu(uint8_t ButtonPressed)
 {
 	uint8_t Stuff;
 
-	if((DisplayStatus == DISPLAY_STATUS_IDLE_BRIGHT) || (DisplayStatus == DISPLAY_STATUS_IDLE_DIM))
-	//if(DisplayStatus != DISPLAY_STATUS_MENU)
+	if((DisplayStatus == DISPLAY_STATUS_IDLE_BRIGHT) || (DisplayStatus == DISPLAY_STATUS_IDLE_DIM) || (DisplayStatus == DISPLAY_STATUS_MESSAGE))
 	{
+		//Brighten the display when a button is pressed
+		if(DisplayStatus == DISPLAY_STATUS_IDLE_DIM)
+		{
+			OLED_DisplayContrast(DimmingVaules[BrightDimmingValue]);
+			DisplayStatus = DISPLAY_STATUS_IDLE_BRIGHT;
+		}
+
+
 		if(ButtonPressed == MENU_BUTTON_CENTER)
 		{
 			//Go to menu
 			CurrentMenuItem = 1;
 			PreviousMenuItem = 2;
 			DisplayStatus = DISPLAY_STATUS_MENU;
-			OLED_DisplayContrast(0x7F);
+			OLED_DisplayContrast(DimmingVaules[BrightDimmingValue]);
 			DrawMenuScreen();
 			MenuLevel = 1;
 		}
@@ -221,15 +1094,26 @@ static void TopLevelMenu(uint8_t ButtonPressed)
 					break;
 
 				case MENU_BUTTON_UP:
-					Stuff = TIMER_TASK_CMD_START;
-					xQueueSend(xTimerCommands, &Stuff, 50);
-					UpdateOutputs();
+					if(App_GetStatus() == APP_STATUS_OSC_STOPPED)
+					{
+						DisplayShowMessage("Invalid time and date");
+					}
+					else
+					{
+						Stuff = TIMER_TASK_CMD_START;
+						xQueueSend(xTimerCommands, &Stuff, 50);
+						UpdateOutputs();
+					}
 					break;
 
 				case MENU_BUTTON_LEFT:
 					DisplayStatus = DISPLAY_STATUS_STATUS;
-					OLED_DisplayContrast(0x7F);
+					OLED_DisplayContrast(DimmingVaules[BrightDimmingValue]);
 					DrawStatusScreen();
+					break;
+
+				case MENU_BUTTON_RIGHT:
+					DisplayShowMessage("Invalid time and date");
 					break;
 
 
@@ -246,6 +1130,10 @@ static void TopLevelMenu(uint8_t ButtonPressed)
 			_GoToIdle(0,0,0);
 		}
 		return;
+	}
+	else if(DisplayStatus == DISPLAY_STATUS_IN_SUB_MENU)
+	{
+		//Nothing?
 	}
 	else
 	{
@@ -1536,7 +2424,6 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 	return;
 }
 
-
 static void SetOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenuItem, uint8_t thePreviousMenuItem)
 {
 	TimerEvent CurrentEvent;
@@ -2114,13 +3001,30 @@ void _MenuItem_TL (uint8_t Caller, uint8_t Previous)
 		MenuMax = 19;
 		MenuBreadcrumb = _OSM_Breadcrumb;
 	}
-	else if(Caller > 20 && Caller <= 23 )
+	else if(Caller > 20 && Caller <= 24 )
 	{
 		MenuMin = 21;
-		MenuMax = 23;
+		MenuMax = 24;
 		MenuBreadcrumb = _SETUP_Breadcrumb;
 	}
-
+	else if(Caller >= 25 && Caller <= 27 )
+	{
+		MenuMin = 25;
+		MenuMax = 27;
+		MenuBreadcrumb = _TIMING_Breadcrumb;
+	}
+	else if(Caller >= 28 && Caller <= 29 )
+	{
+		MenuMin = 28;
+		MenuMax = 29;
+		MenuBreadcrumb = _DIMMING_Breadcrumb;
+	}
+	else if(Caller >= 30 && Caller <= 31 )
+		{
+			MenuMin = 30;
+			MenuMax = 31;
+			MenuBreadcrumb = _LOCATION_Breadcrumb;
+		}
 	else
 	{
 		return;
@@ -2181,6 +3085,8 @@ static void _GoToIdle (uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t P
 
 void DisplayTaskInit(void)
 {
+	uint8_t ReadData;
+	//TODO: Initalize timeouts here...
 	//Create the queue to send data to the command interpreter
 	xDisplayCommands = xQueueCreate( 2, sizeof( DisplayCommand ) );
 
@@ -2198,6 +3104,111 @@ void DisplayTaskInit(void)
 	PreviousMenuItem = 1;
 
 	ButtonHandler = TopLevelMenu;
+
+
+	//TODO:Check if a timeout vaule of zero is allowed
+
+	/**Initialize the idle to dim timeout
+	 * This is the time that the idle screen will stay bright before dimming with no user input.
+	 * This value is saved in EEPROM, and set to a default of IDLE_TO_DIM_TIME (3 sec) if the EEPROM value is zero
+	 */
+	if( EEPROM_Read(EEPROM_ADDRESS_IDLE_TO_DIM_TIMEOUT, &ReadData, 1 ) != 0)
+	{
+		App_Die(8);
+	}
+
+	if(ReadData <= 0)
+	{
+		IdleToDimTime = IDLE_TO_DIM_TIME;
+	}
+	else
+	{
+		IdleToDimTime = ReadData;
+	}
+
+	/**Initalize the menu to idle timeout
+	 * This is the time the task will wait in a menu for the user to press a button before reverting to the idle screen.
+	 * This value is saved in EEPROM, and set to a default of MENU_TO_IDLE_TIME (30 sec) if the EEPROM value is zero
+	 */
+	if( EEPROM_Read(EEPROM_ADDRESS_MENU_TO_IDLE_TIMEOUT, &ReadData, 1 ) != 0)
+	{
+		App_Die(8);
+	}
+
+	if(ReadData <= 5)	//TODO: Look at this more, this timeout should be limited to a reasonable value so that the menu screen does not timeout too quickly to change settings
+	{
+		MenuToIdleTime = MENU_TO_IDLE_TIME;
+	}
+	else
+	{
+		MenuToIdleTime = ReadData;
+	}
+
+	//Initalize the override timeout value
+	//TODO: Should this be done somewhere else? Maybe put this in the timer task and override menus?
+	//TODO: Maybe this should be in minutes?
+	if( EEPROM_Read(EEPROM_ADDRESS_OVERRIDE_TIMEOUT, &ReadData, 1 ) != 0)
+	{
+		App_Die(8);
+	}
+
+	if(ReadData <= 0)
+	{
+		OverrideTime = OVERRIDE_TIME;
+	}
+	else
+	{
+		OverrideTime = ReadData;
+	}
+
+	//uint8_t BrightDimmingValue;// = 4;
+	//uint8_t DimDimmingValue;// = 0;
+
+	/**Initalize the bright dimming value
+	 * This is the brightness of the OLED when in a menu or when the user pushes a button
+	 * This value is saved in EEPROM, and should be 0-5
+	 */
+	if( EEPROM_Read(EEPROM_ADDRESS_BRIGHT_DIMMING_VAL, &ReadData, 1 ) != 0)
+	{
+		App_Die(8);
+	}
+
+	if((ReadData < 0) || (ReadData >5))
+	{
+		BrightDimmingValue = 4;		//TODO: Make this compiler define?
+	}
+	else
+	{
+		BrightDimmingValue = ReadData;
+	}
+
+	/**Initalize the bright dimming value
+	 * This is the brightness of the OLED when in a no user input has been entered for a while
+	 * This value is saved in EEPROM, and should be 0-5
+	 */
+	if( EEPROM_Read(EEPROM_ADDRESS_DIM_DIMMING_VAL, &ReadData, 1 ) != 0)
+	{
+		App_Die(8);
+	}
+
+	if((ReadData < 0) || (ReadData >5))
+	{
+		DimDimmingValue = 0;		//TODO: Make this compiler define?
+	}
+	else
+	{
+		DimDimmingValue = ReadData;
+	}
+
+
+
+
+
+	//BrightDimmingValue;// = 4;
+	//uint8_t DimDimmingValue;
+
+
+	OLED_DisplayContrast(DimmingVaules[BrightDimmingValue]);
 
 	return;
 }
@@ -2446,7 +3457,28 @@ void DrawStatusScreen(void)
 	return;
 }
 
+void DisplayShowMessage(char *MessageToDisplay)
+{
+	MF_StringOptions StringOptions;
 
+	StringOptions.CharSize = MF_ASCII_SIZE_7X8;
+	StringOptions.StartPadding = 0;
+	StringOptions.EndPadding = 0;
+	StringOptions.TopPadding = 0;
+	StringOptions.BottomPadding = 0;
+	StringOptions.CharacterSpacing = 0;
+	StringOptions.Brightness = 0x0F;
+	StringOptions.XStart = (IDLE_STATUS_COLUMN)*4;
+	StringOptions.YStart = IDLE_STATUS_ROW;
+	StringOptions.FontOptions = OLED_FONT_NORMAL;
+
+	OLED_WriteMFString2(MessageToDisplay, &StringOptions);
+	OLED_DisplayContrast(DimmingVaules[BrightDimmingValue]);
+
+	DisplayStatus = DISPLAY_STATUS_MESSAGE;
+
+	return;
+}
 
 //Updates the display to reflect the state of the outputs and the mode
 void UpdateOutputs(void)
@@ -2553,15 +3585,115 @@ void UpdateOutputs(void)
 	return;
 }
 
+/*uint8_t GetTimeout(uint8_t TimeoutToGet)
+{
+	//TODO: Make TimeoutToGet defines match the addresses so I don't need the switch statement.
+	uint8_t AddressToRead;
+
+	switch(TimeoutToGet)
+	{
+		case TIMEOUT_TYPE_IDLE_TO_DIM:
+			AddressToRead = EEPROM_ADDRESS_IDLE_TO_DIM_TIMEOUT;
+			break;
+
+		case TIMEOUT_TYPE_MENU_TO_IDLE:
+			AddressToRead = EEPROM_ADDRESS_MENU_TO_IDLE_TIMEOUT;
+			break;
+
+		case TIMEOUT_TYPE_OVERRIDE:
+			AddressToRead = EEPROM_ADDRESS_OVERRIDE_TIMEOUT;
+			break;
+
+		default:
+			return;
+	}
+
+	if( EEPROM_Read(EEPROM_ADDRESS_DISPLAY_STATUS, &StatusReg, 1 ) != 0)
+		{
+			App_Die(8);
+		}
+
+
+
+
+
+
+
+}*/
+
+void SetTimeout(uint8_t TimeoutToSet, uint8_t TimeoutVal)
+{
+	uint8_t TimeoutAddress;
+
+	switch(TimeoutToSet)
+	{
+		case TIMEOUT_TYPE_IDLE_TO_DIM:
+			IdleToDimTime = TimeoutVal;
+			TimeoutAddress = EEPROM_ADDRESS_IDLE_TO_DIM_TIMEOUT;
+			break;
+
+		case TIMEOUT_TYPE_MENU_TO_IDLE:
+			MenuToIdleTime = TimeoutVal;
+			TimeoutAddress = EEPROM_ADDRESS_MENU_TO_IDLE_TIMEOUT;
+			break;
+
+		case TIMEOUT_TYPE_OVERRIDE:
+			OverrideTime = TimeoutVal;
+			TimeoutAddress = EEPROM_ADDRESS_OVERRIDE_TIMEOUT;
+			break;
+
+		default:
+			return;
+	}
+
+	//Save new value in EEPROM
+	if( EEPROM_Write(TimeoutAddress, &TimeoutVal, 1 ) !=0)
+	{
+		//Failed to write to EEPROM
+		App_Die(8);
+	}
+
+	return;
+}
+
+//TODO: Make a dimming value that corresponds to the screen being off. DO not let the user set the menu dimming to this value
+void SetDimming(uint8_t DimmingType, uint8_t DimmingVal)
+{
+	uint8_t DimmingAddress;
+
+	switch(DimmingType)
+	{
+		case DIMMING_TYPE_BRIGHT:
+			BrightDimmingValue = DimmingVal;
+			DimmingAddress = EEPROM_ADDRESS_BRIGHT_DIMMING_VAL;
+			break;
+
+		case DIMMING_TYPE_DIM:
+			DimDimmingValue = DimmingVal;
+			DimmingAddress = EEPROM_ADDRESS_DIM_DIMMING_VAL;
+			break;
+
+		default:
+			return;
+	}
+
+	//Save new value in EEPROM
+	if( EEPROM_Write(DimmingAddress, &DimmingVal, 1 ) !=0)
+	{
+		//Failed to write to EEPROM
+		App_Die(8);
+	}
+
+	return;
+}
+
+
 /* OLED display thread */
 void DisplayTask(void *pvParameters)
 {
 	DisplayCommand CommandToExecute;
 	MF_StringOptions StringOptions;
-
-	//uint32_t blarg;
-
-	//char blarg[12];
+	uint8_t HWStatus;
 
 	StringOptions.CharSize = MF_ASCII_SIZE_7X8;
 	StringOptions.StartPadding = 0;
@@ -2573,23 +3705,10 @@ void DisplayTask(void *pvParameters)
 	StringOptions.FontOptions = OLED_FONT_NORMAL;
 
 
-	//MF_StringOptions StringOptions;
-
-	//uint8_t CurrentMenuItem = 0;
-	//uint8_t PreviousMenuItem = 1;	//Note: this cannot be zero, or the menu screen will not be drawn after the first button press
-
-	uint8_t HWStatus;
-	//TimeAndDate CurrentTime;
-
-	//char TimeString[11];
 
 	DisplayStatus = DISPLAY_STATUS_IDLE_BRIGHT;
 	portBASE_TYPE QueueStatus = pdFALSE;
 
-	//uint8_t i;
-	//uint8_t CharWidth;
-
-	//static char InitString[] = "POST Successful";
 	static char InvalidString[] = "Invalid Command";
 
 
@@ -2602,15 +3721,6 @@ void DisplayTask(void *pvParameters)
 	{
 		case APP_STATUS_OK:
 		OLED_WriteMFString2("POST Successful", &StringOptions);
-
-		//StringOptions.YStart = 28-11;
-		//sprintf(blarg, "%d", -12);
-		//OLED_WriteMFString2(blarg, &StringOptions);
-		//blarg = 12;
-		//OLED_WriteMF_Int2((void*)&12, 3, 0, &StringOptions);
-		//StringOptions.YStart = 28;
-
-
 		vTaskDelay(1000);
 		break;
 
@@ -2641,9 +3751,9 @@ void DisplayTask(void *pvParameters)
 	{
 
 		//Wait for a command to come in from the queue
-		if(DisplayStatus == DISPLAY_STATUS_IDLE_BRIGHT)
+		if((DisplayStatus == DISPLAY_STATUS_IDLE_BRIGHT) || (DisplayStatus == DISPLAY_STATUS_MESSAGE))
 		{
-			QueueStatus = xQueueReceive(xDisplayCommands, &CommandToExecute, IDLE_TO_DIM_TIME);
+			QueueStatus = xQueueReceive(xDisplayCommands, &CommandToExecute, ((portTickType)IdleToDimTime * 1000));
 		}
 		else if(DisplayStatus == DISPLAY_STATUS_IDLE_DIM)
 		{
@@ -2651,7 +3761,7 @@ void DisplayTask(void *pvParameters)
 		}
 		else
 		{
-			QueueStatus = xQueueReceive(xDisplayCommands, &CommandToExecute, MENU_TO_IDLE_TIME);
+			QueueStatus = xQueueReceive(xDisplayCommands, &CommandToExecute, ((portTickType)MenuToIdleTime * 1000));
 		}
 
 		//If a command did not come in before the queue receive timed out, change the mode
@@ -2659,8 +3769,15 @@ void DisplayTask(void *pvParameters)
 		{
 			if(DisplayStatus == DISPLAY_STATUS_IDLE_BRIGHT)
 			{
-				OLED_DisplayContrast(0);
+				OLED_DisplayContrast(DimmingVaules[DimDimmingValue]);
 				DisplayStatus = DISPLAY_STATUS_IDLE_DIM;
+			}
+			else if(DisplayStatus == DISPLAY_STATUS_MESSAGE)
+			{
+				OLED_DisplayContrast(DimmingVaules[DimDimmingValue]);
+				DisplayStatus = DISPLAY_STATUS_IDLE_DIM;
+				DrawIdleScreen();
+				//TODO: This call makes the menu blink when the message is removed. I can probably keep this from happening by only updating the message string text. If I update this, I will need to make sure the string after "mode:" is padded on the end enough to clear out any old text.
 			}
 			else
 			{

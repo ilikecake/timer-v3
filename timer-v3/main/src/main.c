@@ -126,11 +126,13 @@ int main(void)
 		App_SetStatus(APP_STATUS_OSC_STOPPED);
 	}
 
-	SetLatitude(43, 833);
-	SetLongitude(-89, 3833);
+	//SetLatitude(43, 833);
+	//SetLongitude(-89, 3833);
 	UpdateSunriseAndSunset(1);
 	DisplayTaskInit();
 	InitTimerTask();
+
+	App_InitializeFromEEPROM();
 
 	//Init finished successfully, set status to OK
 	if(App_GetStatus() == APP_STATUS_INIT)

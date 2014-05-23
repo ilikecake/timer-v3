@@ -287,6 +287,7 @@ void App_InitializeFromEEPROM(void)
 	if((StatusReg == TIMER_STATUS_ON) && (App_GetStatus() != APP_STATUS_OSC_STOPPED))
 	{
 		//Start the timer if it was running when we shut down last, but do not start the timer if the time is invalid
+		//TODO: What should I do if the timer status is override?
 		StartTimer();
 	}
 

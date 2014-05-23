@@ -845,6 +845,11 @@ static int _F5_Handler (void)
 
 			break;
 
+		case 11:
+			//OLED_Sleep(val);
+			DisplayDimming(val);
+			break;
+
 		//case 11:
 		//	App_Die(6);
 		//	break;

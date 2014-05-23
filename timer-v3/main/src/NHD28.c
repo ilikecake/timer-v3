@@ -217,6 +217,21 @@ void OLED_SendCommand(uint8_t Command, uint8_t *args, uint8_t arg_length)
 	return;
 }
 
+void OLED_Sleep(uint8_t ToSleep)
+{
+	if(ToSleep == 1)
+	{
+		OLED_SendCommand(OLED_SLEEP_MODE_ON, NULL, 0);
+	}
+	else
+	{
+		OLED_SendCommand(OLED_SLEEP_MODE_OFF, NULL, 0);
+	}
+
+	return;
+}
+
+
 void OLED_ClearDisplay(void)
 {
 	uint8_t BlankPattern;

@@ -126,6 +126,8 @@ void OLED_Reset(uint8_t rst);
 
 void OLED_SendCommand(uint8_t Command, uint8_t *args, uint8_t arg_length);
 
+void OLED_Sleep(uint8_t ToSleep);
+
 void OLED_ClearDisplay(void);
 void OLED_FillDisplay(uint8_t *FillPattern, uint8_t FillPaternLength);
 

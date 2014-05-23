@@ -60,7 +60,9 @@ void DisplayTaskInit(void);
 //uint8_t GetTimeout(uint8_t TimeoutToGet);
 
 void SetTimeout(uint8_t TimeoutToSet, uint8_t TimeoutVal);
-void SetDimming(uint8_t DimmingType, uint8_t DimmingVal);
+void SetDimming(uint8_t DimmingType, uint8_t DimmingVal);	//TODO: Refactor this so that is is more distinct from the below command
+
+void DisplayDimming(uint8_t DimmingVal);
 
 void DisplayTask(void *pvParameters);
 

@@ -82,6 +82,7 @@ static void SetRotationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, u
 static void SetTimeoutHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
 static void SetDimmingHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
 static void SetLocationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
+static void SetOverridesHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
 
 static void SwitchToSetTime(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
 static void TimeMenuDisplay(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
@@ -154,6 +155,10 @@ const char _LOCATION1_Name[]			= "Latitude:";
 const char _LOCATION2_Name[]			= "Longitude:";
 const char _LOCATION_Breadcrumb[]		= "> Setup > Location";
 
+const char _OVERRIDE1_Name[]			= "Outputs:";
+const char _OVERRIDE2_Name[]			= "Timeout:";
+const char _OVERRIDE_Breadcrumb[]		= "> Overrides";
+
 
 //TODO: the menu breadcrumb and the sublevel breadcrumbs are not aligned. (fixed I think)
 //TODO: Make the X start and Y start into compiler defines
@@ -167,7 +172,7 @@ const MenuItem MenuItemList[] =
 	{ NULL,				_M0_Name,			4,		2,		0,		5, 		5,		16,			39},		//1		-Set time menu
 	{ NULL,				_M1_Name,			1,		3,		0,		11, 	11,		16,			28},		//2		-Set outputs menu
 	{ NULL,				_M2_Name,			2,		4,		0,		21, 	21,		16,			17},		//3		-Setup menu
-	{ NULL,				_M3_Name,			3,		1,		0,		4, 		4,		120,		39},		//4
+	{ NULL,				_M3_Name,			3,		1,		0,		31, 	31,		120,		39},		//4		-Overrides menu
 
 	//Set time menu
 	{ TimeMenuDisplay,	_TM1_Name,			7,		6,		1,		8, 		8,		16,			39},		//5
@@ -197,23 +202,32 @@ const MenuItem MenuItemList[] =
 	/** Setup menu */
 	{SetRotationHandler,_SETUP1_Name,		24,		22,		3,		21,		21,		16,			39},		//21	-Flip display
 	{NULL,				_SETUP2_Name,		21,		23,		3,		25,		25,		16,			28},		//22	-Timeouts
-	{NULL,				_SETUP3_Name,		22,		24,		3,		28,		28,		16,			17},		//23	-Dimming
-	{NULL,				_SETUP4_Name,		23,		21,		3,		30,		30,		120,		39},		//24	-Location (Lat and Long)
+	{NULL,				_SETUP3_Name,		22,		24,		3,		27,		27,		16,			17},		//23	-Dimming
+	{NULL,				_SETUP4_Name,		23,		21,		3,		29,		29,		120,		39},		//24	-Location (Lat and Long)
 
 	/** Setup timeouts menu */
-	{SetTimeoutHandler,	_TIMING1_Name,		27,		26,		22,		25,		25,		16,			39},		//25	-Menu to idle
-	{SetTimeoutHandler,	_TIMING2_Name,		25,		27,		22,		26,		26,		16,			28},		//26	-Idle to dim
-	{SetTimeoutHandler,	_TIMING3_Name,		26,		25,		22,		27,		27,		16,			17},		//27	-Override
+	{SetTimeoutHandler,	_TIMING1_Name,		26,		26,		22,		25,		25,		16,			39},		//25	-Menu to idle
+	{SetTimeoutHandler,	_TIMING2_Name,		25,		26,		22,		26,		26,		16,			28},		//26	-Idle to dim
+	//{SetTimeoutHandler,	_TIMING3_Name,		26,		25,		22,		27,		27,		16,			17},		//27	-Override
 
 	/**Setup dimming menu */
-	{SetDimmingHandler,	_DIMMING1_Name,		29,		29,		23,		28,		28,		16,			39},		//28	-Bright level
-	{SetDimmingHandler,	_DIMMING2_Name,		28,		28,		23,		29,		29,		16,			28},		//29	-Dim level
+	{SetDimmingHandler,	_DIMMING1_Name,		28,		28,		23,		27,		27,		16,			39},		//27	-Bright level
+	{SetDimmingHandler,	_DIMMING2_Name,		27,		27,		23,		28,		28,		16,			28},		//28	-Dim level
 
 	/**Set Lat and Long menu */
-	{SetLocationHandler,	_LOCATION1_Name,	31,		31,		24,		30,		30,		16,			39},		//30	-Latitude
-	{SetLocationHandler,	_LOCATION2_Name,	30,		30,		24,		31,		31,		16,			28},		//31	-Longitude
+	{SetLocationHandler,	_LOCATION1_Name,	30,		30,		24,		29,		29,		16,			39},		//29	-Latitude
+	{SetLocationHandler,	_LOCATION2_Name,	29,		29,		24,		30,		30,		16,			28},		//30	-Longitude
+
+	{SetOverridesHandler,	_OVERRIDE1_Name,				32,		32,		4,		31,		31,		16,			39},		//31	-Outputs
+	{SetOverridesHandler,	_OVERRIDE2_Name,				31,		31,		4,		32,		32,		16,			28},		//32	-Timeout
+
+
+
+
+
 
 };
+//TODO: Move the name and handler to the end of this struct to make it easier to layout
 
 
 
@@ -319,7 +333,7 @@ static void SetTimeoutHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, ui
 	OLED_WriteMFString2(ScratchString, &StringOptions);
 
 	//Override timeout display
-	StringOptions.YStart = 17;
+	/*StringOptions.YStart = 17;
 	sprintf(ScratchString, "%u sec", MenuData[3]);
 	if(MenuData[0] == 3)
 	{
@@ -330,7 +344,7 @@ static void SetTimeoutHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, ui
 		StringOptions.FontOptions = OLED_FONT_NORMAL;
 	}
 	OLED_ClearWindow(StringOptions.XStart/4, (StringOptions.XStart/4) + 16, StringOptions.YStart-StringOptions.BottomPadding, StringOptions.YStart+8+StringOptions.TopPadding);
-	OLED_WriteMFString2(ScratchString, &StringOptions);
+	OLED_WriteMFString2(ScratchString, &StringOptions);*/
 
 	return;
 }
@@ -339,98 +353,132 @@ static void SetDimmingHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, ui
 {
 	MF_StringOptions StringOptions;		//TODO: Make this global?
 
-		StringOptions.CharSize = MF_ASCII_SIZE_7X8;
-		StringOptions.StartPadding = 2;
-		StringOptions.EndPadding = 1;
-		StringOptions.TopPadding = 2;
-		StringOptions.BottomPadding = 1;
-		StringOptions.CharacterSpacing = 0;
-		StringOptions.Brightness = 0x0F;
+	StringOptions.CharSize = MF_ASCII_SIZE_7X8;
+	StringOptions.StartPadding = 2;
+	StringOptions.EndPadding = 1;
+	StringOptions.TopPadding = 2;
+	StringOptions.BottomPadding = 1;
+	StringOptions.CharacterSpacing = 0;
+	StringOptions.Brightness = 0x0F;
+	StringOptions.FontOptions = OLED_FONT_NORMAL;
+
+	if(PreviousMenuItem < 27)
+	{
+		MenuData[0] = 0;							//The level of the handler
+		MenuData[1]	= BrightDimmingValue;
+		MenuData[2]	= DimDimmingValue;
+	}
+
+	if(CurrentMenuItem == PreviousMenuItem)
+	{
+		if ((ButtonPressed == MENU_BUTTON_RIGHT) && (MenuData[0] == 0))
+		{
+			MenuData[0] = CurrentMenuItem-26;		//This will set MenuData[0] to the index of the diming to change (1 or 2)
+			DisplayStatus = DISPLAY_STATUS_IN_SUB_MENU;
+			if(MenuData[MenuData[0]] == 6)
+			{
+				DisplayDimming(0);
+			}
+			else
+			{
+				DisplayDimming(MenuData[MenuData[0]]);
+			}
+			//DisplayDimming(MenuData[MenuData[0]]);
+		}
+		else if(ButtonPressed == MENU_BUTTON_UP)
+		{
+			if( ((CurrentMenuItem == 27) && (MenuData[MenuData[0]] == 5)) || ((CurrentMenuItem == 28) && (MenuData[MenuData[0]] == 6)) )
+			{
+				MenuData[MenuData[0]] = 0;
+			}
+			else
+			{
+				MenuData[MenuData[0]]++;
+			}
+
+
+			if(MenuData[MenuData[0]] == 6)
+			{
+				DisplayDimming(0);
+			}
+			else
+			{
+				DisplayDimming(MenuData[MenuData[0]]);
+			}
+		}
+		else if(ButtonPressed == MENU_BUTTON_DOWN)
+		{
+			if(MenuData[MenuData[0]] > 0)
+			{
+				MenuData[MenuData[0]]--;
+			}
+			else if(CurrentMenuItem == 27)
+			{
+				MenuData[MenuData[0]] = 5;
+			}
+			else
+			{
+				MenuData[MenuData[0]] = 6;
+			}
+
+			if(MenuData[MenuData[0]] == 6)
+			{
+				DisplayDimming(0);
+			}
+			else
+			{
+				DisplayDimming(MenuData[MenuData[0]]);
+			}
+			//DisplayDimming(MenuData[MenuData[0]]);
+		}
+		else if((ButtonPressed == MENU_BUTTON_LEFT))// && (MenuData[0] != 0))
+		{
+			//SetTimeout(MenuData[0], MenuData[MenuData[0]]);
+			SetDimming(MenuData[0], MenuData[MenuData[0]]);
+			DisplayStatus = DISPLAY_STATUS_MENU;
+			MenuData[0] = 0;
+			DisplayDimming(BrightDimmingValue);
+		}
+
+
+	}
+
+	//bright
+	StringOptions.XStart = 130;
+	StringOptions.YStart = 39;
+	sprintf(ScratchString, "%u", MenuData[1]+1);
+	if(MenuData[0] == 1)
+	{
+		StringOptions.FontOptions = OLED_FONT_INVERSE;
+	}
+	else
+	{
 		StringOptions.FontOptions = OLED_FONT_NORMAL;
+	}
+	OLED_WriteMFString2(ScratchString, &StringOptions);
 
+	//dim
+	StringOptions.YStart = 28;
 
-		//uint8_t DimmingVaules[6] = {0x00, 0x10, 0x20, 0x40, 0x80, 0xF0};
-		//uint8_t BrightDimmingValue = 4;
-		//uint8_t DimDimmingValue = 0;
+	if(MenuData[2] == 6)
+	{
+		memcpy ( ScratchString, "Off\0", 4);
+		//sprintf(ScratchString, "Off");
+	}
+	else
+	{
+		sprintf(ScratchString, "%u  ", MenuData[2]+1);
+	}
 
-
-		if(PreviousMenuItem < 28)
-		{
-			MenuData[0] = 0;							//The level of the handler
-			MenuData[1]	= BrightDimmingValue;
-			MenuData[2]	= DimDimmingValue;
-		}
-
-		if(CurrentMenuItem == PreviousMenuItem)
-		{
-			if ((ButtonPressed == MENU_BUTTON_RIGHT) && (MenuData[0] == 0))
-			{
-				MenuData[0] = CurrentMenuItem-27;		//This will set MenuData[0] to the index of the diming to change (1 or 2)
-				DisplayStatus = DISPLAY_STATUS_IN_SUB_MENU;
-				OLED_DisplayContrast(DimmingVaules[MenuData[MenuData[0]]]);
-			}
-			else if(ButtonPressed == MENU_BUTTON_UP)
-			{
-				if(MenuData[MenuData[0]] < 5)
-				{
-					MenuData[MenuData[0]]++;
-				}
-				else
-				{
-					MenuData[MenuData[0]] = 0;
-				}
-				OLED_DisplayContrast(DimmingVaules[MenuData[MenuData[0]]]);
-			}
-			else if(ButtonPressed == MENU_BUTTON_DOWN)
-			{
-				if(MenuData[MenuData[0]] > 0)
-				{
-					MenuData[MenuData[0]]--;
-				}
-				else
-				{
-					MenuData[MenuData[0]] = 5;
-				}
-				OLED_DisplayContrast(DimmingVaules[MenuData[MenuData[0]]]);
-			}
-			else if((ButtonPressed == MENU_BUTTON_LEFT))// && (MenuData[0] != 0))
-			{
-				//SetTimeout(MenuData[0], MenuData[MenuData[0]]);
-				SetDimming(MenuData[0], MenuData[MenuData[0]]);
-				DisplayStatus = DISPLAY_STATUS_MENU;
-				MenuData[0] = 0;
-				OLED_DisplayContrast(DimmingVaules[BrightDimmingValue]);
-			}
-
-
-		}
-
-		//bright
-		StringOptions.XStart = 130;
-		StringOptions.YStart = 39;
-		sprintf(ScratchString, "%u", MenuData[1]+1);
-		if(MenuData[0] == 1)
-		{
-			StringOptions.FontOptions = OLED_FONT_INVERSE;
-		}
-		else
-		{
-			StringOptions.FontOptions = OLED_FONT_NORMAL;
-		}
-		OLED_WriteMFString2(ScratchString, &StringOptions);
-
-		//dim
-		StringOptions.YStart = 28;
-		sprintf(ScratchString, "%u", MenuData[2]+1);
-		if(MenuData[0] == 2)
-		{
-			StringOptions.FontOptions = OLED_FONT_INVERSE;
-		}
-		else
-		{
-			StringOptions.FontOptions = OLED_FONT_NORMAL;
-		}
-		OLED_WriteMFString2(ScratchString, &StringOptions);
+	if(MenuData[0] == 2)
+	{
+		StringOptions.FontOptions = OLED_FONT_INVERSE;
+	}
+	else
+	{
+		StringOptions.FontOptions = OLED_FONT_NORMAL;
+	}
+	OLED_WriteMFString2(ScratchString, &StringOptions);
 
 
 
@@ -459,7 +507,7 @@ static void SetLocationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, u
 	StringOptions.Brightness = 0x0F;
 	StringOptions.FontOptions = OLED_FONT_NORMAL;
 
-	if(PreviousMenuItem < 30)
+	if(PreviousMenuItem < 29)
 	{
 		MenuData[0] = 0;							//The level of the handler		//TODO: I can tell this from currentmenu
 		MenuData[1] = 0;							//The level of the digit
@@ -473,6 +521,8 @@ static void SetLocationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, u
 		MenuData[5] = RHS;
 	}
 
+
+	//TODO: separate the positive and negative sign from the rest of the calculation. If I use menudata[6-7] to store the negativeness of the two values, I can simplify the following code a bunch.
 	if(CurrentMenuItem == PreviousMenuItem)
 	{
 		if (ButtonPressed == MENU_BUTTON_RIGHT)
@@ -483,7 +533,7 @@ static void SetLocationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, u
 			}
 
 			MenuData[0]++;
-			if( ((MenuData[0] > 8) && (CurrentMenuItem == 31)) || ((MenuData[0] > 7) && (CurrentMenuItem == 30)) )
+			if( ((MenuData[0] > 8) && (CurrentMenuItem == 30)) || ((MenuData[0] > 7) && (CurrentMenuItem == 29)) )
 			{
 				MenuData[0] = 1;
 			}
@@ -493,7 +543,7 @@ static void SetLocationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, u
 			switch(MenuData[0])
 			{
 				case 1:		//plus or minus
-					if(CurrentMenuItem == 30)
+					if(CurrentMenuItem == 29)
 					{
 						MenuData[2] = (uint16_t)((int16_t)MenuData[2] * -1);
 					}
@@ -504,7 +554,7 @@ static void SetLocationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, u
 					break;
 
 				case 2:
-					if(CurrentMenuItem == 30)		//Tens digit for latitude
+					if(CurrentMenuItem == 29)		//Tens digit for latitude
 					{
 						LHS = (int16_t)MenuData[2];
 						if(LHS > 80)
@@ -558,7 +608,7 @@ static void SetLocationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, u
 					break;
 
 				case 3:
-					if(CurrentMenuItem == 30)		//Ones digit for latitude
+					if(CurrentMenuItem == 29)		//Ones digit for latitude
 					{
 						if((int16_t)MenuData[2] < 0)
 						{
@@ -607,7 +657,7 @@ static void SetLocationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, u
 					break;
 
 				case 4:
-					if(CurrentMenuItem == 30)		//first digit after decimal for latitude
+					if(CurrentMenuItem == 29)		//first digit after decimal for latitude
 					{
 						MenuData[3] += 1000;
 						if(MenuData[3] > 10000)
@@ -641,7 +691,7 @@ static void SetLocationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, u
 					break;
 
 				case 5:
-					if(CurrentMenuItem == 30)
+					if(CurrentMenuItem == 29)
 					{
 						//Second digit after decimal for latitude
 						MenuData[3] += 100;
@@ -662,7 +712,7 @@ static void SetLocationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, u
 					break;
 
 				case 6:
-					if(CurrentMenuItem == 30)		//Third digit after decimal for latitude
+					if(CurrentMenuItem == 29)		//Third digit after decimal for latitude
 					{
 						MenuData[3] += 10;
 						if( ((MenuData[3] / 10) % 10) == 0)
@@ -681,7 +731,7 @@ static void SetLocationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, u
 					break;
 
 				case 7:
-					if(CurrentMenuItem == 30)		//Fourth digit after decimal for latitude
+					if(CurrentMenuItem == 29)		//Fourth digit after decimal for latitude
 					{
 						MenuData[3] += 1;
 						if( (MenuData[3] % 10) == 0)
@@ -700,7 +750,7 @@ static void SetLocationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, u
 					break;
 
 				case 8:
-					if(CurrentMenuItem == 31)		//Fourth digit after decimal for longitude
+					if(CurrentMenuItem == 30)		//Fourth digit after decimal for longitude
 					{
 						MenuData[5] += 1;
 
@@ -717,7 +767,7 @@ static void SetLocationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, u
 			switch(MenuData[0])
 			{
 				case 1:		//plus or minus
-					if(CurrentMenuItem == 30)
+					if(CurrentMenuItem == 29)
 					{
 						MenuData[2] = (uint16_t)((int16_t)MenuData[2] * -1);
 					}
@@ -728,7 +778,7 @@ static void SetLocationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, u
 					break;
 
 				case 2:
-					if(CurrentMenuItem == 30)		//Tens digit for latitude
+					if(CurrentMenuItem == 29)		//Tens digit for latitude
 					{
 						LHS = (int16_t)MenuData[2];
 						if((LHS > -10) && (LHS < 0))
@@ -774,11 +824,6 @@ static void SetLocationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, u
 							{
 								LHS -= 300;
 							}
-
-
-
-
-							//LHS -= 300;
 						}
 						else if(LHS < 0)
 						{
@@ -793,7 +838,7 @@ static void SetLocationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, u
 					break;
 
 				case 3:
-					if(CurrentMenuItem == 30)		//Ones digit for latitude
+					if(CurrentMenuItem == 29)		//Ones digit for latitude
 					{
 						if((int16_t)MenuData[2] > 0)
 						{
@@ -817,162 +862,185 @@ static void SetLocationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, u
 								MenuData[2] = (uint16_t)(((int16_t)MenuData[2])+1);
 							}
 						}
-
-						/************************************************/
-
-
 					}
 					else	//Tens digit for longitude
 					{
-						if((int16_t)MenuData[4] < 0)
+						if((int16_t)MenuData[4] > 0)
 						{
-							MenuData[4] = (uint16_t)((int16_t)MenuData[4] - 10);
-						}
-						else
-						{
-							MenuData[4] = (uint16_t)((int16_t)MenuData[4] + 10);
-						}
-
-						if( (((int16_t)MenuData[4] / 10) % 10) == 0)
-						{
-							if((int16_t)MenuData[4] < 0)
+							if( (((int16_t)MenuData[4])/10) % 10 == 0)
 							{
-								MenuData[4] = (uint16_t)((int16_t)MenuData[4] + 100);
+								MenuData[4] = (uint16_t)(((int16_t)MenuData[4])+90);
 							}
 							else
 							{
-								MenuData[4] = (uint16_t)((int16_t)MenuData[4] - 100);
+								MenuData[4] = (uint16_t)(((int16_t)MenuData[4])-10);
+							}
+						}
+						else
+						{
+							if( ((((int16_t)MenuData[4]*-1))/10) % 10 == 0)
+							{
+								MenuData[4] = (uint16_t)(((int16_t)MenuData[4])-90);
+							}
+							else
+							{
+								MenuData[4] = (uint16_t)(((int16_t)MenuData[4])+10);
 							}
 						}
 					}
 					break;
 
 				case 4:
-					if(CurrentMenuItem == 30)		//first digit after decimal for latitude
+					if(CurrentMenuItem == 29)		//first digit after decimal for latitude
 					{
-						MenuData[3] += 1000;
-						if(MenuData[3] > 10000)
+						if(MenuData[3] < 1000)
 						{
-							MenuData[3] -= 10000;
+							MenuData[3] += 9000;
+						}
+						else
+						{
+							MenuData[3] -= 1000;
 						}
 					}
 					else	//Ones digit for longitude
 					{
-						if((int16_t)MenuData[4] < 0)
+						if((int16_t)MenuData[4] > 0)
 						{
-							MenuData[4] = (uint16_t)((int16_t)MenuData[4] - 1);
-						}
-						else
-						{
-							MenuData[4] = (uint16_t)((int16_t)MenuData[4] + 1);
-						}
-
-						if( (((int16_t)MenuData[4]) % 10) == 0)
-						{
-							if((int16_t)MenuData[4] < 0)
+							if( ((int16_t)MenuData[4]) % 10 == 0)
 							{
-								MenuData[4] = (uint16_t)((int16_t)MenuData[4] + 10);
+								MenuData[4] = (uint16_t)(((int16_t)MenuData[4])+9);
 							}
 							else
 							{
-								MenuData[4] = (uint16_t)((int16_t)MenuData[4] - 10);
+								MenuData[4] = (uint16_t)(((int16_t)MenuData[4])-1);
+							}
+						}
+						else
+						{
+							if( (((int16_t)MenuData[4]*-1)) % 10 == 0)
+							{
+								MenuData[4] = (uint16_t)(((int16_t)MenuData[4])-9);
+							}
+							else
+							{
+								MenuData[4] = (uint16_t)(((int16_t)MenuData[4])+1);
 							}
 						}
 					}
 					break;
 
 				case 5:
-					if(CurrentMenuItem == 30)
+					if(CurrentMenuItem == 29)
 					{
 						//Second digit after decimal for latitude
-						MenuData[3] += 100;
-						if( ((MenuData[3] / 100) % 10) == 0)
+						if(((MenuData[3]/100) % 10) == 0)
 						{
-							MenuData[3] -= 1000;
+							MenuData[3] += 900;
+						}
+						else
+						{
+							MenuData[3] -= 100;
 						}
 					}
 					else
 					{
 						//first digit after decimal for longitude
-						MenuData[5] += 1000;
-						if(MenuData[5] > 10000)
+						if(MenuData[5] < 1000)
 						{
-							MenuData[5] -= 10000;
+							MenuData[5] += 9000;
 						}
-					}
-					break;
-
-				case 6:
-					if(CurrentMenuItem == 30)		//Third digit after decimal for latitude
-					{
-						MenuData[3] += 10;
-						if( ((MenuData[3] / 10) % 10) == 0)
-						{
-							MenuData[3] -= 100;
-						}
-					}
-					else	//Second digit after decimal for longitude
-					{
-						MenuData[5] += 100;
-						if( ((MenuData[5] / 100) % 10) == 0)
+						else
 						{
 							MenuData[5] -= 1000;
 						}
 					}
 					break;
 
-				case 7:
-					if(CurrentMenuItem == 30)		//Fourth digit after decimal for latitude
+				case 6:
+					if(CurrentMenuItem == 29)		//Third digit after decimal for latitude
 					{
-						MenuData[3] += 1;
-						if( (MenuData[3] % 10) == 0)
+						if( ((MenuData[3] / 10) % 10) == 0)
+						{
+							MenuData[3] += 90;
+						}
+						else
 						{
 							MenuData[3] -= 10;
 						}
 					}
-					else	//Third digit after decimal for longitude
+					else	//Second digit after decimal for longitude
 					{
-						MenuData[5] += 10;
-						if( ((MenuData[5] / 10) % 10) == 0)
+
+						if( ((MenuData[5] / 100) % 10) == 0)
+						{
+							MenuData[5] += 900;
+						}
+						else
 						{
 							MenuData[5] -= 100;
 						}
 					}
 					break;
 
-				case 8:
-					if(CurrentMenuItem == 31)		//Fourth digit after decimal for longitude
+				case 7:
+					if(CurrentMenuItem == 29)		//Fourth digit after decimal for latitude
 					{
-						MenuData[5] += 1;
 
-						if( (MenuData[5] % 10) == 0)
+						if( (MenuData[3] % 10) == 0)
+						{
+							MenuData[3] += 9;
+						}
+						else
+						{
+							MenuData[3] -= 1;
+						}
+					}
+					else	//Third digit after decimal for longitude
+					{
+
+						if( ((MenuData[5] / 10) % 10) == 0)
+						{
+							MenuData[5] += 90;
+						}
+						else
 						{
 							MenuData[5] -= 10;
 						}
 					}
 					break;
+
+				case 8:
+					if(CurrentMenuItem == 30)		//Fourth digit after decimal for longitude
+					{
+
+
+						if( (MenuData[5] % 10) == 0)
+						{
+							MenuData[5] += 9;
+						}
+						else
+						{
+							MenuData[5] -= 1;
+						}
+					}
+					break;
 			}
-
-
-
-
-
-
-			/*if(MenuData[MenuData[0]] > 0)
-			{
-				MenuData[MenuData[0]]--;
-			}
-			else
-			{
-				MenuData[MenuData[0]] = 5;
-			}*/
-			//OLED_DisplayContrast(DimmingVaules[MenuData[MenuData[0]]]);
 		}
 		else if((ButtonPressed == MENU_BUTTON_LEFT))// && (MenuData[0] != 0))
 		{
 			//Exit the submenu if the user is in position 1 and presses left
 			if(MenuData[0] == 1)
 			{
+				if(CurrentMenuItem == 29)
+				{
+					SetLatitude((int16_t)MenuData[2], MenuData[3]);
+				}
+				else
+				{
+
+					SetLongitude((int16_t)MenuData[4], MenuData[5]);
+				}
+				UpdateSunriseAndSunset(1);
 				DisplayStatus = DISPLAY_STATUS_MENU;
 				MenuData[0] = 0;
 			}
@@ -991,7 +1059,7 @@ static void SetLocationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, u
 	StringOptions.FontOptions = OLED_FONT_NORMAL;
 	OLED_WriteMFString2(ScratchString, &StringOptions);
 
-	if((CurrentMenuItem == 30) && (MenuData[0] != 0))
+	if((CurrentMenuItem == 29) && (MenuData[0] != 0))
 	{
 
 		if(MenuData[0] < 4)
@@ -1019,7 +1087,7 @@ static void SetLocationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, u
 	StringOptions.FontOptions = OLED_FONT_NORMAL;
 	OLED_WriteMFString2(ScratchString, &StringOptions);
 
-	if((CurrentMenuItem == 31) && (MenuData[0] != 0))
+	if((CurrentMenuItem == 30) && (MenuData[0] != 0))
 	{
 		if(MenuData[0] < 5)
 		{
@@ -1058,6 +1126,153 @@ static void SetLocationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, u
 	return;
 }
 
+static void SetOverridesHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem)
+{
+	MF_StringOptions StringOptions;		//TODO: Make this global?
+	uint8_t i;
+
+	StringOptions.CharSize = MF_ASCII_SIZE_7X8;
+	StringOptions.StartPadding = 1;
+	StringOptions.EndPadding = 1;
+	StringOptions.TopPadding = 2;
+	StringOptions.BottomPadding = 1;
+	StringOptions.CharacterSpacing = 1;
+	StringOptions.Brightness = 0x0F;
+	StringOptions.FontOptions = OLED_FONT_NORMAL;
+
+	if(PreviousMenuItem < 31)
+	{
+		MenuData[0] = 0;							//The level of the handler
+		MenuData[1] = TimerGetOverrideOutputs();
+		MenuData[2] = TimerGetPauseTime();
+	}
+
+	if(CurrentMenuItem == PreviousMenuItem)
+	{
+		//Handle buttons
+		if (ButtonPressed == MENU_BUTTON_RIGHT)
+		{
+			if(CurrentMenuItem == 31)
+			{
+				if(MenuData[0] < 4)
+				{
+					MenuData[0] ++;
+				}
+				else
+				{
+					MenuData[0] = 1;
+				}
+			}
+			else
+			{
+				MenuData[0] = 10;
+			}
+			//MenuData[0] = CurrentMenuItem-24;		//This will set MenuData[0] to the index of the timeout to change (1,2 or 3)
+			DisplayStatus = DISPLAY_STATUS_IN_SUB_MENU;
+		}
+		else if(ButtonPressed == MENU_BUTTON_UP)
+		{
+			if(CurrentMenuItem == 31)
+			{
+				MenuData[1] = MenuData[1] ^ (1<<(MenuData[0]-1));
+			}
+			else
+			{
+				if(MenuData[2] < 250)
+				{
+					MenuData[2]++;
+				}
+				else
+				{
+					MenuData[2] = 1;
+				}
+			}
+
+		}
+		else if(ButtonPressed == MENU_BUTTON_DOWN)
+		{
+			if(CurrentMenuItem == 31)
+			{
+				MenuData[1] = MenuData[1] ^ (1<<(MenuData[0]-1));
+			}
+			else
+			{
+				if(MenuData[2] > 1)
+				{
+					MenuData[2]--;
+				}
+				else
+				{
+					MenuData[2] = 250;
+				}
+			}
+		}
+		else if((ButtonPressed == MENU_BUTTON_LEFT))// && (MenuData[0] != 0))
+		{
+			if((CurrentMenuItem == 31) && (MenuData[0] > 1))
+			{
+				MenuData[0] --;
+			}
+			else
+			{
+				if(CurrentMenuItem == 31)
+				{
+					TimerSetOverrideOutputs(MenuData[1]);
+				}
+				else
+				{
+					TimerSetPauseTime(MenuData[2]);
+				}
+				DisplayStatus = DISPLAY_STATUS_MENU;
+				MenuData[0] = 0;
+			}
+		}
+	}
+
+	//Write output states
+	StringOptions.XStart = 130;
+	StringOptions.YStart = 39;
+	StringOptions.StartPadding = 2;
+	OLED_ClearWindow(StringOptions.XStart/4, (StringOptions.XStart/4) + 16, StringOptions.YStart-StringOptions.BottomPadding, StringOptions.YStart+8+StringOptions.TopPadding);
+
+	for(i=0;i<4;i++)
+	{
+		sprintf(ScratchString, "%u", i+1);
+		if(MenuData[0] == (i+1))
+		{
+			StringOptions.FontOptions = OLED_FONT_INVERSE;
+		}
+		else if((MenuData[1] & (1<<i)) != 0)
+		{
+			StringOptions.FontOptions = OLED_FONT_BOX;
+		}
+		else
+		{
+			StringOptions.FontOptions = OLED_FONT_NORMAL;
+		}
+		OLED_WriteMFString2(ScratchString, &StringOptions);
+
+		StringOptions.XStart = StringOptions.XStart +16;
+	}
+
+	//Write timeout to display
+	StringOptions.XStart = 130;
+	StringOptions.YStart = 28;
+	sprintf(ScratchString, "%u min", MenuData[2]);
+	if(MenuData[0] == 10)
+	{
+		StringOptions.FontOptions = OLED_FONT_INVERSE;
+	}
+	else
+	{
+		StringOptions.FontOptions = OLED_FONT_NORMAL;
+	}
+	OLED_ClearWindow(StringOptions.XStart/4, (StringOptions.XStart/4) + 16, StringOptions.YStart-StringOptions.BottomPadding, StringOptions.YStart+8+StringOptions.TopPadding);
+	OLED_WriteMFString2(ScratchString, &StringOptions);
+
+	return;
+}
+
 static void TopLevelMenu(uint8_t ButtonPressed)
 {
 	uint8_t Stuff;
@@ -1067,7 +1282,7 @@ static void TopLevelMenu(uint8_t ButtonPressed)
 		//Brighten the display when a button is pressed
 		if(DisplayStatus == DISPLAY_STATUS_IDLE_DIM)
 		{
-			OLED_DisplayContrast(DimmingVaules[BrightDimmingValue]);
+			DisplayDimming(BrightDimmingValue);
 			DisplayStatus = DISPLAY_STATUS_IDLE_BRIGHT;
 		}
 
@@ -1078,7 +1293,7 @@ static void TopLevelMenu(uint8_t ButtonPressed)
 			CurrentMenuItem = 1;
 			PreviousMenuItem = 2;
 			DisplayStatus = DISPLAY_STATUS_MENU;
-			OLED_DisplayContrast(DimmingVaules[BrightDimmingValue]);
+			DisplayDimming(BrightDimmingValue);
 			DrawMenuScreen();
 			MenuLevel = 1;
 		}
@@ -1107,13 +1322,21 @@ static void TopLevelMenu(uint8_t ButtonPressed)
 					break;
 
 				case MENU_BUTTON_LEFT:
+					//if(TimerGetTimerState() == TIMER_STATUS_PAUSED)
+					//{
+
+					//}
 					DisplayStatus = DISPLAY_STATUS_STATUS;
-					OLED_DisplayContrast(DimmingVaules[BrightDimmingValue]);
+					DisplayDimming(BrightDimmingValue);
 					DrawStatusScreen();
 					break;
 
 				case MENU_BUTTON_RIGHT:
-					DisplayShowMessage("Invalid time and date");
+					Stuff = TIMER_TASK_CMD_PAUSE;
+					xQueueSend(xTimerCommands, &Stuff, 50);
+					UpdateOutputs();
+					//DisplayShowMessage("Invalid time and date");
+					//PauseTimer();
 					break;
 
 
@@ -1793,7 +2016,7 @@ static void SetUTHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t
 }
 
 //TODO: Do i need to pass the current menu item and previous menu item, or can I just read them from the global registers?
-
+//TODO: Combine the set time menu with the top level menu handler
 //TODO: Combine the two output handlers?
 //TODO: Clear the hours/minutes registers if the event type is switched
 static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenuItem, uint8_t thePreviousMenuItem)
@@ -2893,6 +3116,7 @@ static void WriteSetTimeData(uint16_t ElementToHighlight)
 
 }
 
+//TODO: Rename this to better identify what it does
 static void EEPROMHandler(uint8_t theButtonPressed, uint8_t theCurrentMenuItem, uint8_t thePreviousMenuItem)
 {
 	uint8_t ret;
@@ -3007,24 +3231,31 @@ void _MenuItem_TL (uint8_t Caller, uint8_t Previous)
 		MenuMax = 24;
 		MenuBreadcrumb = _SETUP_Breadcrumb;
 	}
-	else if(Caller >= 25 && Caller <= 27 )
+	else if(Caller >= 25 && Caller <= 26 )
 	{
 		MenuMin = 25;
-		MenuMax = 27;
+		MenuMax = 26;
 		MenuBreadcrumb = _TIMING_Breadcrumb;
 	}
-	else if(Caller >= 28 && Caller <= 29 )
+	else if(Caller >= 27 && Caller <= 28 )
 	{
-		MenuMin = 28;
-		MenuMax = 29;
+		MenuMin = 27;
+		MenuMax = 28;
 		MenuBreadcrumb = _DIMMING_Breadcrumb;
 	}
-	else if(Caller >= 30 && Caller <= 31 )
-		{
-			MenuMin = 30;
-			MenuMax = 31;
-			MenuBreadcrumb = _LOCATION_Breadcrumb;
-		}
+	else if(Caller >= 29 && Caller <= 30 )
+	{
+		MenuMin = 29;
+		MenuMax = 30;
+		MenuBreadcrumb = _LOCATION_Breadcrumb;
+	}
+
+	else if(Caller >= 31 && Caller <= 32 )
+	{
+		MenuMin = 31;
+		MenuMax = 32;
+		MenuBreadcrumb = _OVERRIDE_Breadcrumb;
+	}
 	else
 	{
 		return;
@@ -3147,7 +3378,7 @@ void DisplayTaskInit(void)
 	//Initalize the override timeout value
 	//TODO: Should this be done somewhere else? Maybe put this in the timer task and override menus?
 	//TODO: Maybe this should be in minutes?
-	if( EEPROM_Read(EEPROM_ADDRESS_OVERRIDE_TIMEOUT, &ReadData, 1 ) != 0)
+	/*if( EEPROM_Read(EEPROM_ADDRESS_OVERRIDE_TIMEOUT, &ReadData, 1 ) != 0)
 	{
 		App_Die(8);
 	}
@@ -3159,7 +3390,7 @@ void DisplayTaskInit(void)
 	else
 	{
 		OverrideTime = ReadData;
-	}
+	}*/
 
 	//uint8_t BrightDimmingValue;// = 4;
 	//uint8_t DimDimmingValue;// = 0;
@@ -3191,7 +3422,7 @@ void DisplayTaskInit(void)
 		App_Die(8);
 	}
 
-	if((ReadData < 0) || (ReadData >5))
+	if((ReadData < 0) || (ReadData >6))
 	{
 		DimDimmingValue = 0;		//TODO: Make this compiler define?
 	}
@@ -3208,7 +3439,7 @@ void DisplayTaskInit(void)
 	//uint8_t DimDimmingValue;
 
 
-	OLED_DisplayContrast(DimmingVaules[BrightDimmingValue]);
+	DisplayDimming(BrightDimmingValue);
 
 	return;
 }
@@ -3473,7 +3704,7 @@ void DisplayShowMessage(char *MessageToDisplay)
 	StringOptions.FontOptions = OLED_FONT_NORMAL;
 
 	OLED_WriteMFString2(MessageToDisplay, &StringOptions);
-	OLED_DisplayContrast(DimmingVaules[BrightDimmingValue]);
+	DisplayDimming(BrightDimmingValue);
 
 	DisplayStatus = DISPLAY_STATUS_MESSAGE;
 
@@ -3637,10 +3868,10 @@ void SetTimeout(uint8_t TimeoutToSet, uint8_t TimeoutVal)
 			TimeoutAddress = EEPROM_ADDRESS_MENU_TO_IDLE_TIMEOUT;
 			break;
 
-		case TIMEOUT_TYPE_OVERRIDE:
+		/*case TIMEOUT_TYPE_OVERRIDE:	//TODO: This may not be needed.
 			OverrideTime = TimeoutVal;
 			TimeoutAddress = EEPROM_ADDRESS_OVERRIDE_TIMEOUT;
-			break;
+			break;*/
 
 		default:
 			return;
@@ -3684,6 +3915,21 @@ void SetDimming(uint8_t DimmingType, uint8_t DimmingVal)
 		App_Die(8);
 	}
 
+	return;
+}
+
+
+void DisplayDimming(uint8_t DimmingVal)
+{
+	if(DimmingVal <= 5)
+	{
+		OLED_Sleep(0);
+		OLED_DisplayContrast(DimmingVaules[DimmingVal]);
+	}
+	else
+	{
+		OLED_Sleep(1);
+	}
 	return;
 }
 
@@ -3769,12 +4015,12 @@ void DisplayTask(void *pvParameters)
 		{
 			if(DisplayStatus == DISPLAY_STATUS_IDLE_BRIGHT)
 			{
-				OLED_DisplayContrast(DimmingVaules[DimDimmingValue]);
+				DisplayDimming(DimDimmingValue);
 				DisplayStatus = DISPLAY_STATUS_IDLE_DIM;
 			}
 			else if(DisplayStatus == DISPLAY_STATUS_MESSAGE)
 			{
-				OLED_DisplayContrast(DimmingVaules[DimDimmingValue]);
+				DisplayDimming(DimDimmingValue);
 				DisplayStatus = DISPLAY_STATUS_IDLE_DIM;
 				DrawIdleScreen();
 				//TODO: This call makes the menu blink when the message is removed. I can probably keep this from happening by only updating the message string text. If I update this, I will need to make sure the string after "mode:" is padded on the end enough to clear out any old text.
@@ -3798,49 +4044,60 @@ void DisplayTask(void *pvParameters)
 					break;
 
 				case OLED_CMD_BUTTON_IN:
-					//A button has been pressed. Figure out which one and call the button handler.
-					if(CommandToExecute.CommandData[0] == 4)
+
+					if((DisplayStatus == DISPLAY_STATUS_IDLE_DIM) && (DimDimmingValue == 6))
 					{
-						ButtonHandler(MENU_BUTTON_CENTER);
+						DisplayDimming(BrightDimmingValue);
+						DisplayStatus = DISPLAY_STATUS_IDLE_BRIGHT;
 					}
 					else
 					{
-						if((OLED_GetStatus() & OLED_STATUS_ORENTATION_MASK) == OLED_STATUS_ORENTATION_DOWN)
+
+						//A button has been pressed. Figure out which one and call the button handler.
+						if(CommandToExecute.CommandData[0] == 4)
 						{
-							if(CommandToExecute.CommandData[0] == 1)
-							{
-								ButtonHandler(MENU_BUTTON_DOWN);
-							}
-							else if(CommandToExecute.CommandData[0] == 2)
-							{
-								ButtonHandler(MENU_BUTTON_UP);
-							}
-							else if(CommandToExecute.CommandData[0] == 3)
-							{
-								ButtonHandler(MENU_BUTTON_RIGHT);
-							}
-							else if(CommandToExecute.CommandData[0] == 5)
-							{
-								ButtonHandler(MENU_BUTTON_LEFT);
-							}
+							//If the display is off, the first button press will wake up the display
+							ButtonHandler(MENU_BUTTON_CENTER);
 						}
 						else
 						{
-							if(CommandToExecute.CommandData[0] == 1)
+							if((OLED_GetStatus() & OLED_STATUS_ORENTATION_MASK) == OLED_STATUS_ORENTATION_DOWN)
 							{
-								ButtonHandler(MENU_BUTTON_UP);
+								if(CommandToExecute.CommandData[0] == 1)
+								{
+									ButtonHandler(MENU_BUTTON_DOWN);
+								}
+								else if(CommandToExecute.CommandData[0] == 2)
+								{
+									ButtonHandler(MENU_BUTTON_UP);
+								}
+								else if(CommandToExecute.CommandData[0] == 3)
+								{
+									ButtonHandler(MENU_BUTTON_RIGHT);
+								}
+								else if(CommandToExecute.CommandData[0] == 5)
+								{
+									ButtonHandler(MENU_BUTTON_LEFT);
+								}
 							}
-							else if(CommandToExecute.CommandData[0] == 2)
+							else
 							{
-								ButtonHandler(MENU_BUTTON_DOWN);
-							}
-							else if(CommandToExecute.CommandData[0] == 3)
-							{
-								ButtonHandler(MENU_BUTTON_LEFT);
-							}
-							else if(CommandToExecute.CommandData[0] == 5)
-							{
-								ButtonHandler(MENU_BUTTON_RIGHT);
+								if(CommandToExecute.CommandData[0] == 1)
+								{
+									ButtonHandler(MENU_BUTTON_UP);
+								}
+								else if(CommandToExecute.CommandData[0] == 2)
+								{
+									ButtonHandler(MENU_BUTTON_DOWN);
+								}
+								else if(CommandToExecute.CommandData[0] == 3)
+								{
+									ButtonHandler(MENU_BUTTON_LEFT);
+								}
+								else if(CommandToExecute.CommandData[0] == 5)
+								{
+									ButtonHandler(MENU_BUTTON_RIGHT);
+								}
 							}
 						}
 					}
@@ -3860,6 +4117,7 @@ void DisplayTask(void *pvParameters)
 					OLED_WriteMFString(MF_ASCII_SIZE_7X8, InvalidString, IDLE_STATUS_COLUMN, IDLE_STATUS_ROW, OLED_FONT_NORMAL);
 					break;
 			}
+
 		}
 	}
 }

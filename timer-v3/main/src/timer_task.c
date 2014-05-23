@@ -28,6 +28,8 @@ struct tm CurrentTime;
 uint8_t OutputStatus;
 uint8_t TimerStatus;
 
+uint8_t OverrideTimeRemaining;
+
 
 char *EventNames[12] = {"None", "Steady", "Repeat", "Timer", "Sunrise", "Sunset", "Sunrise1", "Sunset1", "Sunrise2", "Sunset2", "Sunrise3", "Sunset3" };
 
@@ -36,15 +38,16 @@ char *EventNames[12] = {"None", "Steady", "Repeat", "Timer", "Sunrise", "Sunset"
 
 //A function to start the timer
 //Any initialization code that must happen when the timer start should be put here
-void StartTimer(void);
+//void StartTimer(void);
 
 
 //A function to stop the timer
 //Any code that need to happen when the timer is stoped should be put here.
-void StopTimer(void);
+//void StopTimer(void);
 
 
-
+//A function to pause the timer
+//void PauseTimer(void);
 
 
 
@@ -55,8 +58,19 @@ uint8_t TimerGetOutputState(void)
 
 uint8_t TimerGetTimerState(void)
 {
-	return TimerStatus;
+	if((TimerStatus & TIMER_STATUS_OVERRIDE_MASK) == 0)
+	{
+		return TimerStatus;
+	}
+	else
+	{
+		return TIMER_STATUS_PAUSED;
+	}
 }
+
+//TODO: Standardize the naming of the pause/override function
+
+uint8_t TimerClearOverrideState(void);
 
 //Call this when a repeating event is initialized, or when a repeating event is triggered. This function will update the time of the next repeating event
 void TimerUpdateRepeatingEvent(uint8_t OutputNumber);
@@ -417,6 +431,8 @@ uint8_t InitTimerTask(void)
 
 	TimerStatus = TIMER_STATUS_OFF;
 
+	OverrideTimeRemaining = 0;
+
 	OutputStatus = 0x00;
 	TimerSetOutput(0, 0);
 	TimerSetOutput(1, 0);
@@ -441,6 +457,7 @@ void TimerTask(void *pvParameter)
 	//uint8_t i;
 	//uint8_t j;
 	uint8_t TimerCommand;
+	uint16_t OverrideTime;
 
 	//Wake the task here on minute interrupt
 
@@ -452,11 +469,27 @@ void TimerTask(void *pvParameter)
 		switch(TimerCommand)
 		{
 			case TIMER_TASK_CMD_TICK:
-				TimerUpdateOutputs();
+				if(TimerGetTimerState() ==  TIMER_STATUS_PAUSED)
+				{
+					OverrideTimeRemaining--;
+					if(OverrideTimeRemaining <= 0)
+					{
+						TimerClearOverrideState();
+					}
+				}
+				if(TimerStatus == TIMER_STATUS_ON)
+				{
+					TimerUpdateOutputs();
+				}
+				else if(TimerStatus == TIMER_STATUS_OFF)
+				{
+					StopTimer();
+				}
+
 				break;
 
 			case TIMER_TASK_CMD_START:
-				StartTimer();
+				StartTimer();	//TODO: Do I need these here, or should I just call StartTimer to start the timer?
 				//Board_LED_Set(3, 0);
 				//TimerSetStatus(TIMER_STATUS_ON);
 				//TimerStatus = TIMER_STATUS_ON;
@@ -474,7 +507,8 @@ void TimerTask(void *pvParameter)
 				break;
 
 			case TIMER_TASK_CMD_PAUSE:
-				TimerSetStatus(TIMER_STATUS_PAUSED);
+				PauseTimer();
+				//TimerSetStatus(TIMER_STATUS_PAUSED);
 				//Add something here to set the outputs to their override state.
 				break;
 
@@ -486,6 +520,8 @@ void TimerTask(void *pvParameter)
 	return;
 }
 
+
+//should these be internal to this file?
 void StartTimer(void)
 {
 	if(App_GetStatus() != APP_STATUS_OSC_STOPPED)
@@ -526,6 +562,82 @@ void StopTimer(void)
 
 	return;
 }
+
+void PauseTimer(void)
+{
+	uint8_t PauseState;
+	uint8_t i;
+
+	TimerSetStatus(TIMER_STATUS_PAUSED);
+	OverrideTimeRemaining = TimerGetPauseTime();
+
+	PauseState = TimerGetOverrideOutputs();
+
+	for(i=0;i<4;i++)
+	{
+		if((PauseState & (1<<i)) != 0x00)
+		{
+			TimerSetOutput(i, 1);
+		}
+		else
+		{
+			TimerSetOutput(i, 0);
+		}
+	}
+
+	return;
+}
+
+void TimerSetPauseTime(uint8_t TimeToPause)
+{
+	//Save new value in EEPROM
+	if( EEPROM_Write(EEPROM_ADDRESS_OVERRIDE_TIMEOUT, &TimeToPause, 1 ) !=0)
+	{
+		//Failed to write to EEPROM
+		App_Die(8);
+	}
+}
+
+//Retrieve the pause time from EEPROM
+uint8_t TimerGetPauseTime(void)
+{
+	uint8_t PauseTime;
+
+	//Save new value in EEPROM
+	if( EEPROM_Read(EEPROM_ADDRESS_OVERRIDE_TIMEOUT, &PauseTime, 1 ) !=0)
+	{
+		//Failed to write to EEPROM
+		App_Die(8);
+	}
+
+	return PauseTime;
+}
+
+void TimerSetOverrideOutputs(uint8_t StateToSet)
+{
+	//Save new value in EEPROM
+	if( EEPROM_Write(EEPROM_ADDRESS_OVERRIDE_OUTPUTS, &StateToSet, 1 ) !=0)
+	{
+		//Failed to write to EEPROM
+		App_Die(8);
+	}
+	return;
+}
+
+uint8_t TimerGetOverrideOutputs(void)
+{
+	uint8_t PauseState;
+
+	//Save new value in EEPROM
+	if( EEPROM_Read(EEPROM_ADDRESS_OVERRIDE_OUTPUTS, &PauseState, 1 ) !=0)
+	{
+		//Failed to write to EEPROM
+		App_Die(8);
+	}
+
+	return PauseState;
+}
+
 
 //Reorder the events. The sun based events will
 //void TimerReorderEvents(void);
@@ -760,6 +872,11 @@ void TimerUpdateOutputs(void)
 				}
 				break;
 
+			case TIMER_EVENT_TYPE_NONE:
+				//TODO: Type none and steady off are the same, can I combine these?
+				TimerSetOutput(j, 0);
+				break;
+
 			case TIMER_EVENT_TYPE_TIMED:
 			case TIMER_EVENT_TYPE_SUNRISE:
 			case TIMER_EVENT_TYPE_SUNSET:
@@ -805,13 +922,32 @@ void TimerSetOutput(uint8_t OutputNumber, uint8_t OutputState)
 
 void TimerSetStatus(uint8_t NewTimerStatus)
 {
-	TimerStatus = NewTimerStatus;
+	if(NewTimerStatus == TIMER_STATUS_PAUSED)
+	{
+		TimerStatus = TimerStatus | TIMER_STATUS_OVERRIDE_MASK;
+	}
+	else
+	{
+		TimerStatus = NewTimerStatus;
+	}
 
 	if( EEPROM_Write(EEPROM_ADDRESS_TIMER_STATUS, &TimerStatus, 1 ) !=0)
 	{	//Failed to write to EEPROM
 		App_Die(8);
 	}
 	return;
+}
+
+uint8_t TimerClearOverrideState(void)
+{
+	TimerStatus = TimerStatus & (~TIMER_STATUS_OVERRIDE_MASK);
+
+	if( EEPROM_Write(EEPROM_ADDRESS_TIMER_STATUS, &TimerStatus, 1 ) !=0)
+	{	//Failed to write to EEPROM
+		App_Die(8);
+	}
+
+	return TimerStatus;
 }
 
 void TimerUpdateRepeatingEvent(uint8_t OutputNumber)

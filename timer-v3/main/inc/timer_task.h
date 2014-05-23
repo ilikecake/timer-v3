@@ -14,9 +14,10 @@
 #define TIMER_TASK_CMD_PAUSE	3
 
 //TODO: Put the status variables in EEPROM
-#define TIMER_STATUS_OFF		0x00
-#define TIMER_STATUS_ON			0x01
-#define TIMER_STATUS_PAUSED		0x02	//TODO: Pause the timer task for a certain length of time. We will probably want to set the override status here...
+#define TIMER_STATUS_OFF			0x00
+#define TIMER_STATUS_ON				0x01
+#define TIMER_STATUS_PAUSED			0x02	//TODO: Pause the timer task for a certain length of time. We will probably want to set the override status here...
+#define TIMER_STATUS_OVERRIDE_MASK	0x80
 
 //#define TIMER_EEPROM_START_ADDRESS			0x00		/** The address to store the first timer events in EEPROM. Subsequent events will be placed sequentially after this event. */
 
@@ -109,6 +110,7 @@ typedef struct __attribute__((packed)){
 
 void StartTimer(void);
 void StopTimer(void);
+void PauseTimer(void);
 
 uint8_t TimerGetOutputState(void);
 uint8_t TimerGetTimerState(void);
@@ -137,6 +139,20 @@ void TimerClearRamEvent(uint8_t OutputNumber, uint8_t EventNumber);
 
 uint8_t InitTimerTask(void);
 void TimerTask(void *pvParameter);
+
+/**Sets the pause time
+ * When the user presses the override button, the timer will switch the outputs to their override states.
+ * It will then wait this amount of time and resume normal operation. If the timer was off when override was activated,
+ * the timer will return to the off state. If the timer was in automatic mode when the override was activated,
+ * it will return to timing mode.
+ *
+ * \param[in]	TimeToPause The time to pause in minutes.
+ */
+void TimerSetPauseTime(uint8_t TimeToPause);
+uint8_t TimerGetPauseTime(void);
+void TimerSetOverrideOutputs(uint8_t StateToSet);
+uint8_t TimerGetOverrideOutputs(void);
+
 
 
 void TimerSetOutput(uint8_t OutputNumber, uint8_t OutputState);

@@ -457,7 +457,7 @@ void TimerTask(void *pvParameter)
 	//uint8_t i;
 	//uint8_t j;
 	uint8_t TimerCommand;
-	uint16_t OverrideTime;
+	//uint16_t OverrideTime;
 
 	//Wake the task here on minute interrupt
 

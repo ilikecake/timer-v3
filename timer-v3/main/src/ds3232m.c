@@ -590,6 +590,7 @@ void DS3232M_GetTemp(int8_t *TempLHS, uint8_t *TempRHS)
 //Time string should be 8 characters plus the terminating character
 void DS3232M_GetTimeString(char *TimeString, uint8_t StringOptions)
 {
+	uint8_t i;
 	struct tm CurrentTime;
 
 	DS3232M_GetTime(&CurrentTime);
@@ -597,13 +598,22 @@ void DS3232M_GetTimeString(char *TimeString, uint8_t StringOptions)
 	TimeString[8] = '\0';
 
 	//TODO: Make this part of the StringOptions?
-	if(TimeString[0] == '0') TimeString[0] = ' ';
+	if(TimeString[0] == '0')
+	{
+		//Remove zero at start of the string
+		for(i=0;i<8;i++)
+		{
+			TimeString[i] = TimeString[i+1];
+		}
+		TimeString[7] = '\0';
+	}
 	return;
 }
 
 //Date string should be 10 characters plus the terminating character
 void DS3232M_GetDateString(char *DateString, uint8_t StringOptions)
 {
+	uint8_t i;
 	struct tm CurrentTime;
 
 	DS3232M_GetTime(&CurrentTime);
@@ -611,7 +621,15 @@ void DS3232M_GetDateString(char *DateString, uint8_t StringOptions)
 	DateString[10] = '\0';
 
 	//TODO: Make this part of the StringOptions?
-	if(DateString[0] == '0') DateString[0] = ' ';
+	if(DateString[0] == '0')
+	{
+		//Remove zero at start of the string
+		for(i=0;i<10;i++)
+		{
+			DateString[i] = DateString[i+1];
+		}
+		DateString[9] = '\0';
+	}
 	return;
 }
 

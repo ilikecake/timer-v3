@@ -166,65 +166,59 @@ uint16_t MenuData[8];
 
 const MenuItem MenuItemList[] =
 {
-	//handler,			name,				up, 	down, 	left, 	right, 	Center,	X Start,	Y Start}
-	{_GoToIdle, 		NULL, 				0,		0,		0,		0,		0,		0,			0},			//0
+	//handler,				name,					up, 	down, 	left, 	right, 	Center,	X Start,	Y Start}
+	{_GoToIdle, 			NULL, 					0,		0,		0,		0,		0,		0,			0},			//0
 	//Top level menu entries
-	{ NULL,				_M0_Name,			4,		2,		0,		5, 		5,		16,			39},		//1		-Set time menu
-	{ NULL,				_M1_Name,			1,		3,		0,		11, 	11,		16,			28},		//2		-Set outputs menu
-	{ NULL,				_M2_Name,			2,		4,		0,		21, 	21,		16,			17},		//3		-Setup menu
-	{ NULL,				_M3_Name,			3,		1,		0,		31, 	31,		120,		39},		//4		-Overrides menu
+	{ NULL,					_M0_Name,				4,		2,		0,		5, 		5,		16,			39},		//1		-Set time menu
+	{ NULL,					_M1_Name,				1,		3,		0,		11, 	11,		16,			28},		//2		-Set outputs menu
+	{ NULL,					_M2_Name,				2,		4,		0,		21, 	21,		16,			17},		//3		-Setup menu
+	{ NULL,					_M3_Name,				3,		1,		0,		31, 	31,		120,		39},		//4		-Overrides menu
 
 	//Set time menu
-	{ TimeMenuDisplay,	_TM1_Name,			7,		6,		1,		8, 		8,		16,			39},		//5
-	{ TimeMenuDisplay,	_TM2_Name,			5,		7,		1,		9, 		9,		16,			28},		//6
-	{ TimeMenuDisplay,	_TM3_Name,			6,		5,		1,		10, 	10,		16,			17},		//7
+	{ TimeMenuDisplay,		_TM1_Name,				7,		6,		1,		8, 		8,		16,			39},		//5
+	{ TimeMenuDisplay,		_TM2_Name,				5,		7,		1,		9, 		9,		16,			28},		//6
+	{ TimeMenuDisplay,		_TM3_Name,				6,		5,		1,		10, 	10,		16,			17},		//7
 
 	//
-	{SwitchToSetTime,	NULL,				8,		8,		8,		8,		8,		16,			39},		//8		- Set time
-	{SetDSTHandler,		NULL,				9,		9,		6,		9,		9,		16,			28},		//9		- Set DST
-	{SetUTHandler,		NULL,				10,		10,		7,		10,		10,		16,			17},		//10	- Set Time Zone
+	{SwitchToSetTime,		NULL,					8,		8,		8,		8,		8,		16,			39},		//8		- Set time
+	{SetDSTHandler,			NULL,					9,		9,		6,		9,		9,		16,			28},		//9		- Set DST
+	{SetUTHandler,			NULL,					10,		10,		7,		10,		10,		16,			17},		//10	- Set Time Zone
 
 	/** Output Menu */
-	{ EEPROMHandler,	_OM1_Name,			13,		12,		2,		14, 	14,		16,			39},		//11	-Setup Outputs
-	{ EEPROMHandler,	_OM2_Name,			11,		13,		2,		12, 	12,		16,			28},		//12	-Load from EEPROM
-	{ EEPROMHandler,	_OM3_Name,			12,		11,		2,		13, 	13,		16,			17},		//13	-Save to EEPROM
+	{ EEPROMHandler,		_OM1_Name,				13,		12,		2,		14, 	14,		16,			39},		//11	-Setup Outputs
+	{ EEPROMHandler,		_OM2_Name,				11,		13,		2,		12, 	12,		16,			28},		//12	-Load from EEPROM
+	{ EEPROMHandler,		_OM3_Name,				12,		11,		2,		13, 	13,		16,			17},		//13	-Save to EEPROM
 
 	//Set Output Menu
-	{SetOutputHandler,	_OSM1_Name,			19,		15,		11,		20,		20,		16,			39},		//14
-	{SetOutputHandler,	_OSM2_Name,			14,		16,		11,		20,		20,		16,			28},		//15
-	{SetOutputHandler,	_OSM3_Name,			15,		17,		11,		20,		20,		16,			17},		//16
-	{SetOutputHandler,	_OSM4_Name,			16,		18,		11,		20,		20,		120,		39},		//17
-	{SetOutputHandler,	_OSM5_Name,			17,		19,		11,		20,		20,		120,		28},		//18
-	{SetOutputHandler,	_OSM6_Name,			18,		14,		11,		20,		20,		120,		17},		//19
+	{SetOutputHandler,		_OSM1_Name,				19,		15,		11,		20,		20,		16,			39},		//14
+	{SetOutputHandler,		_OSM2_Name,				14,		16,		11,		20,		20,		16,			28},		//15
+	{SetOutputHandler,		_OSM3_Name,				15,		17,		11,		20,		20,		16,			17},		//16
+	{SetOutputHandler,		_OSM4_Name,				16,		18,		11,		20,		20,		120,		39},		//17
+	{SetOutputHandler,		_OSM5_Name,				17,		19,		11,		20,		20,		120,		28},		//18
+	{SetOutputHandler,		_OSM6_Name,				18,		14,		11,		20,		20,		120,		17},		//19
 
-	{UpdateOutputHandler, NULL,				20,		20,		20,		20,		20,		0,			0},			//20
+	{UpdateOutputHandler,	 NULL,					20,		20,		20,		20,		20,		0,			0},			//20
 
 	/** Setup menu */
-	{SetRotationHandler,_SETUP1_Name,		24,		22,		3,		21,		21,		16,			39},		//21	-Flip display
-	{NULL,				_SETUP2_Name,		21,		23,		3,		25,		25,		16,			28},		//22	-Timeouts
-	{NULL,				_SETUP3_Name,		22,		24,		3,		27,		27,		16,			17},		//23	-Dimming
-	{NULL,				_SETUP4_Name,		23,		21,		3,		29,		29,		120,		39},		//24	-Location (Lat and Long)
+	{SetRotationHandler,	_SETUP1_Name,			24,		22,		3,		21,		21,		16,			39},		//21	-Flip display
+	{NULL,					_SETUP2_Name,			21,		23,		3,		25,		25,		16,			28},		//22	-Timeouts
+	{NULL,					_SETUP3_Name,			22,		24,		3,		27,		27,		16,			17},		//23	-Dimming
+	{NULL,					_SETUP4_Name,			23,		21,		3,		29,		29,		120,		39},		//24	-Location (Lat and Long)
 
 	/** Setup timeouts menu */
-	{SetTimeoutHandler,	_TIMING1_Name,		26,		26,		22,		25,		25,		16,			39},		//25	-Menu to idle
-	{SetTimeoutHandler,	_TIMING2_Name,		25,		26,		22,		26,		26,		16,			28},		//26	-Idle to dim
-	//{SetTimeoutHandler,	_TIMING3_Name,		26,		25,		22,		27,		27,		16,			17},		//27	-Override
+	{SetTimeoutHandler,		_TIMING1_Name,			26,		26,		22,		25,		25,		16,			39},		//25	-Menu to idle
+	{SetTimeoutHandler,		_TIMING2_Name,			25,		26,		22,		26,		26,		16,			28},		//26	-Idle to dim
 
 	/**Setup dimming menu */
-	{SetDimmingHandler,	_DIMMING1_Name,		28,		28,		23,		27,		27,		16,			39},		//27	-Bright level
-	{SetDimmingHandler,	_DIMMING2_Name,		27,		27,		23,		28,		28,		16,			28},		//28	-Dim level
+	{SetDimmingHandler,		_DIMMING1_Name,			28,		28,		23,		27,		27,		16,			39},		//27	-Bright level
+	{SetDimmingHandler,		_DIMMING2_Name,			27,		27,		23,		28,		28,		16,			28},		//28	-Dim level
 
 	/**Set Lat and Long menu */
-	{SetLocationHandler,	_LOCATION1_Name,	30,		30,		24,		29,		29,		16,			39},		//29	-Latitude
-	{SetLocationHandler,	_LOCATION2_Name,	29,		29,		24,		30,		30,		16,			28},		//30	-Longitude
+	{SetLocationHandler,	_LOCATION1_Name,		30,		30,		24,		29,		29,		16,			39},		//29	-Latitude
+	{SetLocationHandler,	_LOCATION2_Name,		29,		29,		24,		30,		30,		16,			28},		//30	-Longitude
 
-	{SetOverridesHandler,	_OVERRIDE1_Name,				32,		32,		4,		31,		31,		16,			39},		//31	-Outputs
-	{SetOverridesHandler,	_OVERRIDE2_Name,				31,		31,		4,		32,		32,		16,			28},		//32	-Timeout
-
-
-
-
-
+	{SetOverridesHandler,	_OVERRIDE1_Name,		32,		32,		4,		31,		31,		16,			39},		//31	-Outputs
+	{SetOverridesHandler,	_OVERRIDE2_Name,		31,		31,		4,		32,		32,		16,			28},		//32	-Timeout
 
 };
 //TODO: Move the name and handler to the end of this struct to make it easier to layout
@@ -462,12 +456,15 @@ static void SetDimmingHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, ui
 
 	if(MenuData[2] == 6)
 	{
-		memcpy ( ScratchString, "Off\0", 4);
+		memcpy(ScratchString, "Off\0", 4);
 		//sprintf(ScratchString, "Off");
 	}
 	else
 	{
-		sprintf(ScratchString, "%u  ", MenuData[2]+1);
+		OLED_ClearWindow(32, 38, StringOptions.YStart, StringOptions.YStart+10);
+		ScratchString[0] = (char)(MenuData[2]+49);
+		ScratchString[1] = '\0';
+		//sprintf(ScratchString, "%u", MenuData[2]+1);
 	}
 
 	if(MenuData[0] == 2)
@@ -3586,7 +3583,6 @@ void DrawMenuScreen(void)
 	return;
 }
 
-
 void DrawStatusScreen(void)
 {
 	//char StringToOutput[11];
@@ -3816,42 +3812,6 @@ void UpdateOutputs(void)
 	return;
 }
 
-/*uint8_t GetTimeout(uint8_t TimeoutToGet)
-{
-	//TODO: Make TimeoutToGet defines match the addresses so I don't need the switch statement.
-	uint8_t AddressToRead;
-
-	switch(TimeoutToGet)
-	{
-		case TIMEOUT_TYPE_IDLE_TO_DIM:
-			AddressToRead = EEPROM_ADDRESS_IDLE_TO_DIM_TIMEOUT;
-			break;
-
-		case TIMEOUT_TYPE_MENU_TO_IDLE:
-			AddressToRead = EEPROM_ADDRESS_MENU_TO_IDLE_TIMEOUT;
-			break;
-
-		case TIMEOUT_TYPE_OVERRIDE:
-			AddressToRead = EEPROM_ADDRESS_OVERRIDE_TIMEOUT;
-			break;
-
-		default:
-			return;
-	}
-
-	if( EEPROM_Read(EEPROM_ADDRESS_DISPLAY_STATUS, &StatusReg, 1 ) != 0)
-		{
-			App_Die(8);
-		}
-
-
-
-
-
-
-
-}*/
-
 void SetTimeout(uint8_t TimeoutToSet, uint8_t TimeoutVal)
 {
 	uint8_t TimeoutAddress;
@@ -3887,7 +3847,6 @@ void SetTimeout(uint8_t TimeoutToSet, uint8_t TimeoutVal)
 	return;
 }
 
-//TODO: Make a dimming value that corresponds to the screen being off. DO not let the user set the menu dimming to this value
 void SetDimming(uint8_t DimmingType, uint8_t DimmingVal)
 {
 	uint8_t DimmingAddress;
@@ -3918,7 +3877,6 @@ void SetDimming(uint8_t DimmingType, uint8_t DimmingVal)
 	return;
 }
 
-
 void DisplayDimming(uint8_t DimmingVal)
 {
 	if(DimmingVal <= 5)
@@ -3932,7 +3890,6 @@ void DisplayDimming(uint8_t DimmingVal)
 	}
 	return;
 }
-
 
 /* OLED display thread */
 void DisplayTask(void *pvParameters)

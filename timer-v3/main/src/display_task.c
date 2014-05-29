@@ -16,16 +16,11 @@
 #define MENU_BUTTON_NONE	6		//TODO: Give this a better name later
 
 
-//Defines for the OLED display task
-//TODO: Make these EEPROM variables
+/** These are the default delay times. If the value read from EEPROM is invalid, these values are used instead. */
 #define MENU_TO_IDLE_TIME			30
 #define IDLE_TO_DIM_TIME			3
-#define OVERRIDE_TIME				30
 
-//#define BRIGHT_DIMMING_VAL			0x7F
-//#define DIM_DIMMING_VAL				0x00
-
-//TODOL Change these to pixels instead of columns
+//TODO: Change these to pixels instead of columns
 #define IDLE_TIME_ROW				37
 #define IDLE_TIME_COLUMN			4
 #define IDLE_DATE_ROW				37
@@ -42,49 +37,60 @@
 #define DISPLAY_STATUS_MESSAGE		0x06
 #define DISPLAY_STATUS_IN_SUB_MENU	0x07
 
+//TODO: collect global variables and function headers
+//TODO: Make the X start and Y start into compiler defines?
 
 //Global string for temporary use
 char ScratchString[15];
-//TimeAndDate CurrentTime;
 struct tm CurrentTime;
 
-//Note: These variables are 8-bit values that represent the timeout vaules in seconds. THey must be multiplied by 1000 for use in the timer functions
+//Note: These variables are 8-bit values that represent the timeout values in seconds. THey must be multiplied by 1000 for use in the timer functions
 uint8_t MenuToIdleTime;
 uint8_t IdleToDimTime;
-uint8_t OverrideTime;
+//uint8_t OverrideTime;
 
 uint8_t DimmingVaules[6] = {0x00, 0x10, 0x20, 0x40, 0x80, 0xF0};
-uint8_t BrightDimmingValue;// = 4;
-uint8_t DimDimmingValue;// = 0;
+uint8_t BrightDimmingValue;
+uint8_t DimDimmingValue;
 
-//Private functions
+/** The menu item that called the handler */
+uint8_t CurrentMenuItem;
+
+/** The menu item before the current menu item */
+uint8_t PreviousMenuItem;
+
+/** The status of the display */
+uint8_t DisplayStatus;
+
+/** Global data that is available for the menu handlers */
+uint16_t MenuData[8];
+
+
+/** Private Functions */
 void DrawIdleScreen(void);
 void UpdateTimeAndDate(void);
 void UpdateOutputs(void);
 void DrawMenuScreen(void);
 void DrawStatusScreen(void);
 
-uint8_t CurrentMenuItem;
-uint8_t PreviousMenuItem;
 
-/** The ButtonHandler function is called when a button is pressed
- *   The default button handler function is the TopLevelMenu function.
- *   Other button handler functions can be registered to do specific tasks
- */
-void (*ButtonHandler) (uint8_t);
+static void HandleMenuNavigation(uint8_t ButtonPressed);
 
-static void TopLevelMenu(uint8_t ButtonPressed);
-static void SetTimeHandler(uint8_t ButtonPressed);
+static void SetTimeHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
 
 static void WriteSetTimeData(uint16_t ElementToHighlight);
 
 static void SetRotationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
+
 static void SetTimeoutHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
+
 static void SetDimmingHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
+
 static void SetLocationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
+
 static void SetOverridesHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
 
-static void SwitchToSetTime(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
+//static void SwitchToSetTime(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
 static void TimeMenuDisplay(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
 static void SetDSTHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
 static void SetUTHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
@@ -100,16 +106,10 @@ static void EEPROMHandler(uint8_t theButtonPressed, uint8_t theCurrentMenuItem, 
 
 void DisplayShowMessage(char *MessageToDisplay);
 
-//static void SetTimeMenu(uint8_t ButtonPressed);
+static void UpdateMenuDisplay (uint8_t Caller, uint8_t Previous);
 
-uint8_t DisplayStatus;
-
-//static void _SetTimeMenu (uint8_t Caller, uint8_t Previous);
-//static void _ConfirmSetTime (uint8_t Caller, uint8_t Previous);
-
-static void _MenuItem_TL (uint8_t Caller, uint8_t Previous);
-//static void _TimeMenu_1 (uint8_t Caller, uint8_t Previous);
-static void _GoToIdle (uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
+//Exits out of any menu or display and returns to the idle display
+static void GoToIdle (uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem);
 
 //TODO: do i need to define these seperately, or can I define them in the 'MenuItemList' struct directly
 const char _M0_Name[] 			= "Time";
@@ -160,14 +160,12 @@ const char _OVERRIDE2_Name[]			= "Timeout:";
 const char _OVERRIDE_Breadcrumb[]		= "> Overrides";
 
 
-//TODO: the menu breadcrumb and the sublevel breadcrumbs are not aligned. (fixed I think)
-//TODO: Make the X start and Y start into compiler defines
-uint16_t MenuData[8];
+
 
 const MenuItem MenuItemList[] =
 {
 	//handler,				name,					up, 	down, 	left, 	right, 	Center,	X Start,	Y Start}
-	{_GoToIdle, 			NULL, 					0,		0,		0,		0,		0,		0,			0},			//0
+	{GoToIdle, 			NULL, 						0,		0,		0,		0,		0,		0,			0},			//0
 	//Top level menu entries
 	{ NULL,					_M0_Name,				4,		2,		0,		5, 		5,		16,			39},		//1		-Set time menu
 	{ NULL,					_M1_Name,				1,		3,		0,		11, 	11,		16,			28},		//2		-Set outputs menu
@@ -180,7 +178,7 @@ const MenuItem MenuItemList[] =
 	{ TimeMenuDisplay,		_TM3_Name,				6,		5,		1,		10, 	10,		16,			17},		//7
 
 	//
-	{SwitchToSetTime,		NULL,					8,		8,		8,		8,		8,		16,			39},		//8		- Set time
+	{SetTimeHandler,		NULL,					8,		8,		8,		8,		8,		16,			39},		//8		- Set time
 	{SetDSTHandler,			NULL,					9,		9,		6,		9,		9,		16,			28},		//9		- Set DST
 	{SetUTHandler,			NULL,					10,		10,		7,		10,		10,		16,			17},		//10	- Set Time Zone
 
@@ -223,9 +221,265 @@ const MenuItem MenuItemList[] =
 };
 //TODO: Move the name and handler to the end of this struct to make it easier to layout
 
+/**The main menu handler. Call this function when a button is pressed to navigate through the menu.*/
+static void HandleMenuNavigation(uint8_t ButtonPressed)
+{
+	uint8_t Stuff;
+
+	if((DisplayStatus == DISPLAY_STATUS_IDLE_BRIGHT) || (DisplayStatus == DISPLAY_STATUS_IDLE_DIM) || (DisplayStatus == DISPLAY_STATUS_MESSAGE))
+	{
+		//Brighten the display when a button is pressed
+		if(DisplayStatus == DISPLAY_STATUS_IDLE_DIM)
+		{
+			DisplayDimming(BrightDimmingValue);
+			DisplayStatus = DISPLAY_STATUS_IDLE_BRIGHT;
+		}
 
 
-uint8_t MenuLevel;		//1=toplevel, 2=timemenu, ...
+		if(ButtonPressed == MENU_BUTTON_CENTER)
+		{
+			//Go to menu
+			CurrentMenuItem = 1;
+			PreviousMenuItem = 2;
+			DisplayStatus = DISPLAY_STATUS_MENU;
+			DisplayDimming(BrightDimmingValue);
+			DrawMenuScreen();
+			//MenuLevel = 1;
+		}
+		else
+		{
+			switch(ButtonPressed)
+			{
+
+				case MENU_BUTTON_DOWN:
+					Stuff = TIMER_TASK_CMD_STOP;
+					xQueueSend(xTimerCommands, &Stuff, 50);
+					UpdateOutputs();
+					break;
+
+				case MENU_BUTTON_UP:
+					if(App_GetStatus() == APP_STATUS_OSC_STOPPED)
+					{
+						DisplayShowMessage("Invalid time and date");
+					}
+					else
+					{
+						Stuff = TIMER_TASK_CMD_START;
+						xQueueSend(xTimerCommands, &Stuff, 50);
+						UpdateOutputs();
+					}
+					break;
+
+				case MENU_BUTTON_LEFT:
+					//if(TimerGetTimerState() == TIMER_STATUS_PAUSED)
+					//{
+
+					//}
+					DisplayStatus = DISPLAY_STATUS_STATUS;
+					DisplayDimming(BrightDimmingValue);
+					DrawStatusScreen();
+					break;
+
+				case MENU_BUTTON_RIGHT:
+					Stuff = TIMER_TASK_CMD_PAUSE;
+					xQueueSend(xTimerCommands, &Stuff, 50);
+					UpdateOutputs();
+					//DisplayShowMessage("Invalid time and date");
+					//PauseTimer();
+					break;
+
+
+
+			}
+
+			return;
+		}
+	}
+	else if(DisplayStatus == DISPLAY_STATUS_STATUS)
+	{
+		if(ButtonPressed == MENU_BUTTON_RIGHT)
+		{
+			GoToIdle(0,0,0);
+		}
+		return;
+	}
+	else if(DisplayStatus == DISPLAY_STATUS_IN_SUB_MENU)
+	{
+		//Nothing?
+	}
+	else
+	{
+		PreviousMenuItem = CurrentMenuItem;
+		switch(ButtonPressed)
+		{
+			case MENU_BUTTON_UP:
+				CurrentMenuItem = MenuItemList[CurrentMenuItem].UpItem;
+				break;
+
+			case MENU_BUTTON_DOWN:
+				CurrentMenuItem = MenuItemList[CurrentMenuItem].DownItem;
+				break;
+
+			case MENU_BUTTON_LEFT:
+				CurrentMenuItem = MenuItemList[CurrentMenuItem].LeftItem;
+				break;
+
+			case MENU_BUTTON_RIGHT:
+				CurrentMenuItem = MenuItemList[CurrentMenuItem].RightItem;
+				break;
+
+			case MENU_BUTTON_CENTER:
+				CurrentMenuItem = MenuItemList[CurrentMenuItem].CenterItem;
+				break;
+		}
+	}
+
+	UpdateMenuDisplay (CurrentMenuItem, PreviousMenuItem);
+
+	if(MenuItemList[CurrentMenuItem].handler != NULL)
+	{
+		(*(MenuItemList[CurrentMenuItem].handler))(ButtonPressed, CurrentMenuItem, PreviousMenuItem);
+	}
+
+	return;
+}
+
+/**Update the menu display based on the current and previous menu entries. This function is called by the
+ * HandleMenuNavigation function and any other function that needs to update or refresh the menu screen.
+ */
+void UpdateMenuDisplay (uint8_t Caller, uint8_t Previous)
+{
+	uint8_t i;
+	MF_StringOptions StringOptions;		//TODO: Make this global?
+
+	const char* MenuBreadcrumb;
+
+	StringOptions.CharSize = MF_ASCII_SIZE_7X8;
+	StringOptions.StartPadding = 2;
+	StringOptions.EndPadding = 1;
+	StringOptions.TopPadding = 2;
+	StringOptions.BottomPadding = 1;
+	StringOptions.CharacterSpacing = 0;
+	StringOptions.Brightness = 0x0F;
+	StringOptions.FontOptions = OLED_FONT_NORMAL;
+
+	//Figure out some way of making this global?
+	//TODO: Figure out a better way to do this...
+	uint8_t MenuMin;
+	uint8_t MenuMax;
+	if(Caller > 0 && Caller <= 4 )
+	{
+		MenuMin = 1;
+		MenuMax = 4;
+		MenuBreadcrumb = _TL_Breadcrumb;
+	}
+	else if(Caller > 4 && Caller <= 7 )
+	{
+		MenuMin = 5;
+		MenuMax = 7;
+		MenuBreadcrumb = _TM_Breadcrumb;
+	}
+	else if(Caller > 10 && Caller <= 13 )
+	{
+		MenuMin = 11;
+		MenuMax = 13;
+		MenuBreadcrumb = _OM_Breadcrumb;
+	}
+	else if(Caller > 13 && Caller <= 19 )
+	{
+		MenuMin = 14;
+		MenuMax = 19;
+		MenuBreadcrumb = _OSM_Breadcrumb;
+	}
+	else if(Caller > 20 && Caller <= 24 )
+	{
+		MenuMin = 21;
+		MenuMax = 24;
+		MenuBreadcrumb = _SETUP_Breadcrumb;
+	}
+	else if(Caller >= 25 && Caller <= 26 )
+	{
+		MenuMin = 25;
+		MenuMax = 26;
+		MenuBreadcrumb = _TIMING_Breadcrumb;
+	}
+	else if(Caller >= 27 && Caller <= 28 )
+	{
+		MenuMin = 27;
+		MenuMax = 28;
+		MenuBreadcrumb = _DIMMING_Breadcrumb;
+	}
+	else if(Caller >= 29 && Caller <= 30 )
+	{
+		MenuMin = 29;
+		MenuMax = 30;
+		MenuBreadcrumb = _LOCATION_Breadcrumb;
+	}
+
+	else if(Caller >= 31 && Caller <= 32 )
+	{
+		MenuMin = 31;
+		MenuMax = 32;
+		MenuBreadcrumb = _OVERRIDE_Breadcrumb;
+	}
+	else
+	{
+		return;
+	}
+
+	//TODO: make these compiler defines
+
+	//If the menu entry redirects to itself, we don't need to do anything
+	if(Caller == Previous) return;
+
+	if( (Previous < MenuMin) ||  (Previous > MenuMax) )
+	{
+		DrawMenuScreen();
+
+		/*StringOptions.CharSize = MF_ASCII_SIZE_7X8;
+		StringOptions.StartPadding = 2;
+		StringOptions.EndPadding = 1;
+		StringOptions.TopPadding = 2;
+		StringOptions.BottomPadding = 1;
+		StringOptions.CharacterSpacing = 0;
+		StringOptions.Brightness = 0x0F;
+		StringOptions.FontOptions = OLED_FONT_NORMAL;*/
+		StringOptions.XStart = 44;
+		StringOptions.YStart = 55;
+		OLED_WriteMFString(MenuBreadcrumb, &StringOptions);
+	}
+
+	//StringOptions.XStart = Horiz*4;
+	//StringOptions.YStart = Vert;
+
+	for(i=MenuMin;i<=MenuMax;i++)
+	{
+		StringOptions.XStart = MenuItemList[i].X_Start;
+		StringOptions.YStart = MenuItemList[i].Y_Start;
+
+		//TODO: Check the X limits, can i use strlen here?
+
+		OLED_ClearWindow((StringOptions.XStart/4)-1, ((StringOptions.XStart/4) + strlen(MenuItemList[i].name)*2), StringOptions.YStart-2, StringOptions.YStart+9);
+
+		if(i == Caller)
+		{
+			StringOptions.FontOptions = OLED_FONT_INVERSE;
+		}
+		else
+		{
+			StringOptions.FontOptions = OLED_FONT_NORMAL;
+		}
+
+
+
+		OLED_WriteMFString(MenuItemList[i].name, &StringOptions);
+
+		//StringOptions.YStart-=11;
+	}
+	return;
+}
+
+
 
 static void SetRotationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem)
 {
@@ -233,7 +487,7 @@ static void SetRotationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, u
 	{
 		OLED_ClearDisplay();
 		OLED_FlipRotation();
-		_MenuItem_TL (CurrentMenuItem, 0);
+		UpdateMenuDisplay (CurrentMenuItem, 0);
 	}
 }
 
@@ -255,7 +509,7 @@ static void SetTimeoutHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, ui
 		MenuData[0] 							= 0;				//The level of the handler
 		MenuData[TIMEOUT_TYPE_MENU_TO_IDLE]		= MenuToIdleTime;
 		MenuData[TIMEOUT_TYPE_IDLE_TO_DIM]		= IdleToDimTime;
-		MenuData[TIMEOUT_TYPE_OVERRIDE]			= OverrideTime;
+		//MenuData[TIMEOUT_TYPE_OVERRIDE]			= OverrideTime;
 	}
 
 	if(CurrentMenuItem == PreviousMenuItem)
@@ -310,7 +564,7 @@ static void SetTimeoutHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, ui
 		StringOptions.FontOptions = OLED_FONT_NORMAL;
 	}
 	OLED_ClearWindow(StringOptions.XStart/4, (StringOptions.XStart/4) + 16, StringOptions.YStart-StringOptions.BottomPadding, StringOptions.YStart+8+StringOptions.TopPadding);
-	OLED_WriteMFString2(ScratchString, &StringOptions);
+	OLED_WriteMFString(ScratchString, &StringOptions);
 
 	//Idle to dim display
 	StringOptions.YStart = 28;
@@ -324,7 +578,7 @@ static void SetTimeoutHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, ui
 		StringOptions.FontOptions = OLED_FONT_NORMAL;
 	}
 	OLED_ClearWindow(StringOptions.XStart/4, (StringOptions.XStart/4) + 16, StringOptions.YStart-StringOptions.BottomPadding, StringOptions.YStart+8+StringOptions.TopPadding);
-	OLED_WriteMFString2(ScratchString, &StringOptions);
+	OLED_WriteMFString(ScratchString, &StringOptions);
 
 	//Override timeout display
 	/*StringOptions.YStart = 17;
@@ -449,7 +703,7 @@ static void SetDimmingHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, ui
 	{
 		StringOptions.FontOptions = OLED_FONT_NORMAL;
 	}
-	OLED_WriteMFString2(ScratchString, &StringOptions);
+	OLED_WriteMFString(ScratchString, &StringOptions);
 
 	//dim
 	StringOptions.YStart = 28;
@@ -475,7 +729,7 @@ static void SetDimmingHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, ui
 	{
 		StringOptions.FontOptions = OLED_FONT_NORMAL;
 	}
-	OLED_WriteMFString2(ScratchString, &StringOptions);
+	OLED_WriteMFString(ScratchString, &StringOptions);
 
 
 
@@ -1054,7 +1308,7 @@ static void SetLocationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, u
 	//StringOptions.EndPadding = 3;
 	sprintf(ScratchString, "%+03d.%04d N", (int16_t)MenuData[2], MenuData[3]);
 	StringOptions.FontOptions = OLED_FONT_NORMAL;
-	OLED_WriteMFString2(ScratchString, &StringOptions);
+	OLED_WriteMFString(ScratchString, &StringOptions);
 
 	if((CurrentMenuItem == 29) && (MenuData[0] != 0))
 	{
@@ -1071,7 +1325,7 @@ static void SetLocationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, u
 		LineOptions.XEnd = LineOptions.XStart+8;
 		LineOptions.YStart = 39;
 		LineOptions.YEnd = 39;
-		OLED_WriteLine2(&LineOptions);
+		OLED_WriteLine(&LineOptions);
 	}
 
 	//Longitude
@@ -1082,7 +1336,7 @@ static void SetLocationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, u
 	StringOptions.EndPadding = 1;
 	sprintf(ScratchString, "%+04d.%04d E", (int16_t)MenuData[4], MenuData[5]);
 	StringOptions.FontOptions = OLED_FONT_NORMAL;
-	OLED_WriteMFString2(ScratchString, &StringOptions);
+	OLED_WriteMFString(ScratchString, &StringOptions);
 
 	if((CurrentMenuItem == 30) && (MenuData[0] != 0))
 	{
@@ -1098,7 +1352,7 @@ static void SetLocationHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, u
 		LineOptions.XEnd = LineOptions.XStart+8;
 		LineOptions.YStart = 28;
 		LineOptions.YEnd = 28;
-		OLED_WriteLine2(&LineOptions);
+		OLED_WriteLine(&LineOptions);
 	}
 
 
@@ -1247,7 +1501,7 @@ static void SetOverridesHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, 
 		{
 			StringOptions.FontOptions = OLED_FONT_NORMAL;
 		}
-		OLED_WriteMFString2(ScratchString, &StringOptions);
+		OLED_WriteMFString(ScratchString, &StringOptions);
 
 		StringOptions.XStart = StringOptions.XStart +16;
 	}
@@ -1265,132 +1519,12 @@ static void SetOverridesHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, 
 		StringOptions.FontOptions = OLED_FONT_NORMAL;
 	}
 	OLED_ClearWindow(StringOptions.XStart/4, (StringOptions.XStart/4) + 16, StringOptions.YStart-StringOptions.BottomPadding, StringOptions.YStart+8+StringOptions.TopPadding);
-	OLED_WriteMFString2(ScratchString, &StringOptions);
+	OLED_WriteMFString(ScratchString, &StringOptions);
 
 	return;
 }
 
-static void TopLevelMenu(uint8_t ButtonPressed)
-{
-	uint8_t Stuff;
 
-	if((DisplayStatus == DISPLAY_STATUS_IDLE_BRIGHT) || (DisplayStatus == DISPLAY_STATUS_IDLE_DIM) || (DisplayStatus == DISPLAY_STATUS_MESSAGE))
-	{
-		//Brighten the display when a button is pressed
-		if(DisplayStatus == DISPLAY_STATUS_IDLE_DIM)
-		{
-			DisplayDimming(BrightDimmingValue);
-			DisplayStatus = DISPLAY_STATUS_IDLE_BRIGHT;
-		}
-
-
-		if(ButtonPressed == MENU_BUTTON_CENTER)
-		{
-			//Go to menu
-			CurrentMenuItem = 1;
-			PreviousMenuItem = 2;
-			DisplayStatus = DISPLAY_STATUS_MENU;
-			DisplayDimming(BrightDimmingValue);
-			DrawMenuScreen();
-			MenuLevel = 1;
-		}
-		else
-		{
-			switch(ButtonPressed)
-			{
-
-				case MENU_BUTTON_DOWN:
-					Stuff = TIMER_TASK_CMD_STOP;
-					xQueueSend(xTimerCommands, &Stuff, 50);
-					UpdateOutputs();
-					break;
-
-				case MENU_BUTTON_UP:
-					if(App_GetStatus() == APP_STATUS_OSC_STOPPED)
-					{
-						DisplayShowMessage("Invalid time and date");
-					}
-					else
-					{
-						Stuff = TIMER_TASK_CMD_START;
-						xQueueSend(xTimerCommands, &Stuff, 50);
-						UpdateOutputs();
-					}
-					break;
-
-				case MENU_BUTTON_LEFT:
-					//if(TimerGetTimerState() == TIMER_STATUS_PAUSED)
-					//{
-
-					//}
-					DisplayStatus = DISPLAY_STATUS_STATUS;
-					DisplayDimming(BrightDimmingValue);
-					DrawStatusScreen();
-					break;
-
-				case MENU_BUTTON_RIGHT:
-					Stuff = TIMER_TASK_CMD_PAUSE;
-					xQueueSend(xTimerCommands, &Stuff, 50);
-					UpdateOutputs();
-					//DisplayShowMessage("Invalid time and date");
-					//PauseTimer();
-					break;
-
-
-
-			}
-
-			return;
-		}
-	}
-	else if(DisplayStatus == DISPLAY_STATUS_STATUS)
-	{
-		if(ButtonPressed == MENU_BUTTON_RIGHT)
-		{
-			_GoToIdle(0,0,0);
-		}
-		return;
-	}
-	else if(DisplayStatus == DISPLAY_STATUS_IN_SUB_MENU)
-	{
-		//Nothing?
-	}
-	else
-	{
-		PreviousMenuItem = CurrentMenuItem;
-		switch(ButtonPressed)
-		{
-			case MENU_BUTTON_UP:
-				CurrentMenuItem = MenuItemList[CurrentMenuItem].UpItem;
-				break;
-
-			case MENU_BUTTON_DOWN:
-				CurrentMenuItem = MenuItemList[CurrentMenuItem].DownItem;
-				break;
-
-			case MENU_BUTTON_LEFT:
-				CurrentMenuItem = MenuItemList[CurrentMenuItem].LeftItem;
-				break;
-
-			case MENU_BUTTON_RIGHT:
-				CurrentMenuItem = MenuItemList[CurrentMenuItem].RightItem;
-				break;
-
-			case MENU_BUTTON_CENTER:
-				CurrentMenuItem = MenuItemList[CurrentMenuItem].CenterItem;
-				break;
-		}
-	}
-
-	_MenuItem_TL (CurrentMenuItem, PreviousMenuItem);
-
-	if(MenuItemList[CurrentMenuItem].handler != NULL)
-	{
-		(*(MenuItemList[CurrentMenuItem].handler))(ButtonPressed, CurrentMenuItem, PreviousMenuItem);
-	}
-
-	return;
-}
 
 static void TimeMenuDisplay(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem)
 {
@@ -1408,45 +1542,46 @@ static void TimeMenuDisplay(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint
 	StringOptions.Brightness = 0x0F;
 	StringOptions.FontOptions = OLED_FONT_NORMAL;
 
-	StringOptions.XStart = Horiz*4;
+	//StringOptions.XStart = Horiz*4;
 	StringOptions.YStart = Vert;
 
 
 	StringOptions.XStart = (16+Horiz+2)*4;
 	DS3232M_GetTimeString(StringToOutput, 1);
-	OLED_WriteMFString2(StringToOutput, &StringOptions);
+	OLED_WriteMFString(StringToOutput, &StringOptions);
 
 	StringOptions.XStart = (32+Horiz+2)*4;
 	DS3232M_GetDateString(StringToOutput, 0);
-	OLED_WriteMFString2(StringToOutput, &StringOptions);
+	OLED_WriteMFString(StringToOutput, &StringOptions);
 
 	StringOptions.YStart-=11;
 	StringOptions.XStart = (16+Horiz+2)*4;
 	if( (GetDST() & 0x01) == 0x01)
 	{
-		OLED_WriteMFString2("Yes", &StringOptions);
+		OLED_WriteMFString("Yes", &StringOptions);
 	}
 	else
 	{
-		OLED_WriteMFString2("No", &StringOptions);
+		OLED_WriteMFString("No", &StringOptions);
 	}
 
 	StringOptions.YStart-=11;
 	StringOptions.XStart = (16+Horiz+2)*4;
 	sprintf(StringToOutput, "UT%+d", GetUTOffset());
-	OLED_WriteMFString2(StringToOutput, &StringOptions);
+	OLED_WriteMFString(StringToOutput, &StringOptions);
 
 	return;
 }
 
-static void SwitchToSetTime(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem)
+/*static void SwitchToSetTime(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem)
 {
 	ButtonHandler = SetTimeHandler;
 	SetTimeHandler(ButtonPressed);
 	return;
-}
+}*/
 
-static void SetTimeHandler(uint8_t ButtonPressed)
+static void SetTimeHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem)
+//static void SetTimeHandler(uint8_t ButtonPressed)
 {
 	//TimeAndDate CurrentTime;
 	MF_StringOptions StringOptions;
@@ -1483,12 +1618,22 @@ static void SetTimeHandler(uint8_t ButtonPressed)
 
 		DrawMenuScreen();
 
+		/*StringOptions.CharSize = MF_ASCII_SIZE_7X8;
+		StringOptions.StartPadding = 2;
+		StringOptions.EndPadding = 1;
+		StringOptions.TopPadding = 2;
+		StringOptions.BottomPadding = 1;
+		StringOptions.CharacterSpacing = 0;
+		StringOptions.Brightness = 0x0F;
+		StringOptions.FontOptions = OLED_FONT_NORMAL;*/
+
+
 		StringOptions.XStart = 4*11;
 		StringOptions.YStart = 55;
-		OLED_WriteMFString2("> Time > Set Time", &StringOptions);
+		OLED_WriteMFString("> Time > Set Time", &StringOptions);
 
 
-		ButtonHandler = SetTimeHandler;
+		//ButtonHandler = SetTimeHandler;
 		DisplayStatus = DISPLAY_STATUS_SET_TIME;
 	}
 	else
@@ -1726,7 +1871,7 @@ static void SetTimeHandler(uint8_t ButtonPressed)
 
 					StringOptions.XStart = 4*(1);
 					StringOptions.YStart = 0;
-					OLED_WriteMFString2("Save Changes:", &StringOptions);
+					OLED_WriteMFString("Save Changes:", &StringOptions);
 				}
 				else
 				{
@@ -1740,7 +1885,7 @@ static void SetTimeHandler(uint8_t ButtonPressed)
 						CurrentTime.tm_year = MenuData[4]-1900;		//TODO: Make sure this is not < 0
 						DS3232M_SetTime(&CurrentTime);
 					}
-					_GoToIdle(0,8,0);
+					GoToIdle(0,8,0);
 					return;
 				}
 				break;
@@ -1762,7 +1907,7 @@ static void SetTimeHandler(uint8_t ButtonPressed)
 			StringOptions.FontOptions = OLED_FONT_NORMAL;
 		}
 		StringOptions.XStart = 108;
-		OLED_WriteMFString2("Yes", &StringOptions);
+		OLED_WriteMFString("Yes", &StringOptions);
 
 		if(MenuData[5] == 7)
 		{
@@ -1773,13 +1918,13 @@ static void SetTimeHandler(uint8_t ButtonPressed)
 			StringOptions.FontOptions = OLED_FONT_NORMAL;
 		}
 		StringOptions.XStart = 148;
-		OLED_WriteMFString2("No", &StringOptions);
+		OLED_WriteMFString("No", &StringOptions);
 	}
 
 	StringOptions.FontOptions = OLED_FONT_NORMAL;
 	StringOptions.XStart = 4*(Horiz+15-5);
 	StringOptions.YStart = Vert-11;
-	OLED_WriteMFString2(":", &StringOptions);
+	OLED_WriteMFString(":", &StringOptions);
 
 	//Write Hours
 	StringOptions.XStart = 4*(Horiz+11-5)-1;
@@ -1821,11 +1966,11 @@ static void SetTimeHandler(uint8_t ButtonPressed)
 
 	if(MenuData[0] > 11)
 	{
-		OLED_WriteMFString2("PM", &StringOptions);
+		OLED_WriteMFString("PM", &StringOptions);
 	}
 	else
 	{
-		OLED_WriteMFString2("AM", &StringOptions);
+		OLED_WriteMFString("AM", &StringOptions);
 
 	}
 	StringOptions.EndPadding = 1;
@@ -1886,28 +2031,28 @@ static void SetTimeHandler(uint8_t ButtonPressed)
 	StringOptions.EndPadding = 0;
 	StringOptions.FontOptions = OLED_FONT_NORMAL;
 	StringOptions.XStart = 4*(Horiz+20+10)+1;
-	OLED_WriteMFString2("/", &StringOptions);
+	OLED_WriteMFString("/", &StringOptions);
 
 	StringOptions.XStart = 4*(Horiz+27+10);
-	OLED_WriteMFString2("/", &StringOptions);
+	OLED_WriteMFString("/", &StringOptions);
 
 	//Write the day of the week
 	StringOptions.YStart = Vert-22;
 	StringOptions.EndPadding = 32;
-	OLED_WriteMFString2(DOW[GetDOW(MenuData[4], MenuData[2], MenuData[3])], &StringOptions);
+	OLED_WriteMFString(DOW[GetDOW(MenuData[4], MenuData[2], MenuData[3])], &StringOptions);
 
 	return;
 }
 
 static void SetDSTHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem)
 {
-	uint8_t Horiz = 4;
-	uint8_t Vert = 39;
+	//uint8_t Horiz = 4;
+	//uint8_t Vert = 39;
 	MF_StringOptions StringOptions;		//TODO: Make this global?
 	//char StringToOutput[11];
 
-	StringOptions.XStart = Horiz*4;
-	StringOptions.YStart = Vert;
+	StringOptions.XStart = 16;//Horiz*4;
+	StringOptions.YStart = 39;// Vert;
 
 	StringOptions.CharSize = MF_ASCII_SIZE_7X8;
 	StringOptions.StartPadding = 2;
@@ -1919,7 +2064,7 @@ static void SetDSTHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_
 	StringOptions.FontOptions = OLED_FONT_NORMAL;
 
 	StringOptions.YStart-=11;
-	StringOptions.XStart = (16+Horiz+2)*4;
+	StringOptions.XStart = 88;//(16+Horiz+2)*4;
 
 	if(PreviousMenuItem != 9)
 	{
@@ -1945,12 +2090,13 @@ static void SetDSTHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_
 	StringOptions.FontOptions = OLED_FONT_INVERSE;
 	if(MenuData[0] == 0x01)
 	{
-		OLED_WriteMFString2("Yes", &StringOptions);
+		OLED_WriteMFString("Yes", &StringOptions);
 	}
 	else
 	{
-		OLED_ClearWindow((16+Horiz+2+4), (16+Horiz+2+8), StringOptions.YStart, StringOptions.YStart+11);
-		OLED_WriteMFString2("No", &StringOptions);
+		OLED_ClearWindow(26, 30, StringOptions.YStart, StringOptions.YStart+11);
+		//OLED_ClearWindow((16+Horiz+2+4), (16+Horiz+2+8), StringOptions.YStart, StringOptions.YStart+11);
+		OLED_WriteMFString("No", &StringOptions);
 	}
 
 	return;
@@ -1964,13 +2110,13 @@ static void SetUTHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t
 
 	//uint8_t mod = 0;
 
-	uint8_t Horiz = 4;
-	uint8_t Vert = 39;
+	//uint8_t Horiz = 4;
+	//uint8_t Vert = 39;
 	MF_StringOptions StringOptions;		//TODO: Make this global?
 	//char StringToOutput[11];
 
-	StringOptions.XStart = Horiz*4;
-	StringOptions.YStart = Vert;
+	StringOptions.XStart = 16;//Horiz*4;
+	StringOptions.YStart = 39;//Vert;
 
 	StringOptions.CharSize = MF_ASCII_SIZE_7X8;
 	StringOptions.StartPadding = 2;
@@ -2003,9 +2149,9 @@ static void SetUTHandler(uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t
 	//StringOptions.XStart = (16+Horiz+2)*4;
 
 	StringOptions.YStart-=11;
-	StringOptions.XStart = (16+Horiz+2)*4;
+	StringOptions.XStart = 88;//(16+Horiz+2)*4;
 	sprintf(StringToOutput, "UT%+d", UT_Offset);
-	OLED_WriteMFString2(StringToOutput, &StringOptions);
+	OLED_WriteMFString(StringToOutput, &StringOptions);
 
 
 
@@ -2584,7 +2730,7 @@ static void UpdateOutputHandler(uint8_t theButtonPressed, uint8_t theCurrentMenu
 
 				PreviousMenuItem = 20;
 				CurrentMenuItem = MenuData[2];
-				_MenuItem_TL (PreviousMenuItem, PreviousMenuItem);
+				UpdateMenuDisplay (PreviousMenuItem, PreviousMenuItem);
 				ElementToHighlight = 0;
 			}
 			else if( (MenuCaller == 18) && (MenuData[4] != TIMER_EVENT_TYPE_STEADY) && (MenuData[4] != TIMER_EVENT_TYPE_NONE))
@@ -2765,11 +2911,11 @@ static void WriteSetTimeData(uint16_t ElementToHighlight)
 	OLED_ClearWindow(StringOptions.XStart/4, StringOptions.XStart/4+7, StringOptions.YStart-1, StringOptions.YStart+10);
 	if(MenuData[3] == 0)
 	{
-		OLED_WriteMFString2("Off", &StringOptions);
+		OLED_WriteMFString("Off", &StringOptions);
 	}
 	else
 	{
-		OLED_WriteMFString2("On", &StringOptions);
+		OLED_WriteMFString("On", &StringOptions);
 	}
 
 	//Print event specific data
@@ -2788,7 +2934,7 @@ static void WriteSetTimeData(uint16_t ElementToHighlight)
 
 
 
-	OLED_WriteMFString2(EventNames[MenuData[4]], &StringOptions);
+	OLED_WriteMFString(EventNames[MenuData[4]], &StringOptions);
 
 
 	/*switch(MenuData[4])		//EventType
@@ -2853,7 +2999,7 @@ static void WriteSetTimeData(uint16_t ElementToHighlight)
 		StringOptions.FontOptions = OLED_FONT_NORMAL;
 
 		StringOptions.XStart = MenuItemList[17].X_Start + SecondColumnDataOffset + 20;
-		OLED_WriteMFString2(":", &StringOptions);
+		OLED_WriteMFString(":", &StringOptions);
 
 		StringOptions.StartPadding = 2;
 		StringOptions.EndPadding = 1;
@@ -2883,11 +3029,11 @@ static void WriteSetTimeData(uint16_t ElementToHighlight)
 		StringOptions.EndPadding = 2;
 		if(MenuData[6] > 11)
 		{
-			OLED_WriteMFString2("PM", &StringOptions);
+			OLED_WriteMFString("PM", &StringOptions);
 		}
 		else
 		{
-			OLED_WriteMFString2("AM", &StringOptions);
+			OLED_WriteMFString("AM", &StringOptions);
 		}
 		StringOptions.EndPadding = 1;
 	}
@@ -2915,7 +3061,7 @@ static void WriteSetTimeData(uint16_t ElementToHighlight)
 		StringOptions.FontOptions = OLED_FONT_NORMAL;
 
 		StringOptions.XStart = MenuItemList[17].X_Start + SecondColumnDataOffset + 20;
-		OLED_WriteMFString2(":", &StringOptions);
+		OLED_WriteMFString(":", &StringOptions);
 
 		StringOptions.StartPadding = 2;
 		StringOptions.EndPadding = 1;
@@ -2965,7 +3111,7 @@ static void WriteSetTimeData(uint16_t ElementToHighlight)
 		{
 			StringOptions.FontOptions = OLED_FONT_NORMAL;
 		}
-		OLED_WriteMFString2("Su", &StringOptions);
+		OLED_WriteMFString("Su", &StringOptions);
 
 		//Monday
 		if( ((ElementToHighlight >> 8) & 0x01) == 0x01)
@@ -2981,7 +3127,7 @@ static void WriteSetTimeData(uint16_t ElementToHighlight)
 			StringOptions.FontOptions = OLED_FONT_NORMAL;
 		}
 		StringOptions.XStart += 12+8;
-		OLED_WriteMFString2("M", &StringOptions);
+		OLED_WriteMFString("M", &StringOptions);
 
 		//Tuesday
 		if( ((ElementToHighlight >> 9) & 0x01) == 0x01)
@@ -2997,7 +3143,7 @@ static void WriteSetTimeData(uint16_t ElementToHighlight)
 			StringOptions.FontOptions = OLED_FONT_NORMAL;
 		}
 		StringOptions.XStart += 12;
-		OLED_WriteMFString2("T", &StringOptions);
+		OLED_WriteMFString("T", &StringOptions);
 
 		//Wednesday
 		if( ((ElementToHighlight >> 10) & 0x01) == 0x01)
@@ -3013,7 +3159,7 @@ static void WriteSetTimeData(uint16_t ElementToHighlight)
 			StringOptions.FontOptions = OLED_FONT_NORMAL;
 		}
 		StringOptions.XStart += 12;
-		OLED_WriteMFString2("W", &StringOptions);
+		OLED_WriteMFString("W", &StringOptions);
 
 		//Thursday
 		if( ((ElementToHighlight >> 11) & 0x01) == 0x01)
@@ -3029,7 +3175,7 @@ static void WriteSetTimeData(uint16_t ElementToHighlight)
 			StringOptions.FontOptions = OLED_FONT_NORMAL;
 		}
 		StringOptions.XStart += 12;
-		OLED_WriteMFString2("Th", &StringOptions);
+		OLED_WriteMFString("Th", &StringOptions);
 
 		//Friday
 		if( ((ElementToHighlight >> 12) & 0x01) == 0x01)
@@ -3045,7 +3191,7 @@ static void WriteSetTimeData(uint16_t ElementToHighlight)
 			StringOptions.FontOptions = OLED_FONT_NORMAL;
 		}
 		StringOptions.XStart += 12+8;
-		OLED_WriteMFString2("F", &StringOptions);
+		OLED_WriteMFString("F", &StringOptions);
 
 		//Saturday
 		if( ((ElementToHighlight >> 13) & 0x01) == 0x01)
@@ -3061,7 +3207,7 @@ static void WriteSetTimeData(uint16_t ElementToHighlight)
 			StringOptions.FontOptions = OLED_FONT_NORMAL;
 		}
 		StringOptions.XStart += 12;
-		OLED_WriteMFString2("S", &StringOptions);
+		OLED_WriteMFString("S", &StringOptions);
 	}
 	else
 	{
@@ -3141,11 +3287,11 @@ static void EEPROMHandler(uint8_t theButtonPressed, uint8_t theCurrentMenuItem, 
 
 			if(ret == 0x00)
 			{
-				OLED_WriteMFString2("Loaded event list from EEPROM", &StringOptions);
+				OLED_WriteMFString("Loaded event list from EEPROM", &StringOptions);
 			}
 			else
 			{
-				OLED_WriteMFString2("Error loading events", &StringOptions);
+				OLED_WriteMFString("Error loading events", &StringOptions);
 			}
 			return;
 		}
@@ -3156,11 +3302,11 @@ static void EEPROMHandler(uint8_t theButtonPressed, uint8_t theCurrentMenuItem, 
 
 			if(ret == 0x00)
 			{
-				OLED_WriteMFString2("Event list saved to EEPROM", &StringOptions);
+				OLED_WriteMFString("Event list saved to EEPROM", &StringOptions);
 			}
 			else
 			{
-				OLED_WriteMFString2("Error saving events", &StringOptions);
+				OLED_WriteMFString("Error saving events", &StringOptions);
 			}
 			return;
 		}
@@ -3176,140 +3322,16 @@ static void EEPROMHandler(uint8_t theButtonPressed, uint8_t theCurrentMenuItem, 
 	return;
 }
 
-//Update the menu screen
-//TODO: Rename this function later
-void _MenuItem_TL (uint8_t Caller, uint8_t Previous)
+static void GoToIdle (uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem)
 {
-	uint8_t i;
-	MF_StringOptions StringOptions;		//TODO: Make this global?
-
-	const char* MenuBreadcrumb;
-
-	StringOptions.CharSize = MF_ASCII_SIZE_7X8;
-	StringOptions.StartPadding = 2;
-	StringOptions.EndPadding = 1;
-	StringOptions.TopPadding = 2;
-	StringOptions.BottomPadding = 1;
-	StringOptions.CharacterSpacing = 0;
-	StringOptions.Brightness = 0x0F;
-	StringOptions.FontOptions = OLED_FONT_NORMAL;
-
-	//Figure out some way of making this global?
-	//TODO: Figure out a better way to do this...
-	uint8_t MenuMin;
-	uint8_t MenuMax;
-	if(Caller > 0 && Caller <= 4 )
-	{
-		MenuMin = 1;
-		MenuMax = 4;
-		MenuBreadcrumb = _TL_Breadcrumb;
-	}
-	else if(Caller > 4 && Caller <= 7 )
-	{
-		MenuMin = 5;
-		MenuMax = 7;
-		MenuBreadcrumb = _TM_Breadcrumb;
-	}
-	else if(Caller > 10 && Caller <= 13 )
-	{
-		MenuMin = 11;
-		MenuMax = 13;
-		MenuBreadcrumb = _OM_Breadcrumb;
-	}
-	else if(Caller > 13 && Caller <= 19 )
-	{
-		MenuMin = 14;
-		MenuMax = 19;
-		MenuBreadcrumb = _OSM_Breadcrumb;
-	}
-	else if(Caller > 20 && Caller <= 24 )
-	{
-		MenuMin = 21;
-		MenuMax = 24;
-		MenuBreadcrumb = _SETUP_Breadcrumb;
-	}
-	else if(Caller >= 25 && Caller <= 26 )
-	{
-		MenuMin = 25;
-		MenuMax = 26;
-		MenuBreadcrumb = _TIMING_Breadcrumb;
-	}
-	else if(Caller >= 27 && Caller <= 28 )
-	{
-		MenuMin = 27;
-		MenuMax = 28;
-		MenuBreadcrumb = _DIMMING_Breadcrumb;
-	}
-	else if(Caller >= 29 && Caller <= 30 )
-	{
-		MenuMin = 29;
-		MenuMax = 30;
-		MenuBreadcrumb = _LOCATION_Breadcrumb;
-	}
-
-	else if(Caller >= 31 && Caller <= 32 )
-	{
-		MenuMin = 31;
-		MenuMax = 32;
-		MenuBreadcrumb = _OVERRIDE_Breadcrumb;
-	}
-	else
-	{
-		return;
-	}
-
-	//TODO: make these compiler defines
-
-	//If the menu entry redirects to itself, we don't need to do anything
-	if(Caller == Previous) return;
-
-	if( (Previous < MenuMin) ||  (Previous > MenuMax) )
-	{
-		DrawMenuScreen();
-		StringOptions.XStart = 44;
-		StringOptions.YStart = 55;
-		OLED_WriteMFString2(MenuBreadcrumb, &StringOptions);
-	}
-
-	//StringOptions.XStart = Horiz*4;
-	//StringOptions.YStart = Vert;
-
-	for(i=MenuMin;i<=MenuMax;i++)
-	{
-		StringOptions.XStart = MenuItemList[i].X_Start;
-		StringOptions.YStart = MenuItemList[i].Y_Start;
-
-		//TODO: Check the X limits, can i use strlen here?
-
-		OLED_ClearWindow((StringOptions.XStart/4)-1, ((StringOptions.XStart/4) + strlen(MenuItemList[i].name)*2), StringOptions.YStart-2, StringOptions.YStart+9);
-
-		if(i == Caller)
-		{
-			StringOptions.FontOptions = OLED_FONT_INVERSE;
-		}
-		else
-		{
-			StringOptions.FontOptions = OLED_FONT_NORMAL;
-		}
-
-
-
-		OLED_WriteMFString2(MenuItemList[i].name, &StringOptions);
-
-		//StringOptions.YStart-=11;
-	}
-	return;
-}
-
-static void _GoToIdle (uint8_t ButtonPressed, uint8_t CurrentMenuItem, uint8_t PreviousMenuItem)
-{
-	ButtonHandler = TopLevelMenu;
+	//ButtonHandler = HandleMenuNavigation;
 	CurrentMenuItem = 0;
 	PreviousMenuItem = 1;
 	DisplayStatus = DISPLAY_STATUS_IDLE_BRIGHT;
 	DrawIdleScreen();
 	return;
 }
+
 
 void DisplayTaskInit(void)
 {
@@ -3331,21 +3353,21 @@ void DisplayTaskInit(void)
 	CurrentMenuItem = 0;
 	PreviousMenuItem = 1;
 
-	ButtonHandler = TopLevelMenu;
+	//ButtonHandler = HandleMenuNavigation;
 
 
 	//TODO:Check if a timeout vaule of zero is allowed
 
 	/**Initialize the idle to dim timeout
 	 * This is the time that the idle screen will stay bright before dimming with no user input.
-	 * This value is saved in EEPROM, and set to a default of IDLE_TO_DIM_TIME (3 sec) if the EEPROM value is zero
+	 * This value is saved in EEPROM, and set to a default of IDLE_TO_DIM_TIME (3 sec) if the EEPROM value is less than 1
 	 */
 	if( EEPROM_Read(EEPROM_ADDRESS_IDLE_TO_DIM_TIMEOUT, &ReadData, 1 ) != 0)
 	{
 		App_Die(8);
 	}
 
-	if(ReadData <= 0)
+	if(ReadData < 1)
 	{
 		IdleToDimTime = IDLE_TO_DIM_TIME;
 	}
@@ -3371,26 +3393,6 @@ void DisplayTaskInit(void)
 	{
 		MenuToIdleTime = ReadData;
 	}
-
-	//Initalize the override timeout value
-	//TODO: Should this be done somewhere else? Maybe put this in the timer task and override menus?
-	//TODO: Maybe this should be in minutes?
-	/*if( EEPROM_Read(EEPROM_ADDRESS_OVERRIDE_TIMEOUT, &ReadData, 1 ) != 0)
-	{
-		App_Die(8);
-	}
-
-	if(ReadData <= 0)
-	{
-		OverrideTime = OVERRIDE_TIME;
-	}
-	else
-	{
-		OverrideTime = ReadData;
-	}*/
-
-	//uint8_t BrightDimmingValue;// = 4;
-	//uint8_t DimDimmingValue;// = 0;
 
 	/**Initalize the bright dimming value
 	 * This is the brightness of the OLED when in a menu or when the user pushes a button
@@ -3441,6 +3443,7 @@ void DisplayTaskInit(void)
 	return;
 }
 
+
 void DrawIdleScreen(void)
 {
 	MF_StringOptions StringOptions;		//TODO: Make this global
@@ -3466,39 +3469,39 @@ void DrawIdleScreen(void)
 	LineOptions.XEnd = 16*4;
 	LineOptions.YStart = 0;
 	LineOptions.YEnd = 16;
-	OLED_WriteLine2(&LineOptions);
+	OLED_WriteLine(&LineOptions);
 
 	LineOptions.XStart = 32*4;
 	LineOptions.XEnd = 32*4;
 	LineOptions.YStart = 0;
 	LineOptions.YEnd = 16;
-	OLED_WriteLine2(&LineOptions);
+	OLED_WriteLine(&LineOptions);
 
 	LineOptions.XStart = 48*4;
 	LineOptions.XEnd = 48*4;
 	LineOptions.YStart = 0;
 	LineOptions.YEnd = 16;
-	OLED_WriteLine2(&LineOptions);
+	OLED_WriteLine(&LineOptions);
 
 	LineOptions.XStart = 0;
 	LineOptions.XEnd = 255;
 	LineOptions.YStart = 16;
 	LineOptions.YEnd = 16;
-	OLED_WriteLine2(&LineOptions);
+	OLED_WriteLine(&LineOptions);
 
 	//Display the labels for time, date and mode
 	//StringOptions.CharSize = MF_ASCII_SIZE_7X8;
 	StringOptions.XStart = (IDLE_TIME_COLUMN-2)*4;
 	StringOptions.YStart = IDLE_TIME_ROW+18;
-	OLED_WriteMFString2("Time:", &StringOptions);
+	OLED_WriteMFString("Time:", &StringOptions);
 
 	StringOptions.XStart = (IDLE_DATE_COLUMN-2)*4;
 	StringOptions.YStart = IDLE_DATE_ROW+18;
-	OLED_WriteMFString2("Date:", &StringOptions);
+	OLED_WriteMFString("Date:", &StringOptions);
 
 	StringOptions.XStart = (IDLE_STATUS_COLUMN-11)*4;
 	StringOptions.YStart = IDLE_STATUS_ROW;
-	OLED_WriteMFString2("Mode:", &StringOptions);
+	OLED_WriteMFString("Mode:", &StringOptions);
 
 	//Display the current time and date
 	UpdateTimeAndDate();
@@ -3506,6 +3509,7 @@ void DrawIdleScreen(void)
 
 	return;
 }
+
 
 void UpdateTimeAndDate(void)
 {
@@ -3526,21 +3530,21 @@ void UpdateTimeAndDate(void)
 	StringOptions.CharSize = MF_ASCII_SIZE_WA;
 	StringOptions.XStart = (IDLE_TIME_COLUMN)*4;
 	StringOptions.YStart = IDLE_TIME_ROW;
-	OLED_WriteMFString2(TimeString, &StringOptions);
+	OLED_WriteMFString(TimeString, &StringOptions);
 
 	//Display the current date
 	DS3232M_GetDateString(TimeString, 0);
 	StringOptions.XStart = (IDLE_DATE_COLUMN)*4;
 	StringOptions.YStart = IDLE_DATE_ROW;
-	OLED_WriteMFString2(TimeString, &StringOptions);
+	OLED_WriteMFString(TimeString, &StringOptions);
 
 	return;
 }
 
 void DrawMenuScreen(void)
 {
-	MF_StringOptions StringOptions;
 	MF_LineOptions LineOptions;
+	MF_StringOptions StringOptions;
 
 	LineOptions.LinePattern = 0xFF;
 	LineOptions.LineWeight = 1;
@@ -3559,26 +3563,19 @@ void DrawMenuScreen(void)
 
 	StringOptions.XStart = 8;
 	StringOptions.YStart = 55;
-	OLED_WriteMFString2("Menu", &StringOptions);
+	OLED_WriteMFString("Menu", &StringOptions);
 
 	LineOptions.XStart = 0;
 	LineOptions.XEnd = 255;
 	LineOptions.YStart = 53;
 	LineOptions.YEnd = 53;
-	OLED_WriteLine2(&LineOptions);
+	OLED_WriteLine(&LineOptions);
 
 	LineOptions.XStart = 0;
 	LineOptions.XEnd = 255;
 	LineOptions.YStart = 12;
 	LineOptions.YEnd = 12;
-	OLED_WriteLine2(&LineOptions);
-
-
-	//OLED_ClearWindow(0, 64, 0, 11);
-
-	//StringOptions.XStart = 8;
-	//StringOptions.YStart = 0;
-	//OLED_WriteMFString2("Help:", &StringOptions);
+	OLED_WriteLine(&LineOptions);
 
 	return;
 }
@@ -3607,64 +3604,64 @@ void DrawStatusScreen(void)
 
 	StringOptions.XStart = 8;
 	StringOptions.YStart = 55;
-	OLED_WriteMFString2("Status", &StringOptions);
+	OLED_WriteMFString("Status", &StringOptions);
 
 	LineOptions.XStart = 0;
 	LineOptions.XEnd = 255;
 	LineOptions.YStart = 53;
 	LineOptions.YEnd = 53;
-	OLED_WriteLine2(&LineOptions);
+	OLED_WriteLine(&LineOptions);
 
 	//Write the current time and date:
 	StringOptions.XStart = 8;
 	StringOptions.YStart = 39;
-	OLED_WriteMFString2("Time:", &StringOptions);
+	OLED_WriteMFString("Time:", &StringOptions);
 
 	DS3232M_GetTimeString(ScratchString, 0);
 	StringOptions.XStart = 45;
-	OLED_WriteMFString2(ScratchString, &StringOptions);
+	OLED_WriteMFString(ScratchString, &StringOptions);
 
 	DS3232M_GetDateString(ScratchString, 0);
 	StringOptions.XStart = 85;
-	OLED_WriteMFString2(ScratchString, &StringOptions);
+	OLED_WriteMFString(ScratchString, &StringOptions);
 
 	//Write the sunrise time
 	StringOptions.XStart = 8;
 	StringOptions.YStart = 28;
-	OLED_WriteMFString2("Sunrise", &StringOptions);
+	OLED_WriteMFString("Sunrise", &StringOptions);
 
 	GetSunriseTime(&CurrentTime);
 	StringOptions.XStart = 64;
 	strftime(ScratchString, 8, "%I:%M %p", &CurrentTime);
 	ScratchString[8] = '\0';
 	//sprintf(ScratchString, "%02u:%02u AM", CurrentTime.tm_hour, CurrentTime.tm_min);
-	OLED_WriteMFString2(ScratchString, &StringOptions);
+	OLED_WriteMFString(ScratchString, &StringOptions);
 
 	GetAltSunriseTime(&CurrentTime);
 	StringOptions.XStart = 150;
 	strftime(ScratchString, 8, "%I:%M %p", &CurrentTime);
 	ScratchString[8] = '\0';
 	//sprintf(ScratchString, "%02u:%02u AM", CurrentTime.tm_hour, CurrentTime.tm_min);
-	OLED_WriteMFString2(ScratchString, &StringOptions);
+	OLED_WriteMFString(ScratchString, &StringOptions);
 
 	//Write the sunset time
 	StringOptions.XStart = 8;
 	StringOptions.YStart = 17;
-	OLED_WriteMFString2("Sunset", &StringOptions);
+	OLED_WriteMFString("Sunset", &StringOptions);
 
 	GetSunsetTime(&CurrentTime);
 	StringOptions.XStart = 64;
 	strftime(ScratchString, 8, "%I:%M %p", &CurrentTime);
 	ScratchString[8] = '\0';
 	//sprintf(ScratchString, "%02u:%02u PM", CurrentTime.tm_hour, CurrentTime.tm_min);
-	OLED_WriteMFString2(ScratchString, &StringOptions);
+	OLED_WriteMFString(ScratchString, &StringOptions);
 
 	GetAltSunsetTime(&CurrentTime);
 	StringOptions.XStart = 150;
 	strftime(ScratchString, 8, "%I:%M %p", &CurrentTime);
 	ScratchString[8] = '\0';
 	//sprintf(ScratchString, "%02u:%02u AM", CurrentTime.tm_hour, CurrentTime.tm_min);
-	OLED_WriteMFString2(ScratchString, &StringOptions);
+	OLED_WriteMFString(ScratchString, &StringOptions);
 
 
 
@@ -3699,7 +3696,7 @@ void DisplayShowMessage(char *MessageToDisplay)
 	StringOptions.YStart = IDLE_STATUS_ROW;
 	StringOptions.FontOptions = OLED_FONT_NORMAL;
 
-	OLED_WriteMFString2(MessageToDisplay, &StringOptions);
+	OLED_WriteMFString(MessageToDisplay, &StringOptions);
 	DisplayDimming(BrightDimmingValue);
 
 	DisplayStatus = DISPLAY_STATUS_MESSAGE;
@@ -3736,7 +3733,7 @@ void UpdateOutputs(void)
 		StringOptions.FontOptions = OLED_FONT_NORMAL;
 		//OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, "Out 1", 3, 0, OLED_FONT_NORMAL);
 	}
-	OLED_WriteMFString2("Out 1", &StringOptions);
+	OLED_WriteMFString("Out 1", &StringOptions);
 
 	//Output 2
 	StringOptions.XStart = 76;
@@ -3751,7 +3748,7 @@ void UpdateOutputs(void)
 		StringOptions.FontOptions = OLED_FONT_NORMAL;
 		//OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, "Out 2", 19, 0, OLED_FONT_NORMAL);
 	}
-	OLED_WriteMFString2("Out 2", &StringOptions);
+	OLED_WriteMFString("Out 2", &StringOptions);
 
 	//Output 3
 	StringOptions.XStart = 140;
@@ -3766,7 +3763,7 @@ void UpdateOutputs(void)
 		StringOptions.FontOptions = OLED_FONT_NORMAL;
 		//OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, "Out 3", 35, 0, OLED_FONT_NORMAL);
 	}
-	OLED_WriteMFString2("Out 3", &StringOptions);
+	OLED_WriteMFString("Out 3", &StringOptions);
 
 	//Output 4
 	StringOptions.XStart = 204;
@@ -3781,7 +3778,7 @@ void UpdateOutputs(void)
 		StringOptions.FontOptions = OLED_FONT_NORMAL;
 		//OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, "Out 4", 51, 0, OLED_FONT_NORMAL);
 	}
-	OLED_WriteMFString2("Out 4", &StringOptions);
+	OLED_WriteMFString("Out 4", &StringOptions);
 
 
 
@@ -3796,16 +3793,16 @@ void UpdateOutputs(void)
 	{
 		case TIMER_STATUS_OFF:
 			//TODO: replace the spaces in this string with padding.
-			OLED_WriteMFString2("Off     ", &StringOptions);
+			OLED_WriteMFString("Off     ", &StringOptions);
 			break;
 
 		case TIMER_STATUS_ON:
 			//TODO: replace the spaces in this string with padding.
-			OLED_WriteMFString2("Auto    ", &StringOptions);
+			OLED_WriteMFString("Auto    ", &StringOptions);
 			break;
 
 		case TIMER_STATUS_PAUSED:
-			OLED_WriteMFString2("Override", &StringOptions);
+			OLED_WriteMFString("Override", &StringOptions);
 			break;
 	}
 
@@ -3912,7 +3909,7 @@ void DisplayTask(void *pvParameters)
 	DisplayStatus = DISPLAY_STATUS_IDLE_BRIGHT;
 	portBASE_TYPE QueueStatus = pdFALSE;
 
-	static char InvalidString[] = "Invalid Command";
+	//static char InvalidString[] = "Invalid Command";
 
 
 	StringOptions.XStart = 16*4;
@@ -3923,21 +3920,21 @@ void DisplayTask(void *pvParameters)
 	switch(HWStatus)
 	{
 		case APP_STATUS_OK:
-		OLED_WriteMFString2("POST Successful", &StringOptions);
+		OLED_WriteMFString("POST Successful", &StringOptions);
 		vTaskDelay(1000);
 		break;
 
 		case APP_STATUS_OSC_STOPPED:
 			StringOptions.XStart = 10*4;
-			OLED_WriteMFString2("Time invalid", &StringOptions);
+			OLED_WriteMFString("Time invalid", &StringOptions);
 			StringOptions.YStart = 28-11;
-			OLED_WriteMFString2("Please reset the time.", &StringOptions);
+			OLED_WriteMFString("Please reset the time.", &StringOptions);
 			StringOptions.YStart = 28;
 			vTaskDelay(3000);
 			break;
 
 		default:
-			OLED_WriteMFString2("POST Error", &StringOptions);
+			OLED_WriteMFString("POST Error", &StringOptions);
 			StringOptions.XStart = 37*4;
 			OLED_WriteMF_UInt2(App_GetStatus(), 0, &StringOptions);	//year
 			vTaskDelay(3000);
@@ -3984,7 +3981,7 @@ void DisplayTask(void *pvParameters)
 			}
 			else
 			{
-				ButtonHandler = TopLevelMenu;
+				//ButtonHandler = HandleMenuNavigation;
 				CurrentMenuItem = 0;
 				PreviousMenuItem = 1;
 				DrawIdleScreen();
@@ -3997,7 +3994,9 @@ void DisplayTask(void *pvParameters)
 			switch(CommandToExecute.CommandName)
 			{
 				case OLED_CMD_WRITE_STRING:
-					OLED_WriteMFString(CommandToExecute.CommandData[2], CommandToExecute.CommandCharData, CommandToExecute.CommandData[0], CommandToExecute.CommandData[1], OLED_FONT_NORMAL);
+					//TODO: Should I keep this here or remove it completely?
+					//OLED_WriteMFString(CommandToExecute.CommandData[2], CommandToExecute.CommandCharData, CommandToExecute.CommandData[0], CommandToExecute.CommandData[1], OLED_FONT_NORMAL);
+					App_Die(9);
 					break;
 
 				case OLED_CMD_BUTTON_IN:
@@ -4014,7 +4013,8 @@ void DisplayTask(void *pvParameters)
 						if(CommandToExecute.CommandData[0] == 4)
 						{
 							//If the display is off, the first button press will wake up the display
-							ButtonHandler(MENU_BUTTON_CENTER);
+							//ButtonHandler(MENU_BUTTON_CENTER);
+							HandleMenuNavigation(MENU_BUTTON_CENTER);
 						}
 						else
 						{
@@ -4022,38 +4022,46 @@ void DisplayTask(void *pvParameters)
 							{
 								if(CommandToExecute.CommandData[0] == 1)
 								{
-									ButtonHandler(MENU_BUTTON_DOWN);
+									//ButtonHandler(MENU_BUTTON_DOWN);
+									HandleMenuNavigation(MENU_BUTTON_DOWN);
 								}
 								else if(CommandToExecute.CommandData[0] == 2)
 								{
-									ButtonHandler(MENU_BUTTON_UP);
+									//ButtonHandler(MENU_BUTTON_UP);
+									HandleMenuNavigation(MENU_BUTTON_UP);
 								}
 								else if(CommandToExecute.CommandData[0] == 3)
 								{
-									ButtonHandler(MENU_BUTTON_RIGHT);
+									//ButtonHandler(MENU_BUTTON_RIGHT);
+									HandleMenuNavigation(MENU_BUTTON_RIGHT);
 								}
 								else if(CommandToExecute.CommandData[0] == 5)
 								{
-									ButtonHandler(MENU_BUTTON_LEFT);
+									//ButtonHandler(MENU_BUTTON_LEFT);
+									HandleMenuNavigation(MENU_BUTTON_LEFT);
 								}
 							}
 							else
 							{
 								if(CommandToExecute.CommandData[0] == 1)
 								{
-									ButtonHandler(MENU_BUTTON_UP);
+									//ButtonHandler(MENU_BUTTON_UP);
+									HandleMenuNavigation(MENU_BUTTON_UP);
 								}
 								else if(CommandToExecute.CommandData[0] == 2)
 								{
-									ButtonHandler(MENU_BUTTON_DOWN);
+									//ButtonHandler(MENU_BUTTON_DOWN);
+									HandleMenuNavigation(MENU_BUTTON_DOWN);
 								}
 								else if(CommandToExecute.CommandData[0] == 3)
 								{
-									ButtonHandler(MENU_BUTTON_LEFT);
+									//ButtonHandler(MENU_BUTTON_LEFT);
+									HandleMenuNavigation(MENU_BUTTON_LEFT);
 								}
 								else if(CommandToExecute.CommandData[0] == 5)
 								{
-									ButtonHandler(MENU_BUTTON_RIGHT);
+									//ButtonHandler(MENU_BUTTON_RIGHT);
+									HandleMenuNavigation(MENU_BUTTON_RIGHT);
 								}
 							}
 						}
@@ -4071,7 +4079,8 @@ void DisplayTask(void *pvParameters)
 					break;
 
 				default:
-					OLED_WriteMFString(MF_ASCII_SIZE_7X8, InvalidString, IDLE_STATUS_COLUMN, IDLE_STATUS_ROW, OLED_FONT_NORMAL);
+					App_Die(9);
+					//OLED_WriteMFString(MF_ASCII_SIZE_7X8, InvalidString, IDLE_STATUS_COLUMN, IDLE_STATUS_ROW, OLED_FONT_NORMAL);
 					break;
 			}
 

@@ -398,7 +398,7 @@ void App_Die(uint8_t ErrorCode)
 	//ErrorString = "ASDDFg";
 	StringOptions.XStart = 0;
 	StringOptions.YStart = 20;
-	OLED_WriteMFString2(ErrorString, &StringOptions);
+	OLED_WriteMFString(ErrorString, &StringOptions);
 
 	while(1);
 }

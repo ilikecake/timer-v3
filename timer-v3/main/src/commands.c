@@ -667,22 +667,22 @@ static int _F5_Handler (void)
 
 		case 3:
 			OLED_ClearDisplay();
-			OLED_WriteMFString(MF_ASCII_SIZE_5X7, InitString, val, val2, OLED_FONT_NORMAL);
-			OLED_WriteMFString(MF_ASCII_SIZE_7X8, InitString, val, val2+8, OLED_FONT_NORMAL);
-			OLED_WriteMFString(MF_ASCII_SIZE_8X16, InitString, val, val2+16, OLED_FONT_NORMAL);
-			OLED_WriteMFString(MF_ASCII_SIZE_WA, InitString, val, val2+32, OLED_FONT_NORMAL);
+			//OLED_WriteMFString(MF_ASCII_SIZE_5X7, InitString, val, val2, OLED_FONT_NORMAL);
+			//OLED_WriteMFString(MF_ASCII_SIZE_7X8, InitString, val, val2+8, OLED_FONT_NORMAL);
+			//OLED_WriteMFString(MF_ASCII_SIZE_8X16, InitString, val, val2+16, OLED_FONT_NORMAL);
+			//OLED_WriteMFString(MF_ASCII_SIZE_WA, InitString, val, val2+32, OLED_FONT_NORMAL);
 			break;
 
 		case 4:
-			OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, InitString, val, val2, OLED_FONT_NORMAL);
+			//OLED_WriteMFString_WA(MF_ASCII_SIZE_WA, InitString, val, val2, OLED_FONT_NORMAL);
 			break;
 
 		case 5:
-			OLED_WriteMFString_Q(MF_ASCII_SIZE_WA, InitString, 5, 10);
+			//OLED_WriteMFString_Q(MF_ASCII_SIZE_WA, InitString, 5, 10);
 			break;
 
 		case 6:
-			OLED_WriteMF_UInt(MF_ASCII_SIZE_7X8, val, 5, 10, OLED_FONT_NORMAL, 0);
+			//OLED_WriteMF_UInt(MF_ASCII_SIZE_7X8, val, 5, 10, OLED_FONT_NORMAL, 0);
 			break;
 
 		case 7:
@@ -700,7 +700,7 @@ static int _F5_Handler (void)
 			Stuff[3] = 0xAA;
 
 
-			OLED_WriteColumn(Stuff, 6, 0x0F);
+			//OLED_WriteColumn(Stuff, 6, 0x0F);
 			break;
 
 		case 9:
@@ -717,7 +717,7 @@ static int _F5_Handler (void)
 			StringOptions.Brightness = 0x0F;
 			StringOptions.FontOptions = OLED_FONT_INVERSE;
 
-			OLED_WriteMFString2(InitString, &StringOptions);
+			OLED_WriteMFString(InitString, &StringOptions);
 
 			//printf("Start Column: %u\r\n", StringOptions.StartColumn);
 			//printf("End Column: %u\r\n", StringOptions.EndColumn);
@@ -727,7 +727,7 @@ static int _F5_Handler (void)
 			StringOptions.YStart = 10;
 			StringOptions.CharSize = MF_ASCII_SIZE_5X7;
 
-			OLED_WriteMFString2(InitString, &StringOptions);
+			OLED_WriteMFString(InitString, &StringOptions);
 
 			//printf("Start Column: %u\r\n", StringOptions.StartColumn);
 			//printf("End Column: %u\r\n", StringOptions.EndColumn);
@@ -738,7 +738,7 @@ static int _F5_Handler (void)
 			StringOptions.CharSize = MF_ASCII_SIZE_WA;
 			StringOptions.CharacterSpacing = 0;
 
-			OLED_WriteMFString2(InitString, &StringOptions);
+			OLED_WriteMFString(InitString, &StringOptions);
 
 			//printf("Start Column: %u\r\n", StringOptions.StartColumn);
 			//printf("End Column: %u\r\n", StringOptions.EndColumn);
@@ -754,7 +754,7 @@ static int _F5_Handler (void)
 			StringOptions.EndPadding = 2;
 			StringOptions.TopPadding = 2;
 			StringOptions.BottomPadding = 4;
-			OLED_WriteMFString2(InitString, &StringOptions);
+			OLED_WriteMFString(InitString, &StringOptions);
 
 			//printf("Start Column: %u\r\n", StringOptions.StartColumn);
 			//printf("End Column: %u\r\n", StringOptions.EndColumn);
@@ -774,7 +774,7 @@ static int _F5_Handler (void)
 			StringOptions.Brightness = 0x0F;
 			StringOptions.FontOptions = OLED_FONT_BOX;
 
-			OLED_WriteMFString2(InitString, &StringOptions);
+			OLED_WriteMFString(InitString, &StringOptions);
 
 
 			/*StringOptions.YStart = 40;
@@ -804,12 +804,12 @@ static int _F5_Handler (void)
 			LineOptions.LineWeight = 1;
 			LineOptions.LineOptions = 0;
 
-			OLED_WriteLine2(&LineOptions);
+			OLED_WriteLine(&LineOptions);
 
 			LineOptions.XStart = 5;
 			LineOptions.XEnd = 5;
 			LineOptions.LinePattern = 0xC3;
-			OLED_WriteLine2(&LineOptions);
+			OLED_WriteLine(&LineOptions);
 
 			/*LineOptions.XEnd = 9;
 			LineOptions.LinePattern = 0xFF;

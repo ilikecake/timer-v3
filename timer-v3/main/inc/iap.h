@@ -8,9 +8,11 @@
 #ifndef EEPROM_H_
 #define EEPROM_H_
 
+#include <cr_section_macros.h>
+
+extern int ISP_Request;
+
 #define USE_EEPROM_LIB
-
-
 
 #define IAP_PREPARE_SECTOR_FOR_WRITE	50
 #define IAP_COPY_RAM_TO_FLASH			51
@@ -39,11 +41,10 @@
 #define IAP_COMPARE_ERROR				10
 #define IAP_BUSY						11
 
+#define EEPROM_ADDRESS_BOOTLOADER		0x20
+
 uint8_t EEPROM_Write(uint16_t AddressToWrite, void* DataArray, uint16_t BytesToWrite);
 uint8_t EEPROM_Read(uint16_t AddressToRead, void* DataArray, uint16_t BytesToRead);
-
-//void readEEPROM( uint8_t* eeAddress, uint8_t* buffAddress, uint32_t byteCount );
-//void writeEEPROM( uint8_t* eeAddress, uint8_t* buffAddress, uint32_t byteCount );
 
 uint8_t ReadUID(uint32_t *UID);
 uint8_t ReadPartID(unsigned int *PID);

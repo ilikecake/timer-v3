@@ -95,7 +95,7 @@ typedef struct
 	uint8_t PixelHeight;		/** Set by the write function to the height of the string in pixels. This includes padding on the top and bottom of the string */
 } MF_StringOptions;
 
-//Font options struct
+//Line options struct
 typedef struct
 {
 	uint8_t XStart;				/** The X (horizontal) coordinate of the starting point of the line */
@@ -136,8 +136,8 @@ void OLED_ClearWindow(uint8_t StartColumn, uint8_t EndColumn, uint8_t StartRow, 
 
 //void OLED_FillDisplay(void);
 //void OLED_CheckerboardDisplay(void);
-void OLED_WriteMFChar(uint8_t CharSize, const char CharToWrite, uint8_t ColumnToStart, uint8_t RowToStart, uint8_t FontOptions);
-void OLED_WriteMFString(uint8_t CharSize, const char *StringToWrite, uint8_t ColumnToStart, uint8_t RowToStart, uint8_t FontOptions);
+//void OLED_WriteMFChar(uint8_t CharSize, const char CharToWrite, uint8_t ColumnToStart, uint8_t RowToStart, uint8_t FontOptions);
+//void OLED_WriteMFString(uint8_t CharSize, const char *StringToWrite, uint8_t ColumnToStart, uint8_t RowToStart, uint8_t FontOptions);
 
 
 
@@ -156,22 +156,22 @@ void MF_GetASCIICharPixelColumn(const char CharToGet, uint8_t *CharArray, uint8_
  *
  *  Note: The ColumnData format is not the same as how the data is written to the device. This function rearranged the data before writing.
  */
-void OLED_WriteColumn(uint8_t *ColumnData, uint8_t ColumnHeight, uint8_t ColumnBrightness);
+//void OLED_WriteColumn(uint8_t *ColumnData, uint8_t ColumnHeight, uint8_t ColumnBrightness);
 
 
 
 
 void OLED_WriteColumn2(uint8_t *ColumnData, uint8_t PixelStart, MF_StringOptions *StringOptions);
 
-void OLED_WriteMFString2(const char *StringToWrite, MF_StringOptions *StringOptions);
+void OLED_WriteMFString(const char *StringToWrite, MF_StringOptions *StringOptions);
 void OLED_WriteMF_UInt2(uint32_t NumberToWrite, uint8_t Padding, MF_StringOptions *StringOptions);
 void OLED_WriteMF_Int2(void* NumberToWrite, uint8_t Padding, uint8_t isSigned, MF_StringOptions *StringOptions);
 
 
-void OLED_WriteMF_UInt(uint8_t CharSize, uint32_t NumberToWrite, uint8_t ColumnToStart, uint8_t RowToStart, uint8_t FontOptions, uint8_t Padding);		//TODO: check if this breaks for 0
-void OLED_WriteMF_Int(uint8_t CharSize, int32_t NumberToWrite, uint8_t ColumnToStart, uint8_t RowToStart);
+//void OLED_WriteMF_UInt(uint8_t CharSize, uint32_t NumberToWrite, uint8_t ColumnToStart, uint8_t RowToStart, uint8_t FontOptions, uint8_t Padding);		//TODO: check if this breaks for 0
+//void OLED_WriteMF_Int(uint8_t CharSize, int32_t NumberToWrite, uint8_t ColumnToStart, uint8_t RowToStart);
 
-void OLED_WriteMFString_WA(uint8_t CharSize, const char *StringToWrite, uint8_t ColumnToStart, uint8_t RowToStart, uint8_t FontOptions);
+//void OLED_WriteMFString_WA(uint8_t CharSize, const char *StringToWrite, uint8_t ColumnToStart, uint8_t RowToStart, uint8_t FontOptions);
 
 void MF_GetAsciiChar(uint8_t CharSize, char CharToGet, uint8_t *CharArray);
 
@@ -191,8 +191,8 @@ void OLED_FlipRotation(void);
 
 void OLED_DisplayContrast(uint8_t Contrast);
 
-void OLED_WriteLine(uint8_t X_start, uint8_t Y_start, uint8_t X_end, uint8_t Y_end, uint8_t weight, uint8_t prop);
+//void OLED_WriteLine(uint8_t X_start, uint8_t Y_start, uint8_t X_end, uint8_t Y_end, uint8_t weight, uint8_t prop);
 
-void OLED_WriteLine2(MF_LineOptions *TheLine);
+void OLED_WriteLine(MF_LineOptions *TheLine);
 
 #endif /* NHD28_H_ */

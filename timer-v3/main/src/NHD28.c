@@ -17,11 +17,6 @@
 #define OLED_MF_CS_PORT		1
 #define OLED_MF_CS_PIN		21
 
-
-//Global variables
-//static char InitString[] = "OLED Initialized";
-//static uint8_t MF_WA_Order[] = { 18, 2, 22, 6, 26, 10, 30, 14 };
-
 uint8_t OLED_StatusReg;
 
 void OLED_Init(void)
@@ -328,7 +323,7 @@ void OLED_ClearWindow(uint8_t StartColumn, uint8_t EndColumn, uint8_t StartRow, 
 
 //void OLED_FillDisplay(void);
 //void OLED_CheckerboardDisplay(void);
-
+/*
 //TODO: Make this work with other font sizes
 //NOTE: this is in colum increment mode
 #ifdef OLED_COLUMN_INCREMENT
@@ -534,7 +529,9 @@ void OLED_WriteMFChar(uint8_t CharSize, const char CharToWrite, uint8_t ColumnTo
 	return;
 }
 #endif
+*/
 
+/*
 void OLED_WriteMFString(uint8_t CharSize, const char *StringToWrite, uint8_t ColumnToStart, uint8_t RowToStart, uint8_t FontOptions)
 {
 	uint8_t StringSize;
@@ -556,8 +553,10 @@ void OLED_WriteMFString(uint8_t CharSize, const char *StringToWrite, uint8_t Col
 
 	return;
 }
+*/
 
 
+/*
 void OLED_WriteColumn(uint8_t *ColumnData, uint8_t ColumnHeight, uint8_t ColumnBrightness)
 {
 	uint8_t i;
@@ -586,11 +585,11 @@ void OLED_WriteColumn(uint8_t *ColumnData, uint8_t ColumnHeight, uint8_t ColumnB
 	}
 
 	return;
-}
+}*/
 
 /**Writes a column of data to the OLED
  *  ColumnData is formatted in the MF convention. ColumnData is always a multiple of four bytes long.
- *  Each bit in ColumnData represents one pixel. The MSB of each byte represents the bottom pixel in that byte.One full byte of ColumnData therefore represents eight vertical pixels.
+ *  Each bit in ColumnData represents one pixel. The MSB of each byte represents the bottom pixel in that byte. One full byte of ColumnData therefore represents eight vertical pixels.
  *  Each set of four ColumnData bytes represent one column of data that is eight pixels high by four pixels wide.
  *  The first byte of each set of four ColumnData bytes (byte 0, 4, 8, etc...) represent the left most vertical line. The other bytes in each set are arranged left to right.
  *  The first four bytes in ColumnData are the bottom pixels in the column.
@@ -658,7 +657,7 @@ void OLED_WriteColumn2(uint8_t *ColumnData, uint8_t PixelStart, MF_StringOptions
 
 
 //TODO: make this function wrap text???
-void OLED_WriteMFString2(const char *StringToWrite, MF_StringOptions *StringOptions)
+void OLED_WriteMFString(const char *StringToWrite, MF_StringOptions *StringOptions)
 {
 	int8_t i;
 	uint8_t TotalPixelLength = 0;	//This variable tracks the total length (X direction) of the pixels written
@@ -949,14 +948,14 @@ void OLED_WriteMFString2(const char *StringToWrite, MF_StringOptions *StringOpti
 	{
 		LineOptions.YStart = i;
 		LineOptions.YEnd = i;
-		OLED_WriteLine2(&LineOptions);
+		OLED_WriteLine(&LineOptions);
 	}
 
 	for(i = StringOptions->YStart + StringOptions->PixelHeight + StringOptions->BottomPadding; i < StringOptions->YStart + StringOptions->PixelHeight + StringOptions->BottomPadding + StringOptions->TopPadding; i++)
 	{
 		LineOptions.YStart = i;
 		LineOptions.YEnd = i;
-		OLED_WriteLine2(&LineOptions);
+		OLED_WriteLine(&LineOptions);
 	}
 
 	StringOptions->PixelHeight += StringOptions->BottomPadding;
@@ -967,13 +966,13 @@ void OLED_WriteMFString2(const char *StringToWrite, MF_StringOptions *StringOpti
 		LineOptions.YStart = StringOptions->YStart;
 		LineOptions.YEnd = StringOptions->YStart;
 		LineOptions.LinePattern = 0xFF;
-		OLED_WriteLine2(&LineOptions);
+		OLED_WriteLine(&LineOptions);
 
 		//Top Line
 		LineOptions.YStart = StringOptions->YStart + StringOptions->PixelHeight - 1;
 		LineOptions.YEnd = StringOptions->YStart + StringOptions->PixelHeight - 1;
 		LineOptions.LinePattern = 0xFF;
-		OLED_WriteLine2(&LineOptions);
+		OLED_WriteLine(&LineOptions);
 
 		//Fill in the rest of the bottom line
 		for(i = StringOptions->YStart+1; i < VerticalPixelStart; i++)
@@ -983,11 +982,11 @@ void OLED_WriteMFString2(const char *StringToWrite, MF_StringOptions *StringOpti
 
 			LineOptions.XStart = StringOptions->XStart;
 			LineOptions.XEnd = StringOptions->XStart;
-			OLED_WriteLine2(&LineOptions);
+			OLED_WriteLine(&LineOptions);
 
 			LineOptions.XStart = StringOptions->PixelLength + StringOptions->XStart - 1;
 			LineOptions.XEnd = StringOptions->PixelLength + StringOptions->XStart - 1;
-			OLED_WriteLine2(&LineOptions);
+			OLED_WriteLine(&LineOptions);
 		}
 
 
@@ -1000,11 +999,11 @@ void OLED_WriteMFString2(const char *StringToWrite, MF_StringOptions *StringOpti
 
 			LineOptions.XStart = StringOptions->XStart;
 			LineOptions.XEnd = StringOptions->XStart;
-			OLED_WriteLine2(&LineOptions);
+			OLED_WriteLine(&LineOptions);
 
 			LineOptions.XStart = StringOptions->PixelLength + StringOptions->XStart - 1;
 			LineOptions.XEnd = StringOptions->PixelLength + StringOptions->XStart - 1;
-			OLED_WriteLine2(&LineOptions);
+			OLED_WriteLine(&LineOptions);
 		}
 
 
@@ -1021,7 +1020,7 @@ void OLED_WriteMFString2(const char *StringToWrite, MF_StringOptions *StringOpti
 	return;
 }
 
-
+//TODO: Should i combine this with the string write function?
 void OLED_WriteMF_UInt2(uint32_t NumberToWrite, uint8_t Padding, MF_StringOptions *StringOptions)
 {
 	char NumberString[10];
@@ -1088,7 +1087,7 @@ void OLED_WriteMF_UInt2(uint32_t NumberToWrite, uint8_t Padding, MF_StringOption
 		NumberString[isStarted+1] = '\0';
 	}
 
-	OLED_WriteMFString2(NumberString, StringOptions);
+	OLED_WriteMFString(NumberString, StringOptions);
 	//OLED_WriteMFString(CharSize, NumberString, ColumnToStart, RowToStart, FontOptions);
 	return;
 }
@@ -1198,7 +1197,7 @@ void OLED_WriteMF_Int2(void* NumberToWrite, uint8_t Padding, uint8_t isSigned, M
 
 
 
-		OLED_WriteMFString2(NumberString, StringOptions);
+		OLED_WriteMFString(NumberString, StringOptions);
 		//OLED_WriteMFString(CharSize, NumberString, ColumnToStart, RowToStart, FontOptions);
 		return;
 
@@ -1253,7 +1252,7 @@ uint8_t MF_GetWACharWidth(char CharToGet)
 	return DataToReceive[1];
 }
 
-
+/*
 void OLED_WriteMFString_WA(uint8_t CharSize, const char *StringToWrite, uint8_t ColumnToStart, uint8_t RowToStart, uint8_t FontOptions)
 {
 	uint8_t StringSize;
@@ -1414,7 +1413,7 @@ void OLED_WriteMFString_WA(uint8_t CharSize, const char *StringToWrite, uint8_t 
 	return;
 }
 
-
+*/
 
 
 
@@ -1549,6 +1548,7 @@ void MF_GetAsciiChar_4B(uint8_t CharSize, char CharToGet, uint8_t CharStartByte,
 	return;
 }
 
+/*
 void OLED_WriteMF_UInt(uint8_t CharSize, uint32_t NumberToWrite, uint8_t ColumnToStart, uint8_t RowToStart, uint8_t FontOptions, uint8_t Padding)
 {
 	char NumberString[10];
@@ -1615,16 +1615,17 @@ void OLED_WriteMF_UInt(uint8_t CharSize, uint32_t NumberToWrite, uint8_t ColumnT
 	OLED_WriteMFString(CharSize, NumberString, ColumnToStart, RowToStart, FontOptions);
 	return;
 }
+*/
 
 //TODO: write this function...
-void OLED_WriteMF_Int(uint8_t CharSize, int32_t NumberToWrite, uint8_t ColumnToStart, uint8_t RowToStart)
+/*void OLED_WriteMF_Int(uint8_t CharSize, int32_t NumberToWrite, uint8_t ColumnToStart, uint8_t RowToStart)
 {
 
 
 
 
 	return;
-}
+}*/
 
 
 
@@ -1632,7 +1633,7 @@ void OLED_WriteMF_Int(uint8_t CharSize, int32_t NumberToWrite, uint8_t ColumnToS
 
 
 
-
+/*
 
 void OLED_WriteMFString_Q(uint8_t CharSize, char *StringToWrite, uint8_t ColumnToStart, uint8_t RowToStart)
 {
@@ -1659,9 +1660,9 @@ void OLED_WriteMFString_Q(uint8_t CharSize, char *StringToWrite, uint8_t ColumnT
 
 	return;
 }
+*/
 
 //Note: the display will have to be redrawn after this function is called
-//TODO: update the status in this function
 void OLED_DisplayRotation(uint8_t Rotation)
 {
 	uint8_t DataToSend[2];
@@ -1709,6 +1710,7 @@ void OLED_DisplayContrast(uint8_t Contrast)
 	return;
 }
 
+/*
 void OLED_WriteLine(uint8_t X_start, uint8_t Y_start, uint8_t X_end, uint8_t Y_end, uint8_t weight, uint8_t prop)
 {
 	uint8_t i;
@@ -1884,19 +1886,19 @@ void OLED_WriteLine(uint8_t X_start, uint8_t Y_start, uint8_t X_end, uint8_t Y_e
 
 
 
-
+/*
 		//Uh-oh
 	}
 
 	return;
 }
-
+*/
 
 
 //Note: this only works for horizontal and vertical lines so far
 //TODO: line weight and pattern are not implemented
 //TODO: Implement the line weight with a wrapper and multiple calls to this function -- this will not work for vertical lines, this will probably have to be implemented internally
-void OLED_WriteLine2(MF_LineOptions *TheLine)
+void OLED_WriteLine(MF_LineOptions *TheLine)
 {
 	uint8_t i;
 	uint8_t j;

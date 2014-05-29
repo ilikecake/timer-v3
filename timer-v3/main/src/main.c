@@ -43,7 +43,7 @@
  * Private functions
  ****************************************************************************/
 
-uint32_t ISP_Request;
+//volatile uint32_t ISP_Request;
 
 
 /* Sets up system hardware */
@@ -99,13 +99,9 @@ static void vConsoleTask(void *pvParameters)
  */
 int main(void)
 {
-	Chip_Clock_EnablePeriphClock(SYSCTL_CLOCK_RAM1);
-	if(ISP_Request == 0x12345678)	//stored by interrupt before reset
-	{
-		ReinvokeISP();	//Jump to USB ISP bootloader
-	}
-
-
+	//This function checks if the ISP is requested by the user
+	//To enter ISP, call RequestISP()
+	ReinvokeISP();
 
 	App_SetStatus(APP_STATUS_INIT);
 

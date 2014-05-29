@@ -75,9 +75,6 @@
 
 #define EEPROM_ADDRESS_TIMER_EVENTS			0x80
 
-
-extern uint32_t ISP_Request;
-
 xTaskHandle TaskList[5];
 
 //TODO: move these to their specific .h files?
